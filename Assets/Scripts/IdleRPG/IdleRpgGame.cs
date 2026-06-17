@@ -48,6 +48,7 @@ namespace IdleRPG
         private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
+        private readonly List<CompanionAttackEffect> companionAttackEffects = new List<CompanionAttackEffect>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -74,6 +75,7 @@ namespace IdleRPG
             Tick(Time.deltaTime);
             UpdateSceneObjects();
             UpdateFloatingTexts(Time.deltaTime);
+            UpdateCompanionAttackEffects(Time.deltaTime);
 
             saveTimer += Time.deltaTime;
             if (saveTimer >= 3f)
@@ -133,8 +135,10 @@ namespace IdleRPG
             DrawStatsPanel(leftPanel);
             DrawUpgradePanel(upgradePanel);
             DrawGachaPanel(gachaPanel);
+            DrawEnemyTopBar(new Rect(Screen.width * 0.5f - 220f, 116f, 440f, 54f));
             DrawBattlePanel(bottomPanel);
             DrawPartyHud(partyPanel);
+            DrawCompanionAttackEffectsGui();
             DrawFloatingTextsGui();
 
             if (companionGachaScreenOpen)
@@ -709,6 +713,33 @@ namespace IdleRPG
             if (state.enemy.hp <= 0f)
             {
                 DefeatEnemy();
+                return;
+            }
+
+            ApplyCompanionAssists();
+        }
+
+        private void ApplyCompanionAssists()
+        {
+            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            {
+                int companionId = GetFormationCompanionId(slotIndex);
+                if (companionId < 0 || state.enemy.hp <= 0f)
+                {
+                    continue;
+                }
+
+                CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
+                int level = Mathf.Max(1, GetCompanionLevel(state, companionId));
+                int assistDamage = Mathf.Max(1, Mathf.FloorToInt((companion.AttackPerLevel * level + state.hero.level * 0.5f) * 0.35f));
+                state.enemy.hp = Mathf.Max(0f, state.enemy.hp - assistDamage);
+                AddCompanionAttackEffect(companion, slotIndex, assistDamage);
+
+                if (state.enemy.hp <= 0f)
+                {
+                    DefeatEnemy();
+                    return;
+                }
             }
         }
 
@@ -1659,22 +1690,18 @@ namespace IdleRPG
         private void DrawCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 112f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 142f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.08f, 0.09f, 0.15f, 0.80f));
 
-            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 70f, 96f);
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 84f, 120f);
             GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
 
-            Rect textRect = new Rect(cardRect.x + 92f, cardRect.y + 8f, cardRect.width - 104f, cardRect.height - 16f);
-            GUILayout.BeginArea(textRect);
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
-            GUILayout.Label("Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
+            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 10f, cardRect.width - 120f, 24f), "Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
-            GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
-            GUILayout.Space(4f);
-            GUILayout.Label("공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
-            GUILayout.EndArea();
+            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 38f, cardRect.width - 120f, 48f), companion.Title + " - " + companion.Description, smallStyle);
+            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 88f, cardRect.width - 120f, 42f), "전투 효과: " + GetCompanionAttackLabel(companion) + " / 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
         }
 
         private void DrawRelicRow(RelicDefinition relic)
@@ -1712,6 +1739,15 @@ namespace IdleRPG
                 GUILayout.Label("• " + state.battleLog[index], smallStyle);
             }
 
+            GUILayout.EndArea();
+        }
+
+        private void DrawEnemyTopBar(Rect rect)
+        {
+            DrawPanel(rect, new Color(0.02f, 0.03f, 0.07f, 0.82f));
+            GUILayout.BeginArea(new Rect(rect.x + 12f, rect.y + 8f, rect.width - 24f, rect.height - 16f));
+            GUILayout.Label(state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, labelStyle);
+            DrawProgressBar("적 체력", state.enemy.hp, state.enemy.maxHp, new Color(1f, 0.36f, 0.48f));
             GUILayout.EndArea();
         }
 
@@ -2020,6 +2056,45 @@ namespace IdleRPG
             }
         }
 
+        private void AddCompanionAttackEffect(CompanionDefinition companion, int slotIndex, int damage)
+        {
+            string label = GetCompanionAttackLabel(companion);
+            Vector2 start = new Vector2(0.28f + slotIndex * 0.04f, 0.62f - slotIndex * 0.02f);
+            Vector2 end = new Vector2(0.68f, 0.56f);
+            companionAttackEffects.Add(new CompanionAttackEffect(label, damage, start, end, IdleRpgBalance.GetRarityColor(companion.Rarity)));
+        }
+
+        private string GetCompanionAttackLabel(CompanionDefinition companion)
+        {
+            switch (companion.Id)
+            {
+                case 5:
+                    return "체리 폭탄!";
+                case 6:
+                    return "별빛 기도";
+                case 8:
+                    return "아이돌 응원";
+                case 9:
+                    return "여우불 검격";
+                case 10:
+                    return "은하 주문";
+                default:
+                    return companion.Name + " 지원";
+            }
+        }
+
+        private void UpdateCompanionAttackEffects(float deltaTime)
+        {
+            for (int index = companionAttackEffects.Count - 1; index >= 0; index -= 1)
+            {
+                companionAttackEffects[index].Life -= deltaTime;
+                if (companionAttackEffects[index].Life <= 0f)
+                {
+                    companionAttackEffects.RemoveAt(index);
+                }
+            }
+        }
+
         private void DrawFloatingTextsGui()
         {
             EnsureStyles();
@@ -2035,6 +2110,29 @@ namespace IdleRPG
                 GUI.color = new Color(item.Color.r, item.Color.g, item.Color.b, Mathf.Clamp01(item.Life));
                 Vector2 screen = new Vector2(item.ViewportPosition.x * Screen.width, (1f - item.ViewportPosition.y) * Screen.height);
                 GUI.Label(new Rect(screen.x - 80f, screen.y - 18f, 160f, 36f), item.Text, style);
+                GUI.color = previous;
+            }
+        }
+
+        private void DrawCompanionAttackEffectsGui()
+        {
+            EnsureStyles();
+            GUIStyle style = new GUIStyle(smallStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Bold
+            };
+
+            for (int index = 0; index < companionAttackEffects.Count; index += 1)
+            {
+                CompanionAttackEffect effect = companionAttackEffects[index];
+                float progress = Mathf.Clamp01(1f - effect.Life / effect.MaxLife);
+                Vector2 viewport = Vector2.Lerp(effect.StartViewport, effect.EndViewport, progress);
+                Vector2 screen = new Vector2(viewport.x * Screen.width, (1f - viewport.y) * Screen.height);
+                Color previous = GUI.color;
+                GUI.color = new Color(effect.Color.r, effect.Color.g, effect.Color.b, Mathf.Clamp01(effect.Life / effect.MaxLife));
+                GUI.DrawTexture(new Rect(screen.x - 8f, screen.y - 8f, 16f, 16f), Texture2D.whiteTexture);
+                GUI.Label(new Rect(screen.x - 70f, screen.y - 34f, 140f, 24f), effect.Label + " -" + effect.Damage, style);
                 GUI.color = previous;
             }
         }
@@ -2060,6 +2158,26 @@ namespace IdleRPG
             {
                 Text = text;
                 ViewportPosition = viewportPosition;
+                Color = color;
+            }
+        }
+
+        private sealed class CompanionAttackEffect
+        {
+            public readonly string Label;
+            public readonly int Damage;
+            public readonly Vector2 StartViewport;
+            public readonly Vector2 EndViewport;
+            public readonly Color Color;
+            public readonly float MaxLife = 0.62f;
+            public float Life = 0.62f;
+
+            public CompanionAttackEffect(string label, int damage, Vector2 startViewport, Vector2 endViewport, Color color)
+            {
+                Label = label;
+                Damage = damage;
+                StartViewport = startViewport;
+                EndViewport = endViewport;
                 Color = color;
             }
         }
