@@ -109,3 +109,15 @@ Idle RPG > Reset Save Data
 - `Assets/Scripts/IdleRPG/IdleRpgBalance.cs`: 적/강화/유물/동료 뽑기 밸런스 데이터
 - `Assets/Resources/Companions/*.png`: 동료 도트 스프라이트 에셋
 - `Assets/Editor/IdleRpgEditorMenu.cs`: 에디터 저장 데이터 초기화 메뉴
+
+## 더 높은 동료 아트 퀄리티로 가려면
+
+현재 동료 PNG는 프로젝트 안에서 직접 만든 도트 스프라이트입니다. 상용 미소녀
+수집형 RPG 수준으로 올리려면 캐릭터별 원화나 도트 스프라이트 시트가 필요합니다.
+
+권장 자료:
+
+- 캐릭터별 PNG 또는 PSD
+- 대기/공격/피격 애니메이션 스프라이트 시트
+- 원하는 화풍 레퍼런스 이미지
+- 캐릭터 이름, 속성, 무기, 성격 설정

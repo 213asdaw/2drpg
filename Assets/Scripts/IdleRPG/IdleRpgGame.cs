@@ -276,7 +276,7 @@ namespace IdleRPG
             {
                 Texture2D texture = LoadCompanionTexture(index);
                 companionPortraitTextures[index] = texture;
-                companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.08f), 44f);
+                companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.08f), 96f);
             }
         }
 
@@ -299,11 +299,11 @@ namespace IdleRPG
         {
             GameObject root = new GameObject("Pixel Companion " + (slotIndex + 1));
             root.transform.position = new Vector3(-1.45f, -1.45f, 0f);
-            root.transform.localScale = Vector3.one * (0.82f - slotIndex * 0.04f);
+            root.transform.localScale = Vector3.one * (0.56f - slotIndex * 0.03f);
 
             SpriteRenderer renderer = root.AddComponent<SpriteRenderer>();
             renderer.enabled = false;
-            renderer.sortingOrder = 6 + slotIndex;
+            renderer.sortingOrder = -2 + slotIndex;
             companionRenderers[slotIndex] = renderer;
 
             return root.transform;
@@ -1159,8 +1159,8 @@ namespace IdleRPG
                             displayedCompanionIds[slotIndex] = companionId;
                         }
 
-                        float x = -1.52f + slotIndex * 0.42f;
-                        float y = -1.62f + Mathf.Sin(Time.time * (4.2f + slotIndex * 0.35f)) * 0.04f + slotIndex * 0.05f;
+                        float x = -3.08f + slotIndex * 0.42f;
+                        float y = -1.78f + Mathf.Sin(Time.time * (4.2f + slotIndex * 0.35f)) * 0.025f + slotIndex * 0.03f;
                         root.position = new Vector3(x, y, 0f);
                     }
                 }
@@ -1473,55 +1473,63 @@ namespace IdleRPG
         private void DrawFormationCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 124f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 138f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.06f, 0.07f, 0.10f, 0.74f));
 
-            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 78f, 104f);
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 82f, 116f);
             GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
 
-            Rect textRect = new Rect(cardRect.x + 100f, cardRect.y + 8f, cardRect.width - 380f, cardRect.height - 16f);
-            GUILayout.BeginArea(textRect);
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
-            GUILayout.Label("Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 10f, cardRect.width - 370f, 24f), "Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
-            GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
-            GUILayout.Space(4f);
-            GUILayout.Label("편성 보너스: 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
+
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 36f, cardRect.width - 370f, 42f), companion.Title + " - " + companion.Description, smallStyle);
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 78f, cardRect.width - 370f, 38f), "편성 보너스: 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
+
+            string statusText;
             if (level <= 0)
             {
-                GUILayout.Label("미보유: 동료 소환에서 획득하면 편성할 수 있습니다.", smallStyle);
+                statusText = "미보유: 동료 소환에서 획득하면 편성할 수 있습니다.";
             }
             else if (state.companionGacha.formation.Contains(companion.Id))
             {
-                GUILayout.Label("현재 편성 중", smallStyle);
+                statusText = "현재 편성 중";
+            }
+            else
+            {
+                statusText = "편성 가능";
             }
 
-            GUILayout.EndArea();
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 112f, cardRect.width - 370f, 20f), statusText, smallStyle);
 
-            Rect buttonsRect = new Rect(cardRect.xMax - 260f, cardRect.y + 12f, 246f, cardRect.height - 24f);
-            GUILayout.BeginArea(buttonsRect);
+            Rect equipButton = new Rect(cardRect.xMax - 242f, cardRect.y + 14f, 228f, 42f);
+            Rect directLabel = new Rect(cardRect.xMax - 242f, cardRect.y + 62f, 228f, 20f);
+            Rect slot0 = new Rect(cardRect.xMax - 242f, cardRect.y + 86f, 70f, 34f);
+            Rect slot1 = new Rect(cardRect.xMax - 163f, cardRect.y + 86f, 70f, 34f);
+            Rect slot2 = new Rect(cardRect.xMax - 84f, cardRect.y + 86f, 70f, 34f);
+
             GUI.enabled = level > 0;
-            if (GUILayout.Button(state.companionGacha.formation.Contains(companion.Id) ? "편성됨" : "편성", buttonStyle, GUILayout.Height(38f)))
+            if (GUI.Button(equipButton, state.companionGacha.formation.Contains(companion.Id) ? "편성됨" : "편성", buttonStyle))
             {
                 EquipCompanionToFirstAvailableSlot(companion.Id);
             }
 
-            GUILayout.Space(4f);
-            GUILayout.BeginHorizontal();
-            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
-            {
-                string buttonText = GetFormationCompanionId(slotIndex) == companion.Id ? "배치됨" : (slotIndex + 1) + "번";
-                if (GUILayout.Button(buttonText, buttonStyle, GUILayout.Height(34f)))
-                {
-                    EquipCompanion(companion.Id, slotIndex);
-                }
-            }
+            GUI.Label(directLabel, level > 0 ? "직접 슬롯 배치" : "아직 미획득", smallStyle);
+            DrawFormationSlotButton(companion.Id, 0, slot0);
+            DrawFormationSlotButton(companion.Id, 1, slot1);
+            DrawFormationSlotButton(companion.Id, 2, slot2);
 
-            GUILayout.EndHorizontal();
             GUI.enabled = true;
-            GUILayout.Label(level > 0 ? "편성 또는 슬롯 번호를 누르세요." : "아직 미획득", smallStyle);
-            GUILayout.EndArea();
+        }
+
+        private void DrawFormationSlotButton(int companionId, int slotIndex, Rect rect)
+        {
+            string buttonText = GetFormationCompanionId(slotIndex) == companionId ? "배치됨" : (slotIndex + 1) + "번";
+            if (GUI.Button(rect, buttonText, buttonStyle))
+            {
+                EquipCompanion(companionId, slotIndex);
+            }
         }
 
         private void DrawStageProgressScreen()
