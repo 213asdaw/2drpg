@@ -10,6 +10,21 @@ namespace IdleRPG
         private const int MaxLogEntries = 8;
         private const int MaxOfflineSeconds = 2 * 60 * 60;
         private const int FormationSlotCount = 3;
+        private static readonly string[] CompanionSpriteResourceNames =
+        {
+            "Companions/companion_00_luna",
+            "Companions/companion_01_mio",
+            "Companions/companion_02_nari",
+            "Companions/companion_03_aria",
+            "Companions/companion_04_rin",
+            "Companions/companion_05_chae",
+            "Companions/companion_06_serin",
+            "Companions/companion_07_haneul",
+            "Companions/companion_08_rena",
+            "Companions/companion_09_yuri",
+            "Companions/companion_10_sia",
+            "Companions/companion_11_iren"
+        };
 
         private IdleRpgState state;
         private Transform heroRoot;
@@ -258,10 +273,25 @@ namespace IdleRPG
 
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
-                Texture2D texture = CreateCompanionTexture(IdleRpgBalance.Companions[index]);
+                Texture2D texture = LoadCompanionTexture(index);
                 companionPortraitTextures[index] = texture;
                 companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.08f), 44f);
             }
+        }
+
+        private Texture2D LoadCompanionTexture(int companionIndex)
+        {
+            if (companionIndex >= 0 && companionIndex < CompanionSpriteResourceNames.Length)
+            {
+                Texture2D assetTexture = Resources.Load<Texture2D>(CompanionSpriteResourceNames[companionIndex]);
+                if (assetTexture != null)
+                {
+                    assetTexture.filterMode = FilterMode.Point;
+                    return assetTexture;
+                }
+            }
+
+            return CreateCompanionTexture(IdleRpgBalance.Companions[companionIndex]);
         }
 
         private Transform CreateCompanionVisual(int slotIndex)
@@ -1375,7 +1405,19 @@ namespace IdleRPG
             DrawPanel(listRect, new Color(0.05f, 0.07f, 0.13f, 0.92f));
             GUILayout.BeginArea(new Rect(listRect.x + 18f, listRect.y + 14f, listRect.width - 36f, listRect.height - 28f));
             GUILayout.Label("보유 동료", titleStyle);
-            GUILayout.Label("획득한 동료를 원하는 슬롯에 배치할 수 있습니다.", smallStyle);
+            int ownedCompanionCount = GetOwnedCompanionCount();
+            GUILayout.Label("보유 " + ownedCompanionCount + "명 / " + IdleRpgBalance.Companions.Length + "명", labelStyle);
+            GUILayout.Label("획득한 동료 카드의 큰 '편성' 버튼을 누르면 빈 슬롯에 바로 배치됩니다.", smallStyle);
+            if (ownedCompanionCount <= 0)
+            {
+                GUILayout.Label("아직 보유 동료가 없습니다. 동료 소환에서 먼저 동료를 획득하세요.", labelStyle);
+                if (GUILayout.Button("동료 소환 화면으로 이동", buttonStyle, GUILayout.Height(42f)))
+                {
+                    companionFormationScreenOpen = false;
+                    companionGachaScreenOpen = true;
+                }
+            }
+
             GUILayout.Space(8f);
             companionFormationScroll = GUILayout.BeginScrollView(companionFormationScroll);
 
@@ -1442,7 +1484,11 @@ namespace IdleRPG
             GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
             GUILayout.Space(4f);
             GUILayout.Label("편성 보너스: 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
-            if (state.companionGacha.formation.Contains(companion.Id))
+            if (level <= 0)
+            {
+                GUILayout.Label("미보유: 동료 소환에서 획득하면 편성할 수 있습니다.", smallStyle);
+            }
+            else if (state.companionGacha.formation.Contains(companion.Id))
             {
                 GUILayout.Label("현재 편성 중", smallStyle);
             }
@@ -1844,6 +1890,20 @@ namespace IdleRPG
             }
 
             return targetState.companionGacha.companions.Get(companionId);
+        }
+
+        private int GetOwnedCompanionCount()
+        {
+            int ownedCount = 0;
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                if (GetCompanionLevel(state, IdleRpgBalance.Companions[index].Id) > 0)
+                {
+                    ownedCount += 1;
+                }
+            }
+
+            return ownedCount;
         }
 
         private int GetFormationCompanionId(int slotIndex)
