@@ -122,7 +122,7 @@ namespace IdleRPG
             Rect rightColumn = new Rect(Screen.width - 362f, 132f, 350f, Screen.height - 150f);
             Rect upgradePanel = new Rect(rightColumn.x, rightColumn.y, rightColumn.width, rightColumn.height * 0.50f);
             Rect gachaPanel = new Rect(rightColumn.x, upgradePanel.yMax + 12f, rightColumn.width, rightColumn.height - upgradePanel.height - 12f);
-            Rect bottomPanel = new Rect(360f, Screen.height - 224f, Screen.width - 720f, 112f);
+            Rect bottomPanel = new Rect(360f, Screen.height - 276f, Screen.width - 720f, 164f);
             Rect partyPanel = new Rect(24f, Screen.height - 102f, Screen.width - 48f, 86f);
 
             DrawPanel(header, new Color(0.05f, 0.08f, 0.15f, 0.88f));
@@ -736,6 +736,7 @@ namespace IdleRPG
                 int level = Mathf.Max(1, GetCompanionLevel(state, companionId));
                 int assistDamage = Mathf.Max(1, Mathf.FloorToInt((companion.AttackPerLevel * level + state.hero.level * 0.5f) * 0.35f));
                 state.enemy.hp = Mathf.Max(0f, state.enemy.hp - assistDamage);
+                state.stageCompanionDamage.Add(companionId, assistDamage);
                 AddCompanionAttackEffect(companion, slotIndex, assistDamage);
 
                 if (state.enemy.hp <= 0f)
@@ -758,11 +759,20 @@ namespace IdleRPG
 
             if (state.hero.hp <= 0f)
             {
-                state.hero.hp = state.hero.maxHp;
-                state.combat.heroAttack = 0f;
-                state.combat.enemyAttack = 0f;
-                AddLog("용사가 쓰러졌지만 캠프에서 회복했습니다.");
+                RestartCurrentStageAfterDeath();
             }
+        }
+
+        private void RestartCurrentStageAfterDeath()
+        {
+            state.hero.hp = GetEffectiveMaxHp();
+            state.stageProgress = 0;
+            state.enemy = IdleRpgBalance.CreateEnemy(state.stage);
+            state.combat.heroAttack = 0f;
+            state.combat.enemyAttack = 0f;
+            ResetStageCompanionDamage();
+            AddLog("용사가 쓰러져 스테이지 " + state.stage + "를 처음부터 다시 시작합니다.");
+            AddFloatingText("STAGE RETRY", new Vector2(0.50f, 0.66f), new Color(1f, 0.62f, 0.35f));
         }
 
         private void DefeatEnemy()
@@ -780,6 +790,7 @@ namespace IdleRPG
                 state.stage += 1;
                 state.stageProgress = 0;
                 state.stats.highestStage = Mathf.Max(state.stats.highestStage, state.stage);
+                ResetStageCompanionDamage();
                 AddLog("스테이지 " + state.stage + "에 도달했습니다.");
             }
             else
@@ -788,6 +799,16 @@ namespace IdleRPG
             }
 
             state.enemy = IdleRpgBalance.CreateEnemy(state.stage);
+        }
+
+        private void ResetStageCompanionDamage()
+        {
+            if (state.stageCompanionDamage == null)
+            {
+                state.stageCompanionDamage = new CompanionDamageStats();
+            }
+
+            state.stageCompanionDamage.Reset();
         }
 
         private void GainXp(int amount)
@@ -909,7 +930,8 @@ namespace IdleRPG
             int newLevel = state.companionGacha.companions.Get(companion.Id);
             if (companion.MaxHpPerLevel > 0)
             {
-                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + companion.MaxHpPerLevel);
+                float immediateHpGain = state.companionGacha.formation.Contains(companion.Id) ? companion.MaxHpPerLevel : companion.MaxHpPerLevel * 0.25f;
+                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + immediateHpGain);
             }
 
             Color rarityColor = IdleRpgBalance.GetRarityColor(companion.Rarity);
@@ -976,6 +998,11 @@ namespace IdleRPG
             if (loaded.stats == null)
             {
                 loaded.stats = new GameStats();
+            }
+
+            if (loaded.stageCompanionDamage == null)
+            {
+                loaded.stageCompanionDamage = new CompanionDamageStats();
             }
 
             if (loaded.gacha == null)
@@ -1738,6 +1765,8 @@ namespace IdleRPG
             GUILayout.Label("전투 상황", titleStyle);
             DrawProgressBar("용사 HP", state.hero.hp, GetEffectiveMaxHp(), new Color(0.24f, 0.85f, 0.54f));
             DrawProgressBar("경험치 - 레벨업 시 공격 +2 / 최대 HP +12", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
+            GUILayout.Label("이번 스테이지 동료 딜량", smallStyle);
+            DrawCompanionDamageMeter();
             GUILayout.EndArea();
 
             Rect logRect = new Rect(rect.x, rect.y - 188f, rect.width, 176f);
@@ -1766,6 +1795,32 @@ namespace IdleRPG
             GUI.DrawTexture(new Rect(bar.x + 2f, bar.y + 2f, Mathf.Max(0f, bar.width - 4f) * hpPercent, bar.height - 4f), Texture2D.whiteTexture);
             GUI.color = previous;
             GUI.Label(new Rect(bar.x, bar.y - 1f, bar.width, 18f), Mathf.FloorToInt(state.enemy.hp) + " / " + state.enemy.maxHp, smallStyle);
+        }
+
+        private void DrawCompanionDamageMeter()
+        {
+            bool hasCompanion = false;
+            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            {
+                int companionId = GetFormationCompanionId(slotIndex);
+                if (companionId < 0)
+                {
+                    continue;
+                }
+
+                hasCompanion = true;
+                CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
+                int damage = state.stageCompanionDamage != null ? state.stageCompanionDamage.Get(companionId) : 0;
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(82f));
+                GUILayout.Label(FormatNumber(damage), smallStyle);
+                GUILayout.EndHorizontal();
+            }
+
+            if (!hasCompanion)
+            {
+                GUILayout.Label("편성된 동료가 없습니다.", smallStyle);
+            }
         }
 
         private void DrawPartyHud(Rect rect)

@@ -16,6 +16,7 @@ namespace IdleRPG
         public GameStats stats = new GameStats();
         public GachaState gacha = new GachaState();
         public CompanionGachaState companionGacha = new CompanionGachaState();
+        public CompanionDamageStats stageCompanionDamage = new CompanionDamageStats();
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
     }
@@ -314,6 +315,115 @@ namespace IdleRPG
         public bool IsEmpty()
         {
             return slot0 < 0 && slot1 < 0 && slot2 < 0;
+        }
+    }
+
+    [Serializable]
+    public sealed class CompanionDamageStats
+    {
+        public int luna;
+        public int mio;
+        public int nari;
+        public int aria;
+        public int rin;
+        public int chae;
+        public int serin;
+        public int haneul;
+        public int rena;
+        public int yuri;
+        public int sia;
+        public int iren;
+
+        public int Get(int companionId)
+        {
+            switch (companionId)
+            {
+                case 0:
+                    return luna;
+                case 1:
+                    return mio;
+                case 2:
+                    return nari;
+                case 3:
+                    return aria;
+                case 4:
+                    return rin;
+                case 5:
+                    return chae;
+                case 6:
+                    return serin;
+                case 7:
+                    return haneul;
+                case 8:
+                    return rena;
+                case 9:
+                    return yuri;
+                case 10:
+                    return sia;
+                case 11:
+                    return iren;
+                default:
+                    return 0;
+            }
+        }
+
+        public void Add(int companionId, int damage)
+        {
+            switch (companionId)
+            {
+                case 0:
+                    luna += damage;
+                    break;
+                case 1:
+                    mio += damage;
+                    break;
+                case 2:
+                    nari += damage;
+                    break;
+                case 3:
+                    aria += damage;
+                    break;
+                case 4:
+                    rin += damage;
+                    break;
+                case 5:
+                    chae += damage;
+                    break;
+                case 6:
+                    serin += damage;
+                    break;
+                case 7:
+                    haneul += damage;
+                    break;
+                case 8:
+                    rena += damage;
+                    break;
+                case 9:
+                    yuri += damage;
+                    break;
+                case 10:
+                    sia += damage;
+                    break;
+                case 11:
+                    iren += damage;
+                    break;
+            }
+        }
+
+        public void Reset()
+        {
+            luna = 0;
+            mio = 0;
+            nari = 0;
+            aria = 0;
+            rin = 0;
+            chae = 0;
+            serin = 0;
+            haneul = 0;
+            rena = 0;
+            yuri = 0;
+            sia = 0;
+            iren = 0;
         }
     }
 }
