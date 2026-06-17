@@ -30,6 +30,7 @@ namespace IdleRPG
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
         private Vector2 companionFormationScroll;
+        private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
 
@@ -1297,7 +1298,6 @@ namespace IdleRPG
             GUILayout.Space(10f);
             GUILayout.Label("보유 골드: " + FormatNumber(state.hero.gold) + "G", labelStyle);
             GUILayout.Label("희귀 이상 보정: " + state.companionGacha.pity + " / " + IdleRpgBalance.CompanionRarePityPulls, smallStyle);
-            DrawRecentCompanionPulls();
             GUI.enabled = state.hero.gold >= IdleRpgBalance.CompanionGachaGoldCost;
             if (GUILayout.Button("1회 소환 - " + FormatNumber(IdleRpgBalance.CompanionGachaGoldCost) + "G", buttonStyle, GUILayout.Height(52f)))
             {
@@ -1314,6 +1314,8 @@ namespace IdleRPG
             }
 
             GUI.enabled = true;
+            GUILayout.Space(8f);
+            DrawRecentCompanionPulls();
             GUILayout.EndArea();
 
             GUILayout.BeginArea(new Rect(right.x + 18f, right.y + 16f, right.width - 36f, right.height - 32f));
@@ -1572,6 +1574,7 @@ namespace IdleRPG
             }
 
             GUILayout.Label("방금 소환 결과", labelStyle);
+            recentCompanionPullScroll = GUILayout.BeginScrollView(recentCompanionPullScroll, GUILayout.Height(104f));
             for (int index = 0; index < recentCompanionPullIds.Count; index += 1)
             {
                 CompanionDefinition companion = IdleRpgBalance.GetCompanion(recentCompanionPullIds[index]);
@@ -1580,6 +1583,8 @@ namespace IdleRPG
                 GUILayout.Label((index + 1) + ". [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, smallStyle);
                 GUI.color = previous;
             }
+
+            GUILayout.EndScrollView();
         }
 
         private void DrawCompanionPortrait(CompanionDefinition companion, float size)
