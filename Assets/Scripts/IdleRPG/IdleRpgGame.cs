@@ -135,7 +135,6 @@ namespace IdleRPG
             DrawStatsPanel(leftPanel);
             DrawUpgradePanel(upgradePanel);
             DrawGachaPanel(gachaPanel);
-            DrawEnemyTopBar(new Rect(Screen.width * 0.5f - 220f, 116f, 440f, 54f));
             DrawBattlePanel(bottomPanel);
             DrawPartyHud(partyPanel);
             DrawCompanionAttackEffectsGui();
@@ -155,6 +154,8 @@ namespace IdleRPG
             {
                 DrawStageProgressScreen();
             }
+
+            DrawEnemyTopBar(new Rect(Screen.width * 0.5f - 280f, 10f, 560f, 62f));
         }
 
         private void BuildScene()
@@ -1690,18 +1691,18 @@ namespace IdleRPG
         private void DrawCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 142f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 176f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.08f, 0.09f, 0.15f, 0.80f));
 
-            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 84f, 120f);
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 10f, 98f, 148f);
             GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
 
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
-            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 10f, cardRect.width - 120f, 24f), "Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
+            GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 12f, cardRect.width - 134f, 26f), "Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
-            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 38f, cardRect.width - 120f, 48f), companion.Title + " - " + companion.Description, smallStyle);
-            GUI.Label(new Rect(cardRect.x + 108f, cardRect.y + 88f, cardRect.width - 120f, 42f), "전투 효과: " + GetCompanionAttackLabel(companion) + " / 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
+            GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 42f, cardRect.width - 134f, 60f), companion.Title + " - " + companion.Description, smallStyle);
+            GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 104f, cardRect.width - 134f, 56f), "전투 효과: " + GetCompanionAttackLabel(companion) + "\n공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
         }
 
         private void DrawRelicRow(RelicDefinition relic)
@@ -1744,11 +1745,17 @@ namespace IdleRPG
 
         private void DrawEnemyTopBar(Rect rect)
         {
-            DrawPanel(rect, new Color(0.02f, 0.03f, 0.07f, 0.82f));
-            GUILayout.BeginArea(new Rect(rect.x + 12f, rect.y + 8f, rect.width - 24f, rect.height - 16f));
-            GUILayout.Label(state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, labelStyle);
-            DrawProgressBar("적 체력", state.enemy.hp, state.enemy.maxHp, new Color(1f, 0.36f, 0.48f));
-            GUILayout.EndArea();
+            DrawPanel(rect, new Color(0.01f, 0.015f, 0.03f, 0.94f));
+            Rect inner = new Rect(rect.x + 14f, rect.y + 8f, rect.width - 28f, rect.height - 16f);
+            GUI.Label(new Rect(inner.x, inner.y, inner.width, 22f), state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, labelStyle);
+            float hpPercent = Mathf.Clamp01(state.enemy.hp / Mathf.Max(1f, state.enemy.maxHp));
+            Rect bar = new Rect(inner.x, inner.y + 28f, inner.width, 16f);
+            GUI.Box(bar, GUIContent.none);
+            Color previous = GUI.color;
+            GUI.color = new Color(1f, 0.36f, 0.48f);
+            GUI.DrawTexture(new Rect(bar.x + 2f, bar.y + 2f, Mathf.Max(0f, bar.width - 4f) * hpPercent, bar.height - 4f), Texture2D.whiteTexture);
+            GUI.color = previous;
+            GUI.Label(new Rect(bar.x, bar.y - 1f, bar.width, 18f), Mathf.FloorToInt(state.enemy.hp) + " / " + state.enemy.maxHp, smallStyle);
         }
 
         private void DrawPartyHud(Rect rect)

@@ -110,6 +110,7 @@ Idle RPG > Reset Save Data
 - `Assets/Scripts/IdleRPG/IdleRpgState.cs`: 저장 가능한 게임 상태 모델
 - `Assets/Scripts/IdleRPG/IdleRpgBalance.cs`: 적/강화/유물/동료 뽑기 밸런스 데이터
 - `Assets/Resources/Companions/*.png`: 동료 도트 스프라이트 에셋
+- `Assets/Resources/Companions/README.md`: 동료 스프라이트 교체 규격 안내
 - `Assets/Editor/IdleRpgEditorMenu.cs`: 에디터 저장 데이터 초기화 메뉴
 
 ## 더 높은 동료 아트 퀄리티로 가려면
