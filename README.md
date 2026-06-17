@@ -1,29 +1,42 @@
 # 2drpg
 
-브라우저에서 실행되는 2D 방치형 RPG 프로토타입입니다. 용사가 자동으로 전투하며,
-골드와 경험치를 모아 성장하고 강화할 수 있습니다.
+Unity로 만든 2D 방치형 RPG 프로토타입입니다. 별도 에셋 없이 C# 코드가
+카메라, 2D 캐릭터, 적, HUD를 런타임에 생성하므로 Unity 에디터에서 바로
+플레이 테스트할 수 있습니다.
+
+## 권장 Unity 버전
+
+- Unity 2022.3 LTS
 
 ## 주요 기능
 
-- 캔버스 기반 2D 자동 전투 화면
+- Unity 2D SpriteRenderer 기반 전투 화면
 - 자동 공격과 직접 공격 버튼
 - 골드, 경험치, 레벨업, 스테이지 진행
 - 공격력, 최대 HP, 회복력, 치명타 강화
-- 브라우저 `localStorage` 저장
-- 접속하지 않은 시간에 따른 오프라인 보상
+- `PlayerPrefs` 저장 및 오프라인 보상
+- 에디터 메뉴를 통한 저장 데이터 초기화
 
-## 실행
+## 실행 방법
 
-```bash
-npm start
+1. Unity Hub에서 이 저장소 폴더를 프로젝트로 추가합니다.
+2. Unity 2022.3 LTS로 프로젝트를 엽니다.
+3. 빈 씬 상태에서 Play를 누릅니다.
+
+`IdleRpgGame`이 런타임에 자동으로 생성되므로 별도 씬 설정 없이 바로
+전투 화면과 HUD가 표시됩니다.
+
+## 저장 데이터 초기화
+
+Unity 상단 메뉴에서 다음을 실행하세요.
+
+```text
+Idle RPG > Reset Save Data
 ```
 
-브라우저에서 `http://localhost:5173`을 열면 게임을 플레이할 수 있습니다.
+## 코드 구조
 
-정적 파일만 사용하므로 별도 의존성 설치는 필요하지 않습니다.
-
-## 테스트
-
-```bash
-npm test
-```
+- `Assets/Scripts/IdleRPG/IdleRpgGame.cs`: 전투 루프, 저장, HUD, 2D 화면 생성
+- `Assets/Scripts/IdleRPG/IdleRpgState.cs`: 저장 가능한 게임 상태 모델
+- `Assets/Scripts/IdleRPG/IdleRpgBalance.cs`: 적/강화 밸런스 데이터
+- `Assets/Editor/IdleRpgEditorMenu.cs`: 에디터 저장 데이터 초기화 메뉴
