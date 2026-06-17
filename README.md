@@ -18,6 +18,9 @@ Unity로 만든 2D 방치형 RPG 프로토타입입니다. 별도 에셋 없이 
 - 공격력, 최대 HP, 회복력, 치명타 강화
 - 골드 기반 유물 뽑기와 희귀 이상 보정
 - 유물 중복 획득 시 레벨업 및 영구 능력치 보너스
+- 별도 `동료 소환` 화면
+- 코드로 생성되는 도트풍 여성 동료 캐릭터
+- 동료 중복 소환 시 레벨업 및 영구 능력치 보너스
 - `PlayerPrefs` 저장 및 오프라인 보상
 - 에디터 메뉴를 통한 저장 데이터 초기화
 
@@ -43,6 +46,16 @@ Unity 에디터에서 Game 탭이 세로처럼 보이면 Game 탭 상단의 해�
 1280x720
 ```
 
+## 동료 뽑기
+
+오른쪽 `유물 뽑기` 패널의 `동료 소환 화면 열기` 버튼을 누르면 별도
+소환 화면이 열립니다.
+
+- 골드로 도트풍 여성 동료를 소환합니다.
+- 일반/희귀/영웅/전설 등급과 희귀 이상 보정이 있습니다.
+- 중복 동료는 레벨이 올라가며 공격력, HP, 회복, 치명타 보너스를 줍니다.
+- 최근 소환한 동료는 전투 화면에서 용사 옆에 도트 캐릭터로 표시됩니다.
+
 ## 저장 데이터 초기화
 
 Unity 상단 메뉴에서 다음을 실행하세요.
@@ -55,5 +68,5 @@ Idle RPG > Reset Save Data
 
 - `Assets/Scripts/IdleRPG/IdleRpgGame.cs`: 전투 루프, 저장, HUD, 2D 화면 생성
 - `Assets/Scripts/IdleRPG/IdleRpgState.cs`: 저장 가능한 게임 상태 모델
-- `Assets/Scripts/IdleRPG/IdleRpgBalance.cs`: 적/강화/유물 뽑기 밸런스 데이터
+- `Assets/Scripts/IdleRPG/IdleRpgBalance.cs`: 적/강화/유물/동료 뽑기 밸런스 데이터
 - `Assets/Editor/IdleRpgEditorMenu.cs`: 에디터 저장 데이터 초기화 메뉴

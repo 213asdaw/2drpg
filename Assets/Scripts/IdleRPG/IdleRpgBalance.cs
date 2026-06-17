@@ -94,10 +94,59 @@ namespace IdleRPG
         }
     }
 
+    public sealed class CompanionDefinition
+    {
+        public readonly int Id;
+        public readonly string Name;
+        public readonly string Title;
+        public readonly string Description;
+        public readonly RelicRarity Rarity;
+        public readonly float Weight;
+        public readonly int AttackPerLevel;
+        public readonly int MaxHpPerLevel;
+        public readonly float RegenPerLevel;
+        public readonly float CritChancePerLevel;
+        public readonly Color HairColor;
+        public readonly Color OutfitColor;
+        public readonly Color AccentColor;
+
+        public CompanionDefinition(
+            int id,
+            string name,
+            string title,
+            string description,
+            RelicRarity rarity,
+            float weight,
+            int attackPerLevel,
+            int maxHpPerLevel,
+            float regenPerLevel,
+            float critChancePerLevel,
+            Color hairColor,
+            Color outfitColor,
+            Color accentColor)
+        {
+            Id = id;
+            Name = name;
+            Title = title;
+            Description = description;
+            Rarity = rarity;
+            Weight = weight;
+            AttackPerLevel = attackPerLevel;
+            MaxHpPerLevel = maxHpPerLevel;
+            RegenPerLevel = regenPerLevel;
+            CritChancePerLevel = critChancePerLevel;
+            HairColor = hairColor;
+            OutfitColor = outfitColor;
+            AccentColor = accentColor;
+        }
+    }
+
     public static class IdleRpgBalance
     {
         public const int GachaGoldCost = 120;
         public const int RarePityPulls = 8;
+        public const int CompanionGachaGoldCost = 240;
+        public const int CompanionRarePityPulls = 10;
 
         public static readonly UpgradeDefinition[] Upgrades =
         {
@@ -122,6 +171,66 @@ namespace IdleRPG
             new RelicDefinition(1, "수호 부적", "최대 HP 증가", RelicRarity.Rare, 28f, 0, 18, 0f, 0f),
             new RelicDefinition(2, "달빛 목걸이", "회복력 증가", RelicRarity.Epic, 12f, 1, 6, 0.35f, 0f),
             new RelicDefinition(3, "숲의 왕관", "치명타와 모든 능력 증가", RelicRarity.Legendary, 4f, 4, 14, 0.2f, 0.015f)
+        };
+
+        public static readonly CompanionDefinition[] Companions =
+        {
+            new CompanionDefinition(
+                0,
+                "루나",
+                "달빛 견습 마법사",
+                "전투를 도와 공격력을 올려줍니다.",
+                RelicRarity.Common,
+                52f,
+                4,
+                4,
+                0f,
+                0f,
+                new Color(0.24f, 0.18f, 0.36f),
+                new Color(0.42f, 0.52f, 0.98f),
+                new Color(0.92f, 0.88f, 1f)),
+            new CompanionDefinition(
+                1,
+                "아리아",
+                "꽃잎 궁수",
+                "체력과 치명타를 함께 올려줍니다.",
+                RelicRarity.Rare,
+                30f,
+                2,
+                18,
+                0f,
+                0.006f,
+                new Color(0.58f, 0.31f, 0.20f),
+                new Color(0.96f, 0.45f, 0.65f),
+                new Color(0.64f, 1f, 0.70f)),
+            new CompanionDefinition(
+                2,
+                "세린",
+                "별빛 성녀",
+                "회복과 생존력을 크게 보강합니다.",
+                RelicRarity.Epic,
+                14f,
+                2,
+                24,
+                0.45f,
+                0.006f,
+                new Color(0.95f, 0.88f, 0.58f),
+                new Color(0.82f, 0.55f, 1f),
+                new Color(1f, 0.96f, 0.60f)),
+            new CompanionDefinition(
+                3,
+                "유리",
+                "여우 검희",
+                "공격과 치명타를 폭발적으로 강화합니다.",
+                RelicRarity.Legendary,
+                4f,
+                7,
+                12,
+                0.25f,
+                0.018f,
+                new Color(0.98f, 0.78f, 0.45f),
+                new Color(0.95f, 0.22f, 0.30f),
+                new Color(1f, 0.82f, 0.30f))
         };
 
         public static EnemyState CreateEnemy(int stage)
@@ -208,6 +317,51 @@ namespace IdleRPG
             }
 
             return Relics[0];
+        }
+
+        public static CompanionDefinition RollCompanion(float roll, bool forceRareOrBetter)
+        {
+            float totalWeight = 0f;
+            for (int index = 0; index < Companions.Length; index += 1)
+            {
+                if (!forceRareOrBetter || Companions[index].Rarity != RelicRarity.Common)
+                {
+                    totalWeight += Companions[index].Weight;
+                }
+            }
+
+            float weightedRoll = Mathf.Clamp01(roll) * totalWeight;
+            float cursor = 0f;
+
+            for (int index = 0; index < Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = Companions[index];
+                if (forceRareOrBetter && companion.Rarity == RelicRarity.Common)
+                {
+                    continue;
+                }
+
+                cursor += companion.Weight;
+                if (weightedRoll <= cursor)
+                {
+                    return companion;
+                }
+            }
+
+            return Companions[Companions.Length - 1];
+        }
+
+        public static CompanionDefinition GetCompanion(int companionId)
+        {
+            for (int index = 0; index < Companions.Length; index += 1)
+            {
+                if (Companions[index].Id == companionId)
+                {
+                    return Companions[index];
+                }
+            }
+
+            return Companions[0];
         }
 
         public static string GetRarityName(RelicRarity rarity)

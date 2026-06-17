@@ -12,13 +12,19 @@ namespace IdleRPG
 
         private IdleRpgState state;
         private Transform heroRoot;
+        private Transform companionRoot;
         private Transform enemyRoot;
+        private SpriteRenderer companionRenderer;
         private SpriteRenderer enemyRenderer;
         private GUIStyle titleStyle;
         private GUIStyle labelStyle;
         private GUIStyle smallStyle;
         private GUIStyle buttonStyle;
         private float saveTimer;
+        private bool companionGachaScreenOpen;
+        private int displayedCompanionId = -999;
+        private Texture2D[] companionPortraitTextures;
+        private Sprite[] companionSprites;
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -106,6 +112,11 @@ namespace IdleRPG
             DrawGachaPanel(gachaPanel);
             DrawBattlePanel(bottomPanel);
             DrawFloatingTextsGui();
+
+            if (companionGachaScreenOpen)
+            {
+                DrawCompanionGachaScreen();
+            }
         }
 
         private void BuildScene()
@@ -124,7 +135,9 @@ namespace IdleRPG
             camera.backgroundColor = new Color(0.06f, 0.09f, 0.17f);
 
             CreateBackdrop();
+            CreateCompanionArt();
             heroRoot = CreateHero();
+            companionRoot = CreateCompanionVisual();
             enemyRoot = CreateEnemyVisual();
             UpdateSceneObjects();
         }
@@ -212,6 +225,32 @@ namespace IdleRPG
             return root.transform;
         }
 
+        private void CreateCompanionArt()
+        {
+            companionPortraitTextures = new Texture2D[IdleRpgBalance.Companions.Length];
+            companionSprites = new Sprite[IdleRpgBalance.Companions.Length];
+
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                Texture2D texture = CreateCompanionTexture(IdleRpgBalance.Companions[index]);
+                companionPortraitTextures[index] = texture;
+                companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.12f), 16f);
+            }
+        }
+
+        private Transform CreateCompanionVisual()
+        {
+            GameObject root = new GameObject("Pixel Companion");
+            root.transform.position = new Vector3(-1.45f, -1.45f, 0f);
+            root.transform.localScale = Vector3.one * 1.16f;
+
+            companionRenderer = root.AddComponent<SpriteRenderer>();
+            companionRenderer.enabled = false;
+            companionRenderer.sortingOrder = 6;
+
+            return root.transform;
+        }
+
         private Transform CreateEnemyVisual()
         {
             GameObject root = new GameObject("Enemy");
@@ -227,6 +266,73 @@ namespace IdleRPG
             AddPart(root.transform, "Right Eye", new Color(0.02f, 0.03f, 0.05f), new Vector2(0.12f, 0.12f), new Vector3(0.22f, 0.16f, -0.03f));
 
             return root.transform;
+        }
+
+        private Texture2D CreateCompanionTexture(CompanionDefinition companion)
+        {
+            Texture2D texture = new Texture2D(24, 32, TextureFormat.RGBA32, false);
+            texture.filterMode = FilterMode.Point;
+            Color[] pixels = new Color[24 * 32];
+            for (int index = 0; index < pixels.Length; index += 1)
+            {
+                pixels[index] = Color.clear;
+            }
+
+            texture.SetPixels(pixels);
+
+            Color skin = new Color(1f, 0.78f, 0.64f);
+            Color shadow = new Color(0.18f, 0.11f, 0.16f, 0.9f);
+            Color eye = new Color(0.08f, 0.07f, 0.12f);
+            Color blush = new Color(1f, 0.42f, 0.48f, 0.75f);
+
+            SetPixelBlock(texture, 7, 6, 10, 9, companion.HairColor);
+            SetPixelBlock(texture, 6, 9, 2, 11, companion.HairColor);
+            SetPixelBlock(texture, 16, 9, 2, 11, companion.HairColor);
+            SetPixelBlock(texture, 8, 9, 8, 8, skin);
+            SetPixelBlock(texture, 9, 7, 6, 2, companion.HairColor);
+            SetPixelBlock(texture, 9, 12, 2, 1, eye);
+            SetPixelBlock(texture, 14, 12, 2, 1, eye);
+            SetPixelBlock(texture, 10, 15, 1, 1, blush);
+            SetPixelBlock(texture, 15, 15, 1, 1, blush);
+            SetPixelBlock(texture, 10, 14, 4, 1, new Color(0.38f, 0.16f, 0.18f));
+
+            SetPixelBlock(texture, 8, 17, 8, 5, companion.OutfitColor);
+            SetPixelBlock(texture, 6, 21, 12, 5, companion.OutfitColor);
+            SetPixelBlock(texture, 7, 18, 2, 6, skin);
+            SetPixelBlock(texture, 15, 18, 2, 6, skin);
+            SetPixelBlock(texture, 10, 22, 4, 2, companion.AccentColor);
+            SetPixelBlock(texture, 8, 26, 3, 4, skin);
+            SetPixelBlock(texture, 13, 26, 3, 4, skin);
+            SetPixelBlock(texture, 8, 30, 3, 1, shadow);
+            SetPixelBlock(texture, 13, 30, 3, 1, shadow);
+
+            SetPixelBlock(texture, 17, 7, 4, 3, companion.AccentColor);
+            SetPixelBlock(texture, 3, 24, 4, 2, companion.AccentColor);
+            SetPixelBlock(texture, 17, 24, 4, 2, companion.AccentColor);
+
+            if (companion.Rarity == RelicRarity.Legendary)
+            {
+                SetPixelBlock(texture, 9, 4, 6, 2, companion.AccentColor);
+                SetPixelBlock(texture, 10, 2, 1, 3, companion.AccentColor);
+                SetPixelBlock(texture, 13, 2, 1, 3, companion.AccentColor);
+            }
+
+            texture.Apply();
+            return texture;
+        }
+
+        private void SetPixelBlock(Texture2D texture, int x, int y, int width, int height, Color color)
+        {
+            for (int px = x; px < x + width; px += 1)
+            {
+                for (int py = y; py < y + height; py += 1)
+                {
+                    if (px >= 0 && px < texture.width && py >= 0 && py < texture.height)
+                    {
+                        texture.SetPixel(px, texture.height - 1 - py, color);
+                    }
+                }
+            }
         }
 
         private void AddPart(Transform parent, string name, Color color, Vector2 scale, Vector3 localPosition, float rotation = 0f)
@@ -530,6 +636,35 @@ namespace IdleRPG
             return true;
         }
 
+        private bool PullCompanion()
+        {
+            if (state.hero.gold < IdleRpgBalance.CompanionGachaGoldCost)
+            {
+                return false;
+            }
+
+            state.hero.gold -= IdleRpgBalance.CompanionGachaGoldCost;
+            bool forceRareOrBetter = state.companionGacha.pity >= IdleRpgBalance.CompanionRarePityPulls - 1;
+            CompanionDefinition companion = IdleRpgBalance.RollCompanion(UnityEngine.Random.value, forceRareOrBetter);
+            state.companionGacha.companions.Increment(companion.Id);
+            state.companionGacha.totalPulls += 1;
+            state.companionGacha.lastCompanionId = companion.Id;
+            state.companionGacha.lastRarity = IdleRpgBalance.GetRarityName(companion.Rarity);
+            state.companionGacha.pity = companion.Rarity == RelicRarity.Common ? state.companionGacha.pity + 1 : 0;
+
+            int newLevel = state.companionGacha.companions.Get(companion.Id);
+            if (companion.MaxHpPerLevel > 0)
+            {
+                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + companion.MaxHpPerLevel);
+            }
+
+            Color rarityColor = IdleRpgBalance.GetRarityColor(companion.Rarity);
+            AddFloatingText(companion.Name + " 합류!", new Vector2(0.42f, 0.72f), rarityColor);
+            AddLog("동료 소환: [" + state.companionGacha.lastRarity + "] " + companion.Name + " Lv." + newLevel);
+            SaveState();
+            return true;
+        }
+
         private IdleRpgState CreateInitialState()
         {
             IdleRpgState newState = new IdleRpgState();
@@ -599,6 +734,16 @@ namespace IdleRPG
                 loaded.gacha.relics = new RelicCollection();
             }
 
+            if (loaded.companionGacha == null)
+            {
+                loaded.companionGacha = new CompanionGachaState();
+            }
+
+            if (loaded.companionGacha.companions == null)
+            {
+                loaded.companionGacha.companions = new CompanionCollection();
+            }
+
             if (loaded.battleLog == null)
             {
                 loaded.battleLog = new List<string>();
@@ -651,6 +796,22 @@ namespace IdleRPG
             {
                 float attackLean = Mathf.Clamp01(state.combat.heroAttack) * 0.16f;
                 heroRoot.position = new Vector3(-2.35f + attackLean, -1.35f + Mathf.Sin(Time.time * 3.2f) * 0.025f, 0f);
+            }
+
+            if (companionRoot != null && companionRenderer != null)
+            {
+                int companionId = GetDisplayedCompanionId();
+                companionRenderer.enabled = companionId >= 0;
+                if (companionId >= 0)
+                {
+                    if (displayedCompanionId != companionId)
+                    {
+                        companionRenderer.sprite = companionSprites[companionId];
+                        displayedCompanionId = companionId;
+                    }
+
+                    companionRoot.position = new Vector3(-1.40f, -1.54f + Mathf.Sin(Time.time * 4.4f) * 0.04f, 0f);
+                }
             }
 
             if (enemyRoot != null)
@@ -732,6 +893,12 @@ namespace IdleRPG
 
             GUI.enabled = true;
             GUILayout.Label("희귀 이상 보정: " + state.gacha.pity + " / " + IdleRpgBalance.RarePityPulls, smallStyle);
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button("동료 소환 화면 열기", buttonStyle, GUILayout.Height(42f)))
+            {
+                companionGachaScreenOpen = true;
+            }
 
             if (state.gacha.lastRelicId >= 0)
             {
@@ -748,6 +915,113 @@ namespace IdleRPG
                 DrawRelicRow(IdleRpgBalance.Relics[index]);
             }
 
+            GUILayout.EndArea();
+        }
+
+        private void DrawCompanionGachaScreen()
+        {
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            DrawPanel(overlay, new Color(0.02f, 0.02f, 0.05f, 0.92f));
+
+            float width = Mathf.Min(1040f, Screen.width - 60f);
+            float height = Mathf.Min(640f, Screen.height - 60f);
+            Rect screen = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            DrawPanel(screen, new Color(0.07f, 0.06f, 0.14f, 0.97f));
+
+            GUILayout.BeginArea(new Rect(screen.x + 24f, screen.y + 18f, screen.width - 48f, 62f));
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+            GUILayout.Label("달빛 동료 소환", titleStyle);
+            GUILayout.Label("도트 여캐 동료를 소환해 전투 보너스와 함께 모험하세요.", labelStyle);
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("닫기", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
+            {
+                companionGachaScreenOpen = false;
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+
+            Rect left = new Rect(screen.x + 24f, screen.y + 96f, 350f, screen.height - 124f);
+            Rect right = new Rect(left.xMax + 22f, left.y, screen.width - 420f, left.height);
+            DrawPanel(left, new Color(0.11f, 0.10f, 0.21f, 0.92f));
+            DrawPanel(right, new Color(0.05f, 0.08f, 0.15f, 0.88f));
+
+            GUILayout.BeginArea(new Rect(left.x + 18f, left.y + 16f, left.width - 36f, left.height - 32f));
+            GUILayout.Label("소환 결과", titleStyle);
+            CompanionDefinition featuredCompanion = GetFeaturedCompanion();
+            DrawCompanionPortrait(featuredCompanion, 220f);
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(featuredCompanion.Rarity);
+            GUILayout.Label("[" + IdleRpgBalance.GetRarityName(featuredCompanion.Rarity) + "] " + featuredCompanion.Name, titleStyle);
+            GUI.color = previous;
+            GUILayout.Label(featuredCompanion.Title, labelStyle);
+            GUILayout.Label(featuredCompanion.Description, smallStyle);
+            GUILayout.Space(10f);
+            GUILayout.Label("보유 골드: " + FormatNumber(state.hero.gold) + "G", labelStyle);
+            GUILayout.Label("희귀 이상 보정: " + state.companionGacha.pity + " / " + IdleRpgBalance.CompanionRarePityPulls, smallStyle);
+            GUI.enabled = state.hero.gold >= IdleRpgBalance.CompanionGachaGoldCost;
+            if (GUILayout.Button("1회 소환 - " + FormatNumber(IdleRpgBalance.CompanionGachaGoldCost) + "G", buttonStyle, GUILayout.Height(52f)))
+            {
+                PullCompanion();
+            }
+
+            GUI.enabled = true;
+            GUILayout.EndArea();
+
+            GUILayout.BeginArea(new Rect(right.x + 18f, right.y + 16f, right.width - 36f, right.height - 32f));
+            GUILayout.Label("동료 도감", titleStyle);
+            GUILayout.Label("중복 소환 시 동료 레벨이 올라가고 영구 능력치 보너스가 증가합니다.", smallStyle);
+            GUILayout.Space(10f);
+
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                DrawCompanionCard(IdleRpgBalance.Companions[index]);
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private CompanionDefinition GetFeaturedCompanion()
+        {
+            int companionId = GetDisplayedCompanionId();
+            if (companionId >= 0)
+            {
+                return IdleRpgBalance.GetCompanion(companionId);
+            }
+
+            return IdleRpgBalance.Companions[IdleRpgBalance.Companions.Length - 1];
+        }
+
+        private void DrawCompanionPortrait(CompanionDefinition companion, float size)
+        {
+            Rect portraitRect = GUILayoutUtility.GetRect(size, size, GUILayout.ExpandWidth(false));
+            portraitRect.x += 38f;
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
+            GUI.DrawTexture(new Rect(portraitRect.x - 8f, portraitRect.y - 8f, portraitRect.width + 16f, portraitRect.height + 16f), Texture2D.whiteTexture);
+            GUI.color = previous;
+            GUI.DrawTexture(portraitRect, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
+        }
+
+        private void DrawCompanionCard(CompanionDefinition companion)
+        {
+            int level = state.companionGacha.companions.Get(companion.Id);
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 86f, GUILayout.ExpandWidth(true));
+            DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.08f, 0.09f, 0.15f, 0.80f));
+
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 52f, 70f);
+            GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
+
+            Rect textRect = new Rect(cardRect.x + 74f, cardRect.y + 8f, cardRect.width - 86f, cardRect.height - 16f);
+            GUILayout.BeginArea(textRect);
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
+            GUILayout.Label("Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
+            GUI.color = previous;
+            GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
+            GUILayout.Label("공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
             GUILayout.EndArea();
         }
 
@@ -832,6 +1106,12 @@ namespace IdleRPG
                 bonus += relic.AttackPerLevel * GetRelicLevel(targetState, relic.Id);
             }
 
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                bonus += companion.AttackPerLevel * GetCompanionLevel(targetState, companion.Id);
+            }
+
             return targetState.hero.attack + bonus;
         }
 
@@ -849,6 +1129,12 @@ namespace IdleRPG
                 bonus += relic.MaxHpPerLevel * GetRelicLevel(targetState, relic.Id);
             }
 
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                bonus += companion.MaxHpPerLevel * GetCompanionLevel(targetState, companion.Id);
+            }
+
             return targetState.hero.maxHp + bonus;
         }
 
@@ -859,6 +1145,12 @@ namespace IdleRPG
             {
                 RelicDefinition relic = IdleRpgBalance.Relics[index];
                 bonus += relic.RegenPerLevel * GetRelicLevel(state, relic.Id);
+            }
+
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                bonus += companion.RegenPerLevel * GetCompanionLevel(state, companion.Id);
             }
 
             return state.hero.regen + bonus;
@@ -873,6 +1165,12 @@ namespace IdleRPG
                 bonus += relic.CritChancePerLevel * GetRelicLevel(state, relic.Id);
             }
 
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                bonus += companion.CritChancePerLevel * GetCompanionLevel(state, companion.Id);
+            }
+
             return Mathf.Min(0.60f, state.hero.critChance + bonus);
         }
 
@@ -884,6 +1182,39 @@ namespace IdleRPG
             }
 
             return targetState.gacha.relics.Get(relicId);
+        }
+
+        private int GetCompanionLevel(IdleRpgState targetState, int companionId)
+        {
+            if (targetState.companionGacha == null || targetState.companionGacha.companions == null)
+            {
+                return 0;
+            }
+
+            return targetState.companionGacha.companions.Get(companionId);
+        }
+
+        private int GetDisplayedCompanionId()
+        {
+            if (state.companionGacha == null || state.companionGacha.companions == null)
+            {
+                return -1;
+            }
+
+            if (state.companionGacha.lastCompanionId >= 0 && state.companionGacha.companions.Get(state.companionGacha.lastCompanionId) > 0)
+            {
+                return state.companionGacha.lastCompanionId;
+            }
+
+            for (int index = IdleRpgBalance.Companions.Length - 1; index >= 0; index -= 1)
+            {
+                if (state.companionGacha.companions.Get(IdleRpgBalance.Companions[index].Id) > 0)
+                {
+                    return IdleRpgBalance.Companions[index].Id;
+                }
+            }
+
+            return -1;
         }
 
         private void EnsureStyles()

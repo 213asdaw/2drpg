@@ -15,6 +15,7 @@ namespace IdleRPG
         public CombatTimers combat = new CombatTimers();
         public GameStats stats = new GameStats();
         public GachaState gacha = new GachaState();
+        public CompanionGachaState companionGacha = new CompanionGachaState();
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
     }
@@ -158,6 +159,61 @@ namespace IdleRPG
                     break;
                 case 3:
                     forestCrown += 1;
+                    break;
+            }
+        }
+    }
+
+    [Serializable]
+    public sealed class CompanionGachaState
+    {
+        public int totalPulls;
+        public int pity;
+        public int lastCompanionId = -1;
+        public string lastRarity = string.Empty;
+        public CompanionCollection companions = new CompanionCollection();
+    }
+
+    [Serializable]
+    public sealed class CompanionCollection
+    {
+        public int luna;
+        public int aria;
+        public int serin;
+        public int yuri;
+
+        public int Get(int companionId)
+        {
+            switch (companionId)
+            {
+                case 0:
+                    return luna;
+                case 1:
+                    return aria;
+                case 2:
+                    return serin;
+                case 3:
+                    return yuri;
+                default:
+                    return 0;
+            }
+        }
+
+        public void Increment(int companionId)
+        {
+            switch (companionId)
+            {
+                case 0:
+                    luna += 1;
+                    break;
+                case 1:
+                    aria += 1;
+                    break;
+                case 2:
+                    serin += 1;
+                    break;
+                case 3:
+                    yuri += 1;
                     break;
             }
         }
