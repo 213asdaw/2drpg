@@ -235,7 +235,7 @@ namespace IdleRPG
             while (state.combat.heroAttack >= 1f)
             {
                 state.combat.heroAttack -= 1f;
-                ApplyHeroDamage(1f, "자동 공격");
+                ApplyHeroDamage(1f);
             }
 
             while (state.combat.enemyAttack >= 1.45f)
@@ -252,11 +252,11 @@ namespace IdleRPG
                 return;
             }
 
-            ApplyHeroDamage(0.65f, "직접 공격");
+            ApplyHeroDamage(0.65f);
             SaveState();
         }
 
-        private void ApplyHeroDamage(float multiplier, string source)
+        private void ApplyHeroDamage(float multiplier)
         {
             bool critical = UnityEngine.Random.value < state.hero.critChance;
             float criticalMultiplier = critical ? state.hero.critMultiplier : 1f;
