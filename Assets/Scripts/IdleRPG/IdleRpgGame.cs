@@ -74,7 +74,9 @@ namespace IdleRPG
             float safeWidth = Mathf.Min(Screen.width - 24f, 1180f);
             Rect header = new Rect(12f, 12f, safeWidth, 108f);
             Rect leftPanel = new Rect(12f, 132f, 330f, Screen.height - 150f);
-            Rect rightPanel = new Rect(Screen.width - 362f, 132f, 350f, Screen.height - 150f);
+            Rect rightColumn = new Rect(Screen.width - 362f, 132f, 350f, Screen.height - 150f);
+            Rect upgradePanel = new Rect(rightColumn.x, rightColumn.y, rightColumn.width, rightColumn.height * 0.50f);
+            Rect gachaPanel = new Rect(rightColumn.x, upgradePanel.yMax + 12f, rightColumn.width, rightColumn.height - upgradePanel.height - 12f);
             Rect bottomPanel = new Rect(360f, Screen.height - 150f, Screen.width - 720f, 132f);
 
             DrawPanel(header, new Color(0.05f, 0.08f, 0.15f, 0.88f));
@@ -86,7 +88,8 @@ namespace IdleRPG
             GUILayout.EndArea();
 
             DrawStatsPanel(leftPanel);
-            DrawUpgradePanel(rightPanel);
+            DrawUpgradePanel(upgradePanel);
+            DrawGachaPanel(gachaPanel);
             DrawBattlePanel(bottomPanel);
             DrawFloatingTextsGui();
         }
@@ -114,21 +117,68 @@ namespace IdleRPG
 
         private void CreateBackdrop()
         {
-            GameObject ground = CreateSpriteObject("Forest Ground", CreateSolidSprite(new Color(0.10f, 0.23f, 0.16f), 4, 4));
-            ground.transform.position = new Vector3(0f, -2.8f, 2f);
-            ground.transform.localScale = new Vector3(9f, 2.1f, 1f);
+            GameObject sky = CreateSpriteObject("Moonlit Gradient Sky", CreateVerticalGradientSprite(new Color(0.05f, 0.07f, 0.16f), new Color(0.17f, 0.24f, 0.42f), 8, 96));
+            sky.transform.position = new Vector3(0f, 0.35f, 5f);
+            sky.transform.localScale = new Vector3(10.5f, 10f, 1f);
+            SetSortingOrder(sky, -100);
 
-            GameObject hillBack = CreateSpriteObject("Blue Hills", CreateSolidSprite(new Color(0.11f, 0.19f, 0.32f), 4, 4));
-            hillBack.transform.position = new Vector3(0f, -1.4f, 3f);
-            hillBack.transform.localScale = new Vector3(8.5f, 1.7f, 1f);
+            GameObject moonGlow = CreateSpriteObject("Moon Glow", CreateCircleSprite(new Color(0.86f, 0.94f, 1f, 0.32f), 128));
+            moonGlow.transform.position = new Vector3(3.25f, 2.85f, 0f);
+            moonGlow.transform.localScale = Vector3.one * 1.7f;
+            SetSortingOrder(moonGlow, -92);
 
-            for (int index = 0; index < 12; index += 1)
+            GameObject moon = CreateSpriteObject("Moon", CreateCircleSprite(new Color(0.92f, 0.96f, 1f), 96));
+            moon.transform.position = new Vector3(3.25f, 2.85f, 0f);
+            moon.transform.localScale = Vector3.one * 0.72f;
+            SetSortingOrder(moon, -91);
+
+            AddCloud(-2.8f, 2.65f, 0.72f, -90);
+            AddCloud(1.25f, 2.25f, 0.54f, -90);
+            AddCloud(4.1f, 1.95f, 0.48f, -90);
+
+            for (int index = 0; index < 34; index += 1)
             {
-                GameObject star = CreateSpriteObject("Star", CreateSolidSprite(new Color(0.9f, 0.96f, 1f), 2, 2));
-                float x = -4.2f + index * 0.76f;
-                float y = 3.15f + Mathf.Sin(index * 1.7f) * 0.55f;
-                star.transform.position = new Vector3(x, y, 1f);
-                star.transform.localScale = Vector3.one * (0.04f + (index % 3) * 0.015f);
+                GameObject star = CreateSpriteObject("Star", CreateCircleSprite(new Color(0.9f, 0.96f, 1f, 0.8f), 12));
+                float x = -4.6f + (index * 0.91f) % 9.2f;
+                float y = 1.35f + Mathf.Abs(Mathf.Sin(index * 1.37f)) * 2.35f;
+                star.transform.position = new Vector3(x, y, 0f);
+                star.transform.localScale = Vector3.one * (0.035f + (index % 4) * 0.008f);
+                SetSortingOrder(star, -89);
+            }
+
+            GameObject farHills = CreateSpriteObject("Distant Violet Hills", CreateVerticalGradientSprite(new Color(0.08f, 0.13f, 0.25f), new Color(0.15f, 0.22f, 0.37f), 8, 12));
+            farHills.transform.position = new Vector3(0f, -1.35f, 0f);
+            farHills.transform.localScale = new Vector3(10.2f, 2f, 1f);
+            SetSortingOrder(farHills, -80);
+
+            for (int index = 0; index < 16; index += 1)
+            {
+                float x = -4.7f + index * 0.64f;
+                float scale = 0.75f + (index % 5) * 0.12f;
+                AddTree(x, -1.15f + Mathf.Sin(index) * 0.08f, scale, -70 + index % 2);
+            }
+
+            GameObject ground = CreateSpriteObject("Forest Ground", CreateVerticalGradientSprite(new Color(0.05f, 0.15f, 0.11f), new Color(0.15f, 0.31f, 0.19f), 8, 32));
+            ground.transform.position = new Vector3(0f, -2.85f, 0f);
+            ground.transform.localScale = new Vector3(10.5f, 2.1f, 1f);
+            SetSortingOrder(ground, -48);
+
+            for (int index = 0; index < 28; index += 1)
+            {
+                GameObject grass = CreateSpriteObject("Moon Grass", CreateSolidSprite(new Color(0.24f, 0.50f, 0.30f), 2, 10));
+                float x = -4.8f + index * 0.36f;
+                grass.transform.position = new Vector3(x, -2.02f + Mathf.Sin(index * 1.8f) * 0.05f, 0f);
+                grass.transform.localScale = new Vector3(0.08f, 0.14f + (index % 4) * 0.03f, 1f);
+                grass.transform.localRotation = Quaternion.Euler(0f, 0f, -12f + (index % 5) * 6f);
+                SetSortingOrder(grass, -45);
+            }
+
+            for (int index = 0; index < 10; index += 1)
+            {
+                GameObject firefly = CreateSpriteObject("Firefly", CreateCircleSprite(new Color(1f, 0.92f, 0.42f, 0.78f), 18));
+                firefly.transform.position = new Vector3(-4.2f + index * 0.92f, -0.85f + Mathf.Sin(index * 0.9f) * 0.42f, 0f);
+                firefly.transform.localScale = Vector3.one * 0.055f;
+                SetSortingOrder(firefly, -40);
             }
         }
 
@@ -172,6 +222,36 @@ namespace IdleRPG
             part.transform.localPosition = localPosition;
             part.transform.localScale = new Vector3(scale.x, scale.y, 1f);
             part.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            SetSortingOrder(part, 0);
+        }
+
+        private void AddCloud(float x, float y, float scale, int sortingOrder)
+        {
+            Color cloudColor = new Color(0.70f, 0.81f, 0.98f, 0.34f);
+            for (int index = 0; index < 4; index += 1)
+            {
+                GameObject puff = CreateSpriteObject("Soft Cloud", CreateCircleSprite(cloudColor, 48));
+                puff.transform.position = new Vector3(x + (index - 1.5f) * 0.34f * scale, y + Mathf.Sin(index) * 0.08f * scale, 0f);
+                puff.transform.localScale = Vector3.one * scale * (0.52f + index * 0.06f);
+                SetSortingOrder(puff, sortingOrder);
+            }
+        }
+
+        private void AddTree(float x, float y, float scale, int sortingOrder)
+        {
+            GameObject trunk = CreateSpriteObject("Tree Trunk", CreateSolidSprite(new Color(0.09f, 0.07f, 0.07f), 4, 18));
+            trunk.transform.position = new Vector3(x, y - 0.18f * scale, 0f);
+            trunk.transform.localScale = new Vector3(0.16f * scale, 0.64f * scale, 1f);
+            SetSortingOrder(trunk, sortingOrder);
+
+            Color leafColor = new Color(0.06f, 0.18f + scale * 0.04f, 0.16f);
+            for (int tier = 0; tier < 3; tier += 1)
+            {
+                GameObject leaves = CreateSpriteObject("Tree Leaves", CreateCircleSprite(leafColor, 48));
+                leaves.transform.position = new Vector3(x, y + (0.1f + tier * 0.28f) * scale, 0f);
+                leaves.transform.localScale = new Vector3((0.88f - tier * 0.12f) * scale, (0.58f - tier * 0.05f) * scale, 1f);
+                SetSortingOrder(leaves, sortingOrder + 1);
+            }
         }
 
         private GameObject CreateSpriteObject(string name, Sprite sprite)
@@ -182,6 +262,15 @@ namespace IdleRPG
             return spriteObject;
         }
 
+        private void SetSortingOrder(GameObject spriteObject, int sortingOrder)
+        {
+            SpriteRenderer renderer = spriteObject.GetComponent<SpriteRenderer>();
+            if (renderer != null)
+            {
+                renderer.sortingOrder = sortingOrder;
+            }
+        }
+
         private Sprite CreateSolidSprite(Color color, int width, int height)
         {
             Texture2D texture = new Texture2D(width, height);
@@ -190,6 +279,25 @@ namespace IdleRPG
             for (int index = 0; index < pixels.Length; index += 1)
             {
                 pixels[index] = color;
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 8f);
+        }
+
+        private Sprite CreateVerticalGradientSprite(Color bottom, Color top, int width, int height)
+        {
+            Texture2D texture = new Texture2D(width, height);
+            texture.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[width * height];
+            for (int y = 0; y < height; y += 1)
+            {
+                Color color = Color.Lerp(bottom, top, y / Mathf.Max(1f, height - 1f));
+                for (int x = 0; x < width; x += 1)
+                {
+                    pixels[y * width + x] = color;
+                }
             }
 
             texture.SetPixels(pixels);
@@ -210,7 +318,7 @@ namespace IdleRPG
                 for (int x = 0; x < size; x += 1)
                 {
                     float distance = Vector2.Distance(new Vector2(x, y), center);
-                    float alpha = Mathf.Clamp01(radius - distance);
+                    float alpha = Mathf.Clamp01(radius - distance) * color.a;
                     pixels[y * size + x] = new Color(color.r, color.g, color.b, alpha);
                 }
             }
@@ -228,7 +336,7 @@ namespace IdleRPG
             }
 
             float safeDelta = Mathf.Min(deltaTime, 5f);
-            state.hero.hp = Mathf.Min(state.hero.maxHp, state.hero.hp + state.hero.regen * safeDelta);
+            state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + GetEffectiveRegen() * safeDelta);
             state.combat.heroAttack += safeDelta;
             state.combat.enemyAttack += safeDelta;
 
@@ -258,9 +366,9 @@ namespace IdleRPG
 
         private void ApplyHeroDamage(float multiplier)
         {
-            bool critical = UnityEngine.Random.value < state.hero.critChance;
+            bool critical = UnityEngine.Random.value < GetEffectiveCritChance();
             float criticalMultiplier = critical ? state.hero.critMultiplier : 1f;
-            int damage = Mathf.Max(1, Mathf.FloorToInt(state.hero.attack * multiplier * criticalMultiplier));
+            int damage = Mathf.Max(1, Mathf.FloorToInt(GetEffectiveAttack() * multiplier * criticalMultiplier));
 
             state.enemy.hp = Mathf.Max(0f, state.enemy.hp - damage);
             AddFloatingText(critical ? "CRIT " + damage : damage.ToString(), new Vector2(0.68f, 0.52f), critical ? Color.yellow : Color.white);
@@ -379,6 +487,35 @@ namespace IdleRPG
             return true;
         }
 
+        private bool PullRelic()
+        {
+            if (state.hero.gold < IdleRpgBalance.GachaGoldCost)
+            {
+                return false;
+            }
+
+            state.hero.gold -= IdleRpgBalance.GachaGoldCost;
+            bool forceRareOrBetter = state.gacha.pity >= IdleRpgBalance.RarePityPulls - 1;
+            RelicDefinition relic = IdleRpgBalance.RollRelic(UnityEngine.Random.value, forceRareOrBetter);
+            state.gacha.relics.Increment(relic.Id);
+            state.gacha.totalPulls += 1;
+            state.gacha.lastRelicId = relic.Id;
+            state.gacha.lastRarity = IdleRpgBalance.GetRarityName(relic.Rarity);
+            state.gacha.pity = relic.Rarity == RelicRarity.Common ? state.gacha.pity + 1 : 0;
+
+            int newLevel = state.gacha.relics.Get(relic.Id);
+            if (relic.MaxHpPerLevel > 0)
+            {
+                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + relic.MaxHpPerLevel);
+            }
+
+            Color rarityColor = IdleRpgBalance.GetRarityColor(relic.Rarity);
+            AddFloatingText(state.gacha.lastRarity + "!", new Vector2(0.50f, 0.72f), rarityColor);
+            AddLog("뽑기 성공: [" + state.gacha.lastRarity + "] " + relic.Name + " Lv." + newLevel);
+            SaveState();
+            return true;
+        }
+
         private IdleRpgState CreateInitialState()
         {
             IdleRpgState newState = new IdleRpgState();
@@ -438,6 +575,16 @@ namespace IdleRPG
                 loaded.stats = new GameStats();
             }
 
+            if (loaded.gacha == null)
+            {
+                loaded.gacha = new GachaState();
+            }
+
+            if (loaded.gacha.relics == null)
+            {
+                loaded.gacha.relics = new RelicCollection();
+            }
+
             if (loaded.battleLog == null)
             {
                 loaded.battleLog = new List<string>();
@@ -450,7 +597,7 @@ namespace IdleRPG
 
             loaded.stage = Mathf.Max(1, loaded.stage);
             loaded.hero.maxHp = Mathf.Max(1, loaded.hero.maxHp);
-            loaded.hero.hp = Mathf.Clamp(loaded.hero.hp, 1f, loaded.hero.maxHp);
+            loaded.hero.hp = Mathf.Clamp(loaded.hero.hp, 1f, GetEffectiveMaxHp(loaded));
             loaded.stats.highestStage = Mathf.Max(loaded.stats.highestStage, loaded.stage);
         }
 
@@ -516,9 +663,10 @@ namespace IdleRPG
             DrawStat("스테이지", state.stage.ToString());
             DrawStat("레벨", state.hero.level.ToString());
             DrawStat("골드", FormatNumber(state.hero.gold));
-            DrawStat("공격력", FormatNumber(state.hero.attack));
-            DrawStat("초당 회복", state.hero.regen.ToString("0.0"));
-            DrawStat("치명타", Mathf.RoundToInt(state.hero.critChance * 100f) + "%");
+            DrawStat("공격력", FormatNumber(GetEffectiveAttack()));
+            DrawStat("최대 HP", FormatNumber(GetEffectiveMaxHp()));
+            DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
+            DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("처치 수", FormatNumber(state.stats.kills));
             GUILayout.Space(10f);
             if (GUILayout.Button("직접 공격", buttonStyle, GUILayout.Height(44f)))
@@ -553,6 +701,51 @@ namespace IdleRPG
             GUILayout.EndArea();
         }
 
+        private void DrawGachaPanel(Rect rect)
+        {
+            DrawPanel(rect, new Color(0.06f, 0.07f, 0.14f, 0.90f));
+            GUILayout.BeginArea(rect);
+            GUILayout.Space(12f);
+            GUILayout.Label("유물 뽑기", titleStyle);
+            GUILayout.Label("골드로 유물을 뽑아 영구 능력치를 얻습니다.", smallStyle);
+            GUILayout.Space(5f);
+
+            GUI.enabled = state.hero.gold >= IdleRpgBalance.GachaGoldCost;
+            if (GUILayout.Button("1회 뽑기 - " + FormatNumber(IdleRpgBalance.GachaGoldCost) + "G", buttonStyle, GUILayout.Height(44f)))
+            {
+                PullRelic();
+            }
+
+            GUI.enabled = true;
+            GUILayout.Label("희귀 이상 보정: " + state.gacha.pity + " / " + IdleRpgBalance.RarePityPulls, smallStyle);
+
+            if (state.gacha.lastRelicId >= 0)
+            {
+                RelicDefinition lastRelic = IdleRpgBalance.GetRelic(state.gacha.lastRelicId);
+                Color previous = GUI.color;
+                GUI.color = IdleRpgBalance.GetRarityColor(lastRelic.Rarity);
+                GUILayout.Label("최근: [" + state.gacha.lastRarity + "] " + lastRelic.Name, labelStyle);
+                GUI.color = previous;
+            }
+
+            GUILayout.Space(4f);
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                DrawRelicRow(IdleRpgBalance.Relics[index]);
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawRelicRow(RelicDefinition relic)
+        {
+            int level = state.gacha.relics.Get(relic.Id);
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(relic.Rarity);
+            GUILayout.Label("Lv." + level + " " + relic.Name + " - " + relic.Description, smallStyle);
+            GUI.color = previous;
+        }
+
         private void DrawBattlePanel(Rect rect)
         {
             if (rect.width < 220f)
@@ -564,7 +757,7 @@ namespace IdleRPG
             GUILayout.BeginArea(rect);
             GUILayout.Space(12f);
             GUILayout.Label("전투 상황", titleStyle);
-            DrawProgressBar("용사 HP", state.hero.hp, state.hero.maxHp, new Color(0.24f, 0.85f, 0.54f));
+            DrawProgressBar("용사 HP", state.hero.hp, GetEffectiveMaxHp(), new Color(0.24f, 0.85f, 0.54f));
             DrawProgressBar(state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, state.enemy.hp, state.enemy.maxHp, new Color(1f, 0.36f, 0.48f));
             DrawProgressBar("경험치", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
             GUILayout.EndArea();
@@ -609,6 +802,74 @@ namespace IdleRPG
             GUI.color = color;
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = previous;
+        }
+
+        private int GetEffectiveAttack()
+        {
+            return GetEffectiveAttack(state);
+        }
+
+        private int GetEffectiveAttack(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.AttackPerLevel * GetRelicLevel(targetState, relic.Id);
+            }
+
+            return targetState.hero.attack + bonus;
+        }
+
+        private int GetEffectiveMaxHp()
+        {
+            return GetEffectiveMaxHp(state);
+        }
+
+        private int GetEffectiveMaxHp(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.MaxHpPerLevel * GetRelicLevel(targetState, relic.Id);
+            }
+
+            return targetState.hero.maxHp + bonus;
+        }
+
+        private float GetEffectiveRegen()
+        {
+            float bonus = 0f;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.RegenPerLevel * GetRelicLevel(state, relic.Id);
+            }
+
+            return state.hero.regen + bonus;
+        }
+
+        private float GetEffectiveCritChance()
+        {
+            float bonus = 0f;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.CritChancePerLevel * GetRelicLevel(state, relic.Id);
+            }
+
+            return Mathf.Min(0.60f, state.hero.critChance + bonus);
+        }
+
+        private int GetRelicLevel(IdleRpgState targetState, int relicId)
+        {
+            if (targetState.gacha == null || targetState.gacha.relics == null)
+            {
+                return 0;
+            }
+
+            return targetState.gacha.relics.Get(relicId);
         }
 
         private void EnsureStyles()

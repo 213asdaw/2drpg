@@ -11,6 +11,14 @@ namespace IdleRPG
         Focus
     }
 
+    public enum RelicRarity
+    {
+        Common,
+        Rare,
+        Epic,
+        Legendary
+    }
+
     public sealed class UpgradeDefinition
     {
         public readonly UpgradeType Type;
@@ -51,8 +59,46 @@ namespace IdleRPG
         }
     }
 
+    public sealed class RelicDefinition
+    {
+        public readonly int Id;
+        public readonly string Name;
+        public readonly string Description;
+        public readonly RelicRarity Rarity;
+        public readonly float Weight;
+        public readonly int AttackPerLevel;
+        public readonly int MaxHpPerLevel;
+        public readonly float RegenPerLevel;
+        public readonly float CritChancePerLevel;
+
+        public RelicDefinition(
+            int id,
+            string name,
+            string description,
+            RelicRarity rarity,
+            float weight,
+            int attackPerLevel,
+            int maxHpPerLevel,
+            float regenPerLevel,
+            float critChancePerLevel)
+        {
+            Id = id;
+            Name = name;
+            Description = description;
+            Rarity = rarity;
+            Weight = weight;
+            AttackPerLevel = attackPerLevel;
+            MaxHpPerLevel = maxHpPerLevel;
+            RegenPerLevel = regenPerLevel;
+            CritChancePerLevel = critChancePerLevel;
+        }
+    }
+
     public static class IdleRpgBalance
     {
+        public const int GachaGoldCost = 120;
+        public const int RarePityPulls = 8;
+
         public static readonly UpgradeDefinition[] Upgrades =
         {
             new UpgradeDefinition(UpgradeType.Blade, "검술 훈련", "공격력 +4", 24, 1.32f),
@@ -68,6 +114,14 @@ namespace IdleRPG
             new EnemyTemplate("검은 박쥐", 0.75f, 44, 6, 11, 7),
             new EnemyTemplate("나무 정령", 0.40f, 62, 7, 14, 9),
             new EnemyTemplate("숲의 수호자", 0.04f, 110, 10, 30, 18, true)
+        };
+
+        public static readonly RelicDefinition[] Relics =
+        {
+            new RelicDefinition(0, "불씨 검", "공격력 증가", RelicRarity.Common, 56f, 3, 0, 0f, 0f),
+            new RelicDefinition(1, "수호 부적", "최대 HP 증가", RelicRarity.Rare, 28f, 0, 18, 0f, 0f),
+            new RelicDefinition(2, "달빛 목걸이", "회복력 증가", RelicRarity.Epic, 12f, 1, 6, 0.35f, 0f),
+            new RelicDefinition(3, "숲의 왕관", "치명타와 모든 능력 증가", RelicRarity.Legendary, 4f, 4, 14, 0.2f, 0.015f)
         };
 
         public static EnemyState CreateEnemy(int stage)
@@ -109,6 +163,85 @@ namespace IdleRPG
             }
 
             throw new ArgumentOutOfRangeException("type", type, "Unknown upgrade type.");
+        }
+
+        public static RelicDefinition RollRelic(float roll, bool forceRareOrBetter)
+        {
+            float totalWeight = 0f;
+            for (int index = 0; index < Relics.Length; index += 1)
+            {
+                if (!forceRareOrBetter || Relics[index].Rarity != RelicRarity.Common)
+                {
+                    totalWeight += Relics[index].Weight;
+                }
+            }
+
+            float weightedRoll = Mathf.Clamp01(roll) * totalWeight;
+            float cursor = 0f;
+
+            for (int index = 0; index < Relics.Length; index += 1)
+            {
+                RelicDefinition relic = Relics[index];
+                if (forceRareOrBetter && relic.Rarity == RelicRarity.Common)
+                {
+                    continue;
+                }
+
+                cursor += relic.Weight;
+                if (weightedRoll <= cursor)
+                {
+                    return relic;
+                }
+            }
+
+            return Relics[Relics.Length - 1];
+        }
+
+        public static RelicDefinition GetRelic(int relicId)
+        {
+            for (int index = 0; index < Relics.Length; index += 1)
+            {
+                if (Relics[index].Id == relicId)
+                {
+                    return Relics[index];
+                }
+            }
+
+            return Relics[0];
+        }
+
+        public static string GetRarityName(RelicRarity rarity)
+        {
+            switch (rarity)
+            {
+                case RelicRarity.Common:
+                    return "일반";
+                case RelicRarity.Rare:
+                    return "희귀";
+                case RelicRarity.Epic:
+                    return "영웅";
+                case RelicRarity.Legendary:
+                    return "전설";
+                default:
+                    return "알 수 없음";
+            }
+        }
+
+        public static Color GetRarityColor(RelicRarity rarity)
+        {
+            switch (rarity)
+            {
+                case RelicRarity.Common:
+                    return new Color(0.86f, 0.90f, 0.98f);
+                case RelicRarity.Rare:
+                    return new Color(0.45f, 0.75f, 1f);
+                case RelicRarity.Epic:
+                    return new Color(0.78f, 0.48f, 1f);
+                case RelicRarity.Legendary:
+                    return new Color(1f, 0.74f, 0.25f);
+                default:
+                    return Color.white;
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ namespace IdleRPG
         public EnemyState enemy = new EnemyState();
         public CombatTimers combat = new CombatTimers();
         public GameStats stats = new GameStats();
+        public GachaState gacha = new GachaState();
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
     }
@@ -105,5 +106,60 @@ namespace IdleRPG
         public int totalGold;
         public int totalXp;
         public int highestStage = 1;
+    }
+
+    [Serializable]
+    public sealed class GachaState
+    {
+        public int totalPulls;
+        public int pity;
+        public int lastRelicId = -1;
+        public string lastRarity = string.Empty;
+        public RelicCollection relics = new RelicCollection();
+    }
+
+    [Serializable]
+    public sealed class RelicCollection
+    {
+        public int emberBlade;
+        public int guardianCharm;
+        public int moonPendant;
+        public int forestCrown;
+
+        public int Get(int relicId)
+        {
+            switch (relicId)
+            {
+                case 0:
+                    return emberBlade;
+                case 1:
+                    return guardianCharm;
+                case 2:
+                    return moonPendant;
+                case 3:
+                    return forestCrown;
+                default:
+                    return 0;
+            }
+        }
+
+        public void Increment(int relicId)
+        {
+            switch (relicId)
+            {
+                case 0:
+                    emberBlade += 1;
+                    break;
+                case 1:
+                    guardianCharm += 1;
+                    break;
+                case 2:
+                    moonPendant += 1;
+                    break;
+                case 3:
+                    forestCrown += 1;
+                    break;
+            }
+        }
     }
 }
