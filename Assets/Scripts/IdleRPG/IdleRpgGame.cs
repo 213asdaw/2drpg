@@ -41,6 +41,7 @@ namespace IdleRPG
         private bool companionFormationScreenOpen;
         private bool stageProgressScreenOpen;
         private int[] displayedCompanionIds;
+        private float[] companionAttackTimers;
         private Texture2D[] companionPortraitTextures;
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
@@ -179,6 +180,7 @@ namespace IdleRPG
             companionRoots = new Transform[FormationSlotCount];
             companionRenderers = new SpriteRenderer[FormationSlotCount];
             displayedCompanionIds = new int[FormationSlotCount];
+            companionAttackTimers = new float[FormationSlotCount];
             for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
             {
                 displayedCompanionIds[slotIndex] = -999;
@@ -1193,7 +1195,13 @@ namespace IdleRPG
 
                         float x = -3.08f + slotIndex * 0.42f;
                         float y = -1.78f + Mathf.Sin(Time.time * (4.2f + slotIndex * 0.35f)) * 0.025f + slotIndex * 0.03f;
+                        float baseScale = 0.56f - slotIndex * 0.03f;
+                        float attackLunge = GetCompanionAttackLunge(slotIndex);
+                        x += attackLunge * 0.30f;
+                        y += attackLunge * 0.07f;
                         root.position = new Vector3(x, y, 0f);
+                        root.localScale = Vector3.one * (baseScale + attackLunge * 0.08f);
+                        root.localRotation = Quaternion.Euler(0f, 0f, -8f * attackLunge);
                     }
                 }
             }
@@ -1726,7 +1734,6 @@ namespace IdleRPG
             GUILayout.Space(8f);
             GUILayout.Label("전투 상황", titleStyle);
             DrawProgressBar("용사 HP", state.hero.hp, GetEffectiveMaxHp(), new Color(0.24f, 0.85f, 0.54f));
-            DrawProgressBar(state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, state.enemy.hp, state.enemy.maxHp, new Color(1f, 0.36f, 0.48f));
             DrawProgressBar("경험치 - 레벨업 시 공격 +2 / 최대 HP +12", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
             GUILayout.EndArea();
 
@@ -2068,6 +2075,11 @@ namespace IdleRPG
             string label = GetCompanionAttackLabel(companion);
             Vector2 start = new Vector2(0.28f + slotIndex * 0.04f, 0.62f - slotIndex * 0.02f);
             Vector2 end = new Vector2(0.68f, 0.56f);
+            if (companionAttackTimers != null && slotIndex >= 0 && slotIndex < companionAttackTimers.Length)
+            {
+                companionAttackTimers[slotIndex] = 0.42f;
+            }
+
             companionAttackEffects.Add(new CompanionAttackEffect(label, damage, start, end, IdleRpgBalance.GetRarityColor(companion.Rarity)));
         }
 
@@ -2075,6 +2087,8 @@ namespace IdleRPG
         {
             switch (companion.Id)
             {
+                case 0:
+                    return "달빛탄!";
                 case 5:
                     return "체리 폭탄!";
                 case 6:
@@ -2092,6 +2106,14 @@ namespace IdleRPG
 
         private void UpdateCompanionAttackEffects(float deltaTime)
         {
+            if (companionAttackTimers != null)
+            {
+                for (int index = 0; index < companionAttackTimers.Length; index += 1)
+                {
+                    companionAttackTimers[index] = Mathf.Max(0f, companionAttackTimers[index] - deltaTime);
+                }
+            }
+
             for (int index = companionAttackEffects.Count - 1; index >= 0; index -= 1)
             {
                 companionAttackEffects[index].Life -= deltaTime;
@@ -2100,6 +2122,17 @@ namespace IdleRPG
                     companionAttackEffects.RemoveAt(index);
                 }
             }
+        }
+
+        private float GetCompanionAttackLunge(int slotIndex)
+        {
+            if (companionAttackTimers == null || slotIndex < 0 || slotIndex >= companionAttackTimers.Length)
+            {
+                return 0f;
+            }
+
+            float normalized = 1f - companionAttackTimers[slotIndex] / 0.42f;
+            return Mathf.Sin(Mathf.Clamp01(normalized) * Mathf.PI);
         }
 
         private void DrawFloatingTextsGui()
