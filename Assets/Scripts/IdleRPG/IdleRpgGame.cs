@@ -28,6 +28,8 @@ namespace IdleRPG
         private int[] displayedCompanionIds;
         private Texture2D[] companionPortraitTextures;
         private Sprite[] companionSprites;
+        private Vector2 companionGachaScroll;
+        private Vector2 companionFormationScroll;
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -255,7 +257,7 @@ namespace IdleRPG
             {
                 Texture2D texture = CreateCompanionTexture(IdleRpgBalance.Companions[index]);
                 companionPortraitTextures[index] = texture;
-                companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.08f), 32f);
+                companionSprites[index] = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.08f), 44f);
             }
         }
 
@@ -292,7 +294,7 @@ namespace IdleRPG
 
         private Texture2D CreateCompanionTexture(CompanionDefinition companion)
         {
-            Texture2D texture = new Texture2D(48, 64, TextureFormat.RGBA32, false);
+            Texture2D texture = new Texture2D(64, 96, TextureFormat.RGBA32, false);
             texture.filterMode = FilterMode.Point;
             Color[] pixels = new Color[texture.width * texture.height];
             for (int index = 0; index < pixels.Length; index += 1)
@@ -302,68 +304,143 @@ namespace IdleRPG
 
             texture.SetPixels(pixels);
 
-            Color skin = new Color(1f, 0.78f, 0.64f);
-            Color skinShade = new Color(0.86f, 0.52f, 0.46f);
-            Color skinLight = new Color(1f, 0.88f, 0.74f);
-            Color shadow = new Color(0.18f, 0.11f, 0.16f, 0.9f);
+            int style = companion.Id % 6;
+            Color skin = new Color(1f, 0.79f, 0.66f);
+            Color skinShade = new Color(0.86f, 0.55f, 0.50f);
+            Color skinLight = new Color(1f, 0.90f, 0.76f);
+            Color shadow = new Color(0.16f, 0.10f, 0.16f, 0.92f);
             Color eye = new Color(0.08f, 0.07f, 0.12f);
             Color blush = new Color(1f, 0.42f, 0.48f, 0.75f);
             Color hairShade = Color.Lerp(companion.HairColor, Color.black, 0.30f);
-            Color hairLight = Color.Lerp(companion.HairColor, Color.white, 0.22f);
+            Color hairDeep = Color.Lerp(companion.HairColor, Color.black, 0.48f);
+            Color hairLight = Color.Lerp(companion.HairColor, Color.white, 0.30f);
             Color outfitShade = Color.Lerp(companion.OutfitColor, Color.black, 0.26f);
-            Color outfitLight = Color.Lerp(companion.OutfitColor, Color.white, 0.18f);
-            Color accentLight = Color.Lerp(companion.AccentColor, Color.white, 0.25f);
+            Color outfitLight = Color.Lerp(companion.OutfitColor, Color.white, 0.22f);
+            Color accentLight = Color.Lerp(companion.AccentColor, Color.white, 0.34f);
+            Color outline = new Color(0.08f, 0.06f, 0.10f, 0.95f);
 
-            SetPixelBlock(texture, 11, 12, 26, 20, hairShade);
-            SetPixelBlock(texture, 13, 8, 22, 16, companion.HairColor);
-            SetPixelBlock(texture, 8, 20, 6, 26, hairShade);
-            SetPixelBlock(texture, 34, 20, 6, 26, hairShade);
-            SetPixelBlock(texture, 16, 10, 14, 4, hairLight);
-            SetPixelBlock(texture, 18, 15, 8, 3, hairLight);
-            SetPixelBlock(texture, 15, 20, 18, 17, skin);
-            SetPixelBlock(texture, 17, 18, 14, 5, skinLight);
-            SetPixelBlock(texture, 14, 31, 20, 4, skinShade);
-            SetPixelBlock(texture, 17, 26, 4, 2, eye);
-            SetPixelBlock(texture, 28, 26, 4, 2, eye);
-            SetPixelBlock(texture, 18, 25, 2, 1, Color.white);
-            SetPixelBlock(texture, 29, 25, 2, 1, Color.white);
-            SetPixelBlock(texture, 18, 31, 3, 2, blush);
-            SetPixelBlock(texture, 29, 31, 3, 2, blush);
-            SetPixelBlock(texture, 22, 32, 6, 2, new Color(0.42f, 0.16f, 0.19f));
-            SetPixelBlock(texture, 21, 37, 8, 6, skin);
+            SetPixelEllipse(texture, 32, 92, 21, 4, new Color(0f, 0f, 0f, 0.28f));
 
-            SetPixelBlock(texture, 14, 42, 20, 12, companion.OutfitColor);
-            SetPixelBlock(texture, 11, 49, 26, 9, outfitShade);
-            SetPixelBlock(texture, 16, 43, 16, 4, outfitLight);
-            SetPixelBlock(texture, 21, 45, 6, 11, companion.AccentColor);
-            SetPixelBlock(texture, 19, 49, 10, 3, accentLight);
-            SetPixelBlock(texture, 8, 43, 6, 15, skin);
-            SetPixelBlock(texture, 34, 43, 6, 15, skin);
-            SetPixelBlock(texture, 6, 54, 7, 4, companion.AccentColor);
-            SetPixelBlock(texture, 35, 54, 7, 4, companion.AccentColor);
-            SetPixelBlock(texture, 15, 57, 7, 5, skinShade);
-            SetPixelBlock(texture, 27, 57, 7, 5, skinShade);
-            SetPixelBlock(texture, 13, 62, 9, 2, shadow);
-            SetPixelBlock(texture, 27, 62, 9, 2, shadow);
+            // Hair mass and individual silhouettes.
+            SetPixelEllipse(texture, 32, 27, 22, 20, hairDeep);
+            SetPixelEllipse(texture, 32, 24, 19, 17, hairShade);
+            SetPixelEllipse(texture, 32, 22, 16, 13, companion.HairColor);
+            SetPixelBlock(texture, 16, 29, 6, 36, hairDeep);
+            SetPixelBlock(texture, 42, 29, 6, 36, hairDeep);
+            SetPixelBlock(texture, 20, 13, 24, 7, companion.HairColor);
+            SetPixelBlock(texture, 23, 11, 16, 4, hairLight);
 
-            SetPixelBlock(texture, 35, 12, 8, 6, companion.AccentColor);
-            SetPixelBlock(texture, 37, 10, 4, 2, accentLight);
-            SetPixelBlock(texture, 5, 40, 5, 5, accentLight);
-            SetPixelBlock(texture, 38, 40, 5, 5, accentLight);
+            if (style == 1 || style == 4)
+            {
+                SetPixelBlock(texture, 11, 22, 7, 35, hairDeep);
+                SetPixelBlock(texture, 46, 22, 7, 35, hairDeep);
+                SetPixelBlock(texture, 13, 25, 5, 24, companion.HairColor);
+                SetPixelBlock(texture, 46, 25, 5, 24, companion.HairColor);
+            }
+
+            if (style == 2)
+            {
+                SetPixelBlock(texture, 17, 47, 8, 22, hairDeep);
+                SetPixelBlock(texture, 39, 47, 8, 22, hairDeep);
+                SetPixelBlock(texture, 20, 51, 4, 14, hairLight);
+                SetPixelBlock(texture, 40, 51, 4, 14, hairLight);
+            }
+
+            if (style == 3 || companion.Rarity == RelicRarity.Legendary)
+            {
+                SetPixelBlock(texture, 18, 7, 28, 5, companion.AccentColor);
+                SetPixelBlock(texture, 22, 3, 4, 8, accentLight);
+                SetPixelBlock(texture, 31, 1, 4, 10, accentLight);
+                SetPixelBlock(texture, 40, 3, 4, 8, accentLight);
+            }
+
+            if (style == 5)
+            {
+                SetPixelBlock(texture, 14, 13, 8, 10, companion.HairColor);
+                SetPixelBlock(texture, 42, 13, 8, 10, companion.HairColor);
+                SetPixelBlock(texture, 16, 10, 5, 5, accentLight);
+                SetPixelBlock(texture, 43, 10, 5, 5, accentLight);
+            }
+
+            // Face, eyes, smile.
+            SetPixelEllipse(texture, 32, 34, 17, 18, skin);
+            SetPixelEllipse(texture, 32, 29, 14, 9, skinLight);
+            SetPixelBlock(texture, 18, 38, 4, 6, skinShade);
+            SetPixelBlock(texture, 42, 38, 4, 6, skinShade);
+            SetPixelBlock(texture, 21, 33, 7, 6, Color.white);
+            SetPixelBlock(texture, 36, 33, 7, 6, Color.white);
+            SetPixelBlock(texture, 23, 34, 4, 5, eye);
+            SetPixelBlock(texture, 37, 34, 4, 5, eye);
+            SetPixelBlock(texture, 24, 34, 2, 2, companion.AccentColor);
+            SetPixelBlock(texture, 38, 34, 2, 2, companion.AccentColor);
+            SetPixelBlock(texture, 25, 33, 1, 1, Color.white);
+            SetPixelBlock(texture, 39, 33, 1, 1, Color.white);
+            SetPixelBlock(texture, 22, 43, 4, 2, blush);
+            SetPixelBlock(texture, 38, 43, 4, 2, blush);
+            SetPixelBlock(texture, 28, 45, 8, 2, new Color(0.42f, 0.15f, 0.20f));
+            SetPixelBlock(texture, 30, 46, 4, 1, new Color(1f, 0.66f, 0.74f));
+
+            // Neck, body, dress and limbs.
+            SetPixelBlock(texture, 28, 50, 8, 7, skin);
+            SetPixelBlock(texture, 22, 55, 20, 12, companion.OutfitColor);
+            SetPixelBlock(texture, 17, 65, 30, 16, outfitShade);
+            SetPixelBlock(texture, 21, 56, 22, 5, outfitLight);
+            SetPixelBlock(texture, 29, 55, 7, 22, companion.AccentColor);
+            SetPixelBlock(texture, 26, 67, 12, 4, accentLight);
+            SetPixelBlock(texture, 16, 57, 7, 21, skin);
+            SetPixelBlock(texture, 41, 57, 7, 21, skin);
+            SetPixelBlock(texture, 13, 75, 8, 5, companion.AccentColor);
+            SetPixelBlock(texture, 43, 75, 8, 5, companion.AccentColor);
+            SetPixelBlock(texture, 22, 81, 8, 10, skinShade);
+            SetPixelBlock(texture, 35, 81, 8, 10, skinShade);
+            SetPixelBlock(texture, 19, 91, 11, 3, shadow);
+            SetPixelBlock(texture, 34, 91, 11, 3, shadow);
+
+            // Outfit polish.
+            SetPixelLine(texture, 18, 66, 46, 66, companion.AccentColor);
+            SetPixelLine(texture, 21, 72, 43, 72, outfitLight);
+            SetPixelBlock(texture, 30, 61, 4, 4, accentLight);
+            SetPixelBlock(texture, 12, 55, 7, 5, companion.AccentColor);
+            SetPixelBlock(texture, 45, 55, 7, 5, companion.AccentColor);
+            SetPixelBlock(texture, 13, 53, 4, 2, accentLight);
+            SetPixelBlock(texture, 47, 53, 4, 2, accentLight);
+
+            // Decorative collection-game sparkle frame details.
+            SetPixelBlock(texture, 5, 18, 3, 3, accentLight);
+            SetPixelBlock(texture, 7, 16, 1, 7, accentLight);
+            SetPixelBlock(texture, 3, 20, 7, 1, accentLight);
+            SetPixelBlock(texture, 55, 25, 3, 3, accentLight);
+            SetPixelBlock(texture, 57, 23, 1, 7, accentLight);
+            SetPixelBlock(texture, 53, 27, 7, 1, accentLight);
 
             if (companion.Rarity == RelicRarity.Legendary)
             {
-                SetPixelBlock(texture, 16, 5, 16, 4, companion.AccentColor);
-                SetPixelBlock(texture, 18, 2, 3, 6, accentLight);
-                SetPixelBlock(texture, 28, 2, 3, 6, accentLight);
-                SetPixelBlock(texture, 23, 1, 3, 7, accentLight);
+                SetPixelEllipse(texture, 32, 6, 19, 4, new Color(1f, 0.92f, 0.30f, 0.45f));
+                SetPixelBlock(texture, 9, 36, 4, 10, accentLight);
+                SetPixelBlock(texture, 51, 36, 4, 10, accentLight);
+                SetPixelLine(texture, 8, 46, 17, 54, companion.AccentColor);
+                SetPixelLine(texture, 56, 46, 47, 54, companion.AccentColor);
             }
 
             if (companion.Rarity == RelicRarity.Epic)
             {
-                SetPixelBlock(texture, 12, 7, 5, 4, companion.AccentColor);
-                SetPixelBlock(texture, 31, 7, 5, 4, companion.AccentColor);
+                SetPixelBlock(texture, 15, 10, 7, 5, companion.AccentColor);
+                SetPixelBlock(texture, 42, 10, 7, 5, companion.AccentColor);
+                SetPixelBlock(texture, 17, 8, 3, 3, accentLight);
+                SetPixelBlock(texture, 44, 8, 3, 3, accentLight);
             }
+
+            if (companion.Rarity == RelicRarity.Rare)
+            {
+                SetPixelBlock(texture, 45, 18, 6, 5, companion.AccentColor);
+                SetPixelBlock(texture, 47, 16, 3, 3, accentLight);
+            }
+
+            // Crisp dark outline last for a cleaner pixel-doll silhouette.
+            SetPixelLine(texture, 20, 18, 14, 31, outline);
+            SetPixelLine(texture, 44, 18, 50, 31, outline);
+            SetPixelLine(texture, 18, 55, 13, 78, outline);
+            SetPixelLine(texture, 46, 55, 51, 78, outline);
 
             texture.Apply();
             return texture;
@@ -375,11 +452,65 @@ namespace IdleRPG
             {
                 for (int py = y; py < y + height; py += 1)
                 {
-                    if (px >= 0 && px < texture.width && py >= 0 && py < texture.height)
+                    SetPixel(texture, px, py, color);
+                }
+            }
+        }
+
+        private void SetPixelEllipse(Texture2D texture, int centerX, int centerY, int radiusX, int radiusY, Color color)
+        {
+            for (int px = centerX - radiusX; px <= centerX + radiusX; px += 1)
+            {
+                for (int py = centerY - radiusY; py <= centerY + radiusY; py += 1)
+                {
+                    float normalizedX = (px - centerX) / Mathf.Max(1f, radiusX);
+                    float normalizedY = (py - centerY) / Mathf.Max(1f, radiusY);
+                    if (normalizedX * normalizedX + normalizedY * normalizedY <= 1f)
                     {
-                        texture.SetPixel(px, texture.height - 1 - py, color);
+                        SetPixel(texture, px, py, color);
                     }
                 }
+            }
+        }
+
+        private void SetPixelLine(Texture2D texture, int startX, int startY, int endX, int endY, Color color)
+        {
+            int dx = Mathf.Abs(endX - startX);
+            int dy = -Mathf.Abs(endY - startY);
+            int stepX = startX < endX ? 1 : -1;
+            int stepY = startY < endY ? 1 : -1;
+            int error = dx + dy;
+            int x = startX;
+            int y = startY;
+
+            while (true)
+            {
+                SetPixel(texture, x, y, color);
+                if (x == endX && y == endY)
+                {
+                    break;
+                }
+
+                int doubledError = 2 * error;
+                if (doubledError >= dy)
+                {
+                    error += dy;
+                    x += stepX;
+                }
+
+                if (doubledError <= dx)
+                {
+                    error += dx;
+                    y += stepY;
+                }
+            }
+        }
+
+        private void SetPixel(Texture2D texture, int x, int y, Color color)
+        {
+            if (x >= 0 && x < texture.width && y >= 0 && y < texture.height)
+            {
+                texture.SetPixel(x, texture.height - 1 - y, color);
             }
         }
 
@@ -1123,6 +1254,15 @@ namespace IdleRPG
                 PullCompanion();
             }
 
+            GUI.enabled = state.hero.gold >= IdleRpgBalance.CompanionGachaGoldCost * 10;
+            if (GUILayout.Button("10회 소환 - " + FormatNumber(IdleRpgBalance.CompanionGachaGoldCost * 10) + "G", buttonStyle, GUILayout.Height(46f)))
+            {
+                for (int index = 0; index < 10; index += 1)
+                {
+                    PullCompanion();
+                }
+            }
+
             GUI.enabled = true;
             GUILayout.EndArea();
 
@@ -1130,12 +1270,14 @@ namespace IdleRPG
             GUILayout.Label("동료 도감", titleStyle);
             GUILayout.Label("중복 소환 시 동료 레벨이 올라가고 영구 능력치 보너스가 증가합니다.", smallStyle);
             GUILayout.Space(10f);
+            companionGachaScroll = GUILayout.BeginScrollView(companionGachaScroll);
 
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
                 DrawCompanionCard(IdleRpgBalance.Companions[index]);
             }
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
@@ -1183,12 +1325,14 @@ namespace IdleRPG
             GUILayout.Label("보유 동료", titleStyle);
             GUILayout.Label("획득한 동료를 원하는 슬롯에 배치할 수 있습니다.", smallStyle);
             GUILayout.Space(8f);
+            companionFormationScroll = GUILayout.BeginScrollView(companionFormationScroll);
 
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
                 DrawFormationCompanionCard(IdleRpgBalance.Companions[index]);
             }
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 

@@ -182,6 +182,14 @@ namespace IdleRPG
         public int aria;
         public int serin;
         public int yuri;
+        public int mio;
+        public int nari;
+        public int rin;
+        public int chae;
+        public int haneul;
+        public int rena;
+        public int sia;
+        public int iren;
 
         public int Get(int companionId)
         {
@@ -190,11 +198,27 @@ namespace IdleRPG
                 case 0:
                     return luna;
                 case 1:
-                    return aria;
+                    return mio;
                 case 2:
-                    return serin;
+                    return nari;
                 case 3:
+                    return aria;
+                case 4:
+                    return rin;
+                case 5:
+                    return chae;
+                case 6:
+                    return serin;
+                case 7:
+                    return haneul;
+                case 8:
+                    return rena;
+                case 9:
                     return yuri;
+                case 10:
+                    return sia;
+                case 11:
+                    return iren;
                 default:
                     return 0;
             }
@@ -208,13 +232,37 @@ namespace IdleRPG
                     luna += 1;
                     break;
                 case 1:
-                    aria += 1;
+                    mio += 1;
                     break;
                 case 2:
-                    serin += 1;
+                    nari += 1;
                     break;
                 case 3:
+                    aria += 1;
+                    break;
+                case 4:
+                    rin += 1;
+                    break;
+                case 5:
+                    chae += 1;
+                    break;
+                case 6:
+                    serin += 1;
+                    break;
+                case 7:
+                    haneul += 1;
+                    break;
+                case 8:
+                    rena += 1;
+                    break;
+                case 9:
                     yuri += 1;
+                    break;
+                case 10:
+                    sia += 1;
+                    break;
+                case 11:
+                    iren += 1;
                     break;
             }
         }
