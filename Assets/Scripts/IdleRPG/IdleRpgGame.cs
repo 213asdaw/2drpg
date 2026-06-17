@@ -30,6 +30,7 @@ namespace IdleRPG
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
         private Vector2 companionFormationScroll;
+        private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -831,6 +832,11 @@ namespace IdleRPG
             state.companionGacha.lastCompanionId = companion.Id;
             state.companionGacha.lastRarity = IdleRpgBalance.GetRarityName(companion.Rarity);
             state.companionGacha.pity = companion.Rarity == RelicRarity.Common ? state.companionGacha.pity + 1 : 0;
+            recentCompanionPullIds.Insert(0, companion.Id);
+            while (recentCompanionPullIds.Count > 10)
+            {
+                recentCompanionPullIds.RemoveAt(recentCompanionPullIds.Count - 1);
+            }
 
             int newLevel = state.companionGacha.companions.Get(companion.Id);
             if (companion.MaxHpPerLevel > 0)
@@ -1248,6 +1254,7 @@ namespace IdleRPG
             GUILayout.Space(10f);
             GUILayout.Label("보유 골드: " + FormatNumber(state.hero.gold) + "G", labelStyle);
             GUILayout.Label("희귀 이상 보정: " + state.companionGacha.pity + " / " + IdleRpgBalance.CompanionRarePityPulls, smallStyle);
+            DrawRecentCompanionPulls();
             GUI.enabled = state.hero.gold >= IdleRpgBalance.CompanionGachaGoldCost;
             if (GUILayout.Button("1회 소환 - " + FormatNumber(IdleRpgBalance.CompanionGachaGoldCost) + "G", buttonStyle, GUILayout.Height(52f)))
             {
@@ -1487,13 +1494,37 @@ namespace IdleRPG
 
         private CompanionDefinition GetFeaturedCompanion()
         {
-            int companionId = GetDisplayedCompanionId();
-            if (companionId >= 0)
+            if (state.companionGacha.lastCompanionId >= 0 && state.companionGacha.companions.Get(state.companionGacha.lastCompanionId) > 0)
             {
-                return IdleRpgBalance.GetCompanion(companionId);
+                return IdleRpgBalance.GetCompanion(state.companionGacha.lastCompanionId);
+            }
+
+            int displayedCompanionId = GetDisplayedCompanionId();
+            if (displayedCompanionId >= 0)
+            {
+                return IdleRpgBalance.GetCompanion(displayedCompanionId);
             }
 
             return IdleRpgBalance.Companions[IdleRpgBalance.Companions.Length - 1];
+        }
+
+        private void DrawRecentCompanionPulls()
+        {
+            if (recentCompanionPullIds.Count <= 0)
+            {
+                GUILayout.Label("아직 이번 화면에서 소환한 결과가 없습니다.", smallStyle);
+                return;
+            }
+
+            GUILayout.Label("방금 소환 결과", labelStyle);
+            for (int index = 0; index < recentCompanionPullIds.Count; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.GetCompanion(recentCompanionPullIds[index]);
+                Color previous = GUI.color;
+                GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
+                GUILayout.Label((index + 1) + ". [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, smallStyle);
+                GUI.color = previous;
+            }
         }
 
         private void DrawCompanionPortrait(CompanionDefinition companion, float size)
