@@ -119,7 +119,8 @@ namespace IdleRPG
             Rect rightColumn = new Rect(Screen.width - 362f, 132f, 350f, Screen.height - 150f);
             Rect upgradePanel = new Rect(rightColumn.x, rightColumn.y, rightColumn.width, rightColumn.height * 0.50f);
             Rect gachaPanel = new Rect(rightColumn.x, upgradePanel.yMax + 12f, rightColumn.width, rightColumn.height - upgradePanel.height - 12f);
-            Rect bottomPanel = new Rect(360f, Screen.height - 150f, Screen.width - 720f, 132f);
+            Rect bottomPanel = new Rect(360f, Screen.height - 224f, Screen.width - 720f, 112f);
+            Rect partyPanel = new Rect(24f, Screen.height - 102f, Screen.width - 48f, 86f);
 
             DrawPanel(header, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(header);
@@ -133,7 +134,7 @@ namespace IdleRPG
             DrawUpgradePanel(upgradePanel);
             DrawGachaPanel(gachaPanel);
             DrawBattlePanel(bottomPanel);
-            DrawPartyHud(new Rect(24f, Screen.height - 94f, Screen.width - 48f, 78f));
+            DrawPartyHud(partyPanel);
             DrawFloatingTextsGui();
 
             if (companionGachaScreenOpen)
@@ -1188,12 +1189,15 @@ namespace IdleRPG
             GUILayout.Space(6f);
             DrawStat("스테이지", state.stage.ToString());
             DrawStat("레벨", state.hero.level.ToString());
+            DrawStat("경험치", FormatNumber(state.hero.xp) + " / " + FormatNumber(state.hero.xpToNext));
             DrawStat("골드", FormatNumber(state.hero.gold));
             DrawStat("공격력", FormatNumber(GetEffectiveAttack()));
             DrawStat("최대 HP", FormatNumber(GetEffectiveMaxHp()));
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("처치 수", FormatNumber(state.stats.kills));
+            GUILayout.Space(6f);
+            GUILayout.Label("레벨업 효과: 공격 +2, 최대 HP +12, HP 전체 회복", smallStyle);
             GUILayout.Space(10f);
             if (GUILayout.Button("직접 공격", buttonStyle, GUILayout.Height(44f)))
             {
@@ -1683,11 +1687,11 @@ namespace IdleRPG
 
             DrawPanel(rect, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(rect);
-            GUILayout.Space(12f);
+            GUILayout.Space(8f);
             GUILayout.Label("전투 상황", titleStyle);
             DrawProgressBar("용사 HP", state.hero.hp, GetEffectiveMaxHp(), new Color(0.24f, 0.85f, 0.54f));
             DrawProgressBar(state.enemy.isBoss ? state.enemy.name + " ★" : state.enemy.name, state.enemy.hp, state.enemy.maxHp, new Color(1f, 0.36f, 0.48f));
-            DrawProgressBar("경험치", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
+            DrawProgressBar("경험치 - 레벨업 시 공격 +2 / 최대 HP +12", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
             GUILayout.EndArea();
 
             Rect logRect = new Rect(rect.x, rect.y - 188f, rect.width, 176f);
