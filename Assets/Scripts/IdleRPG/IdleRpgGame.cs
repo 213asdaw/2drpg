@@ -36,6 +36,7 @@ namespace IdleRPG
 
         private void Awake()
         {
+            ConfigureLandscapeDisplay();
             state = LoadState();
             BuildScene();
         }
@@ -65,6 +66,19 @@ namespace IdleRPG
         private void OnApplicationQuit()
         {
             SaveState();
+        }
+
+        private void ConfigureLandscapeDisplay()
+        {
+            Screen.orientation = ScreenOrientation.LandscapeLeft;
+            Screen.autorotateToPortrait = false;
+            Screen.autorotateToPortraitUpsideDown = false;
+            Screen.autorotateToLandscapeLeft = true;
+            Screen.autorotateToLandscapeRight = true;
+
+#if UNITY_STANDALONE || UNITY_EDITOR
+            Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+#endif
         }
 
         private void OnGUI()
