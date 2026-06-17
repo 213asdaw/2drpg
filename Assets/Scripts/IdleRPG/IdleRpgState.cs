@@ -172,6 +172,7 @@ namespace IdleRPG
         public int lastCompanionId = -1;
         public string lastRarity = string.Empty;
         public CompanionCollection companions = new CompanionCollection();
+        public CompanionFormation formation = new CompanionFormation();
     }
 
     [Serializable]
@@ -216,6 +217,55 @@ namespace IdleRPG
                     yuri += 1;
                     break;
             }
+        }
+    }
+
+    [Serializable]
+    public sealed class CompanionFormation
+    {
+        public int slot0 = -1;
+        public int slot1 = -1;
+        public int slot2 = -1;
+
+        public int Get(int slotIndex)
+        {
+            switch (slotIndex)
+            {
+                case 0:
+                    return slot0;
+                case 1:
+                    return slot1;
+                case 2:
+                    return slot2;
+                default:
+                    return -1;
+            }
+        }
+
+        public void Set(int slotIndex, int companionId)
+        {
+            switch (slotIndex)
+            {
+                case 0:
+                    slot0 = companionId;
+                    break;
+                case 1:
+                    slot1 = companionId;
+                    break;
+                case 2:
+                    slot2 = companionId;
+                    break;
+            }
+        }
+
+        public bool Contains(int companionId)
+        {
+            return slot0 == companionId || slot1 == companionId || slot2 == companionId;
+        }
+
+        public bool IsEmpty()
+        {
+            return slot0 < 0 && slot1 < 0 && slot2 < 0;
         }
     }
 }
