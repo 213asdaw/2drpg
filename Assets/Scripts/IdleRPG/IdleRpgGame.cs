@@ -117,6 +117,7 @@ namespace IdleRPG
             DrawUpgradePanel(upgradePanel);
             DrawGachaPanel(gachaPanel);
             DrawBattlePanel(bottomPanel);
+            DrawPartyHud(new Rect(24f, Screen.height - 94f, Screen.width - 48f, 78f));
             DrawFloatingTextsGui();
 
             if (companionGachaScreenOpen)
@@ -828,6 +829,7 @@ namespace IdleRPG
             CompanionDefinition companion = IdleRpgBalance.RollCompanion(UnityEngine.Random.value, forceRareOrBetter);
             state.companionGacha.companions.Increment(companion.Id);
             EquipCompanionAutomatically(state, companion.Id);
+            ForceCompanionVisualRefresh();
             state.companionGacha.totalPulls += 1;
             state.companionGacha.lastCompanionId = companion.Id;
             state.companionGacha.lastRarity = IdleRpgBalance.GetRarityName(companion.Rarity);
@@ -1022,6 +1024,31 @@ namespace IdleRPG
             }
         }
 
+        private bool EquipCompanionToFirstAvailableSlot(int companionId)
+        {
+            if (state.companionGacha.companions.Get(companionId) <= 0)
+            {
+                return false;
+            }
+
+            if (state.companionGacha.formation.Contains(companionId))
+            {
+                return true;
+            }
+
+            int targetSlot = 0;
+            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            {
+                if (state.companionGacha.formation.Get(slotIndex) < 0)
+                {
+                    targetSlot = slotIndex;
+                    break;
+                }
+            }
+
+            return EquipCompanion(companionId, targetSlot);
+        }
+
         private bool EquipCompanion(int companionId, int slotIndex)
         {
             if (state.companionGacha.companions.Get(companionId) <= 0)
@@ -1038,6 +1065,8 @@ namespace IdleRPG
             }
 
             state.companionGacha.formation.Set(slotIndex, companionId);
+            ForceCompanionVisualRefresh();
+            AddLog(IdleRpgBalance.GetCompanion(companionId).Name + " 편성 완료!");
             SaveState();
             return true;
         }
@@ -1045,7 +1074,21 @@ namespace IdleRPG
         private void UnequipCompanion(int slotIndex)
         {
             state.companionGacha.formation.Set(slotIndex, -1);
+            ForceCompanionVisualRefresh();
             SaveState();
+        }
+
+        private void ForceCompanionVisualRefresh()
+        {
+            if (displayedCompanionIds == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < displayedCompanionIds.Length; index += 1)
+            {
+                displayedCompanionIds[index] = -999;
+            }
         }
 
         private void SaveState()
@@ -1382,25 +1425,37 @@ namespace IdleRPG
         private void DrawFormationCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 92f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 124f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.06f, 0.07f, 0.10f, 0.74f));
 
-            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 58f, 76f);
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 78f, 104f);
             GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
 
-            Rect textRect = new Rect(cardRect.x + 78f, cardRect.y + 8f, cardRect.width - 330f, cardRect.height - 16f);
+            Rect textRect = new Rect(cardRect.x + 100f, cardRect.y + 8f, cardRect.width - 380f, cardRect.height - 16f);
             GUILayout.BeginArea(textRect);
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
             GUILayout.Label("Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
             GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
+            GUILayout.Space(4f);
             GUILayout.Label("편성 보너스: 공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
+            if (state.companionGacha.formation.Contains(companion.Id))
+            {
+                GUILayout.Label("현재 편성 중", smallStyle);
+            }
+
             GUILayout.EndArea();
 
-            Rect buttonsRect = new Rect(cardRect.xMax - 240f, cardRect.y + 12f, 226f, cardRect.height - 24f);
+            Rect buttonsRect = new Rect(cardRect.xMax - 260f, cardRect.y + 12f, 246f, cardRect.height - 24f);
             GUILayout.BeginArea(buttonsRect);
             GUI.enabled = level > 0;
+            if (GUILayout.Button(state.companionGacha.formation.Contains(companion.Id) ? "편성됨" : "편성", buttonStyle, GUILayout.Height(38f)))
+            {
+                EquipCompanionToFirstAvailableSlot(companion.Id);
+            }
+
+            GUILayout.Space(4f);
             GUILayout.BeginHorizontal();
             for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
             {
@@ -1413,7 +1468,7 @@ namespace IdleRPG
 
             GUILayout.EndHorizontal();
             GUI.enabled = true;
-            GUILayout.Label(level > 0 ? "원하는 슬롯 번호를 누르세요." : "아직 미획득", smallStyle);
+            GUILayout.Label(level > 0 ? "편성 또는 슬롯 번호를 누르세요." : "아직 미획득", smallStyle);
             GUILayout.EndArea();
         }
 
@@ -1541,19 +1596,20 @@ namespace IdleRPG
         private void DrawCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 86f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 112f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.08f, 0.09f, 0.15f, 0.80f));
 
-            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 52f, 70f);
+            Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 70f, 96f);
             GUI.DrawTexture(portrait, companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
 
-            Rect textRect = new Rect(cardRect.x + 74f, cardRect.y + 8f, cardRect.width - 86f, cardRect.height - 16f);
+            Rect textRect = new Rect(cardRect.x + 92f, cardRect.y + 8f, cardRect.width - 104f, cardRect.height - 16f);
             GUILayout.BeginArea(textRect);
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
             GUILayout.Label("Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
             GUILayout.Label(companion.Title + " - " + companion.Description, smallStyle);
+            GUILayout.Space(4f);
             GUILayout.Label("공격 +" + companion.AttackPerLevel + " / HP +" + companion.MaxHpPerLevel + " / 회복 +" + companion.RegenPerLevel.ToString("0.0") + " / 치명 +" + Mathf.RoundToInt(companion.CritChancePerLevel * 100f) + "%", smallStyle);
             GUILayout.EndArea();
         }
@@ -1594,6 +1650,40 @@ namespace IdleRPG
             }
 
             GUILayout.EndArea();
+        }
+
+        private void DrawPartyHud(Rect rect)
+        {
+            DrawPanel(rect, new Color(0.02f, 0.03f, 0.07f, 0.86f));
+
+            Rect heroCard = new Rect(rect.x + 10f, rect.y + 8f, 132f, rect.height - 16f);
+            DrawPanel(heroCard, new Color(0.12f, 0.15f, 0.24f, 0.96f));
+            GUI.Label(new Rect(heroCard.x + 10f, heroCard.y + 8f, heroCard.width - 20f, 20f), "용사 Lv." + state.hero.level, labelStyle);
+            GUI.Label(new Rect(heroCard.x + 10f, heroCard.y + 32f, heroCard.width - 20f, 20f), "HP " + Mathf.FloorToInt(state.hero.hp) + "/" + GetEffectiveMaxHp(), smallStyle);
+
+            float cardWidth = Mathf.Min(190f, (rect.width - 170f) / FormationSlotCount - 10f);
+            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            {
+                Rect card = new Rect(rect.x + 156f + slotIndex * (cardWidth + 10f), rect.y + 8f, cardWidth, rect.height - 16f);
+                int companionId = GetFormationCompanionId(slotIndex);
+                DrawPanel(card, companionId >= 0 ? new Color(0.10f, 0.12f, 0.22f, 0.96f) : new Color(0.06f, 0.07f, 0.11f, 0.86f));
+
+                if (companionId >= 0)
+                {
+                    CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
+                    GUI.DrawTexture(new Rect(card.x + 6f, card.y + 5f, 44f, card.height - 10f), companionPortraitTextures[companion.Id], ScaleMode.ScaleToFit, true);
+                    Color previous = GUI.color;
+                    GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
+                    GUI.Label(new Rect(card.x + 56f, card.y + 8f, card.width - 62f, 20f), companion.Name, labelStyle);
+                    GUI.color = previous;
+                    GUI.Label(new Rect(card.x + 56f, card.y + 32f, card.width - 62f, 20f), "Lv." + GetCompanionLevel(state, companion.Id) + " " + companion.Title, smallStyle);
+                }
+                else
+                {
+                    GUI.Label(new Rect(card.x + 10f, card.y + 18f, card.width - 20f, 22f), "빈 동료 슬롯", labelStyle);
+                    GUI.Label(new Rect(card.x + 10f, card.y + 42f, card.width - 20f, 20f), "동료 편성에서 배치", smallStyle);
+                }
+            }
         }
 
         private void DrawStat(string label, string value)
@@ -1797,16 +1887,19 @@ namespace IdleRPG
             {
                 fontSize = 22,
                 fontStyle = FontStyle.Bold,
+                wordWrap = true,
                 normal = { textColor = Color.white }
             };
             labelStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 16,
+                wordWrap = true,
                 normal = { textColor = new Color(0.86f, 0.90f, 0.98f) }
             };
             smallStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
+                wordWrap = true,
                 normal = { textColor = new Color(0.72f, 0.78f, 0.88f) }
             };
             buttonStyle = new GUIStyle(GUI.skin.button)
