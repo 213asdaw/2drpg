@@ -201,7 +201,7 @@ namespace IdleRPG
                 new Color(0.03f, 0.04f, 0.12f)
             }, 8, 128));
             sky.transform.position = new Vector3(0f, 0.35f, 5f);
-            sky.transform.localScale = new Vector3(11f, 10.5f, 1f);
+            sky.transform.localScale = new Vector3(18f, 10.5f, 1f);
             SetSortingOrder(sky, -100);
 
             Color[] auroraColors =
@@ -214,7 +214,7 @@ namespace IdleRPG
             {
                 GameObject aurora = CreateSpriteObject("Aurora", CreateAuroraSprite(auroraColors[index], 96, 24));
                 aurora.transform.position = new Vector3(-1.4f + index * 1.15f, 2.45f + index * 0.5f, 0f);
-                aurora.transform.localScale = new Vector3(7.6f - index * 0.6f, 2.3f, 1f);
+                aurora.transform.localScale = new Vector3(0.8f - index * 0.06f, 0.78f, 1f);
                 aurora.transform.localRotation = Quaternion.Euler(0f, 0f, -12f + index * 8f);
                 SetSortingOrder(aurora, -96);
                 AddAnimator(aurora, BackdropAnimator.Motion.Pulse, 0.35f + index * 0.12f, 0.16f, index * 1.3f);
@@ -251,10 +251,30 @@ namespace IdleRPG
                 AddAnimator(star, BackdropAnimator.Motion.Twinkle, 1.2f + (index % 7) * 0.35f, 0.7f, index * 0.6f);
             }
 
-            GameObject farHills = CreateSpriteObject("Distant Violet Hills", CreateVerticalGradientSprite(new Color(0.08f, 0.13f, 0.25f), new Color(0.15f, 0.22f, 0.37f), 8, 12));
-            farHills.transform.position = new Vector3(0f, -1.35f, 0f);
-            farHills.transform.localScale = new Vector3(11f, 2f, 1f);
-            SetSortingOrder(farHills, -80);
+            GameObject horizonGlow = CreateSpriteObject("Horizon Glow", CreateGlowSprite(new Color(0.30f, 0.52f, 0.62f, 0.45f), 64));
+            horizonGlow.transform.position = new Vector3(0f, -1.4f, 0f);
+            horizonGlow.transform.localScale = new Vector3(15f, 2.2f, 1f);
+            SetSortingOrder(horizonGlow, -84);
+
+            Color farHillColor = new Color(0.10f, 0.14f, 0.27f);
+            float[] farHillX = { -4.2f, -0.5f, 3.4f, 6.4f };
+            for (int index = 0; index < farHillX.Length; index += 1)
+            {
+                GameObject hill = CreateSpriteObject("Distant Hill", CreateCircleSprite(farHillColor, 64));
+                hill.transform.position = new Vector3(farHillX[index], -2.35f, 0f);
+                hill.transform.localScale = new Vector3(7.5f - (index % 2) * 1.6f, 2.6f, 1f);
+                SetSortingOrder(hill, -82);
+            }
+
+            Color nearHillColor = new Color(0.07f, 0.10f, 0.20f);
+            float[] nearHillX = { -5.6f, -2.4f, 2.0f, 5.2f };
+            for (int index = 0; index < nearHillX.Length; index += 1)
+            {
+                GameObject hill = CreateSpriteObject("Near Hill", CreateCircleSprite(nearHillColor, 64));
+                hill.transform.position = new Vector3(nearHillX[index], -2.85f, 0f);
+                hill.transform.localScale = new Vector3(6.5f - (index % 2) * 1.2f, 3.0f, 1f);
+                SetSortingOrder(hill, -80);
+            }
 
             for (int index = 0; index < 16; index += 1)
             {
@@ -263,14 +283,14 @@ namespace IdleRPG
                 AddTree(x, -1.15f + Mathf.Sin(index) * 0.08f, scale, -70 + index % 2);
             }
 
-            GameObject ground = CreateSpriteObject("Forest Ground", CreateVerticalGradientSprite(new Color(0.05f, 0.15f, 0.11f), new Color(0.15f, 0.31f, 0.19f), 8, 32));
-            ground.transform.position = new Vector3(0f, -2.85f, 0f);
-            ground.transform.localScale = new Vector3(11f, 2.1f, 1f);
+            GameObject ground = CreateSpriteObject("Forest Ground", CreateVerticalGradientSprite(new Color(0.04f, 0.12f, 0.09f), new Color(0.13f, 0.28f, 0.18f), 8, 32));
+            ground.transform.position = new Vector3(0f, -3.5f, 0f);
+            ground.transform.localScale = new Vector3(18f, 1.0f, 1f);
             SetSortingOrder(ground, -48);
 
             GameObject mist = CreateSpriteObject("Ground Mist", CreateGlowSprite(new Color(0.6f, 0.75f, 0.86f, 0.16f), 64));
-            mist.transform.position = new Vector3(0f, -2.0f, 0f);
-            mist.transform.localScale = new Vector3(13f, 1.7f, 1f);
+            mist.transform.position = new Vector3(0f, -1.55f, 0f);
+            mist.transform.localScale = new Vector3(15f, 1.4f, 1f);
             SetSortingOrder(mist, -46);
             AddAnimator(mist, BackdropAnimator.Motion.Pulse, 0.3f, 0.1f, 0f);
 
