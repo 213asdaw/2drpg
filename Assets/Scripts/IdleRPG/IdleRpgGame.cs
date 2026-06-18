@@ -10,6 +10,7 @@ namespace IdleRPG
         private const int MaxLogEntries = 8;
         private const int MaxOfflineSeconds = 2 * 60 * 60;
         private const int FormationSlotCount = 3;
+        private const float BackdropPixelsPerUnit = 100f;
         private static readonly string[] CompanionSpriteResourceNames =
         {
             "Companions/companion_00_luna",
@@ -172,9 +173,9 @@ namespace IdleRPG
             camera.orthographic = true;
             camera.orthographicSize = 5f;
             camera.transform.position = new Vector3(0f, 0f, -10f);
-            camera.backgroundColor = new Color(0.06f, 0.09f, 0.17f);
+            camera.backgroundColor = new Color(0.08f, 0.10f, 0.22f);
 
-            CreateBackdrop();
+            CreateBackdrop(camera);
             CreateCompanionArt();
             heroRoot = CreateHero();
             companionRoots = new Transform[FormationSlotCount];
@@ -191,71 +192,64 @@ namespace IdleRPG
             UpdateSceneObjects();
         }
 
-        private void CreateBackdrop()
+        private void CreateBackdrop(Camera camera)
         {
-            GameObject sky = CreateSpriteObject("Moonlit Gradient Sky", CreateVerticalGradientSprite(new Color(0.05f, 0.07f, 0.16f), new Color(0.17f, 0.24f, 0.42f), 8, 96));
-            sky.transform.position = new Vector3(0f, 0.35f, 5f);
-            sky.transform.localScale = new Vector3(10.5f, 10f, 1f);
-            SetSortingOrder(sky, -100);
+            GameObject root = new GameObject("Battle Backdrop");
+            root.transform.SetParent(transform);
 
-            GameObject moonGlow = CreateSpriteObject("Moon Glow", CreateCircleSprite(new Color(0.86f, 0.94f, 1f, 0.32f), 128));
-            moonGlow.transform.position = new Vector3(3.25f, 2.85f, 0f);
-            moonGlow.transform.localScale = Vector3.one * 1.7f;
-            SetSortingOrder(moonGlow, -92);
-
-            GameObject moon = CreateSpriteObject("Moon", CreateCircleSprite(new Color(0.92f, 0.96f, 1f), 96));
-            moon.transform.position = new Vector3(3.25f, 2.85f, 0f);
-            moon.transform.localScale = Vector3.one * 0.72f;
-            SetSortingOrder(moon, -91);
-
-            AddCloud(-2.8f, 2.65f, 0.72f, -90);
-            AddCloud(1.25f, 2.25f, 0.54f, -90);
-            AddCloud(4.1f, 1.95f, 0.48f, -90);
-
-            for (int index = 0; index < 34; index += 1)
+            Transform sky = CreateBackdropLayer(root.transform, "Sky", "Background/bg_sky", -100);
+            if (sky != null)
             {
-                GameObject star = CreateSpriteObject("Star", CreateCircleSprite(new Color(0.9f, 0.96f, 1f, 0.8f), 12));
-                float x = -4.6f + (index * 0.91f) % 9.2f;
-                float y = 1.35f + Mathf.Abs(Mathf.Sin(index * 1.37f)) * 2.35f;
-                star.transform.position = new Vector3(x, y, 0f);
-                star.transform.localScale = Vector3.one * (0.035f + (index % 4) * 0.008f);
-                SetSortingOrder(star, -89);
+                BackgroundFill fill = sky.gameObject.AddComponent<BackgroundFill>();
+                fill.fitMode = BackgroundFill.FitMode.Cover;
+                fill.targetCamera = camera;
             }
 
-            GameObject farHills = CreateSpriteObject("Distant Violet Hills", CreateVerticalGradientSprite(new Color(0.08f, 0.13f, 0.25f), new Color(0.15f, 0.22f, 0.37f), 8, 12));
-            farHills.transform.position = new Vector3(0f, -1.35f, 0f);
-            farHills.transform.localScale = new Vector3(10.2f, 2f, 1f);
-            SetSortingOrder(farHills, -80);
-
-            for (int index = 0; index < 16; index += 1)
+            Transform mountains = CreateBackdropLayer(root.transform, "Mountains", "Background/bg_mountains", -80);
+            if (mountains != null)
             {
-                float x = -4.7f + index * 0.64f;
-                float scale = 0.75f + (index % 5) * 0.12f;
-                AddTree(x, -1.15f + Mathf.Sin(index) * 0.08f, scale, -70 + index % 2);
+                mountains.localScale = new Vector3(1.35f, 1.35f, 1f);
+                ParallaxLayer parallax = mountains.gameObject.AddComponent<ParallaxLayer>();
+                parallax.targetCamera = camera;
+                parallax.parallaxFactor = 0.6f;
             }
 
-            GameObject ground = CreateSpriteObject("Forest Ground", CreateVerticalGradientSprite(new Color(0.05f, 0.15f, 0.11f), new Color(0.15f, 0.31f, 0.19f), 8, 32));
-            ground.transform.position = new Vector3(0f, -2.85f, 0f);
-            ground.transform.localScale = new Vector3(10.5f, 2.1f, 1f);
-            SetSortingOrder(ground, -48);
-
-            for (int index = 0; index < 28; index += 1)
+            Transform forest = CreateBackdropLayer(root.transform, "Forest", "Background/bg_forest", -60);
+            if (forest != null)
             {
-                GameObject grass = CreateSpriteObject("Moon Grass", CreateSolidSprite(new Color(0.24f, 0.50f, 0.30f), 2, 10));
-                float x = -4.8f + index * 0.36f;
-                grass.transform.position = new Vector3(x, -2.02f + Mathf.Sin(index * 1.8f) * 0.05f, 0f);
-                grass.transform.localScale = new Vector3(0.08f, 0.14f + (index % 4) * 0.03f, 1f);
-                grass.transform.localRotation = Quaternion.Euler(0f, 0f, -12f + (index % 5) * 6f);
-                SetSortingOrder(grass, -45);
+                forest.localScale = new Vector3(1.35f, 1.35f, 1f);
+                ParallaxLayer parallax = forest.gameObject.AddComponent<ParallaxLayer>();
+                parallax.targetCamera = camera;
+                parallax.parallaxFactor = 0.2f;
             }
 
-            for (int index = 0; index < 10; index += 1)
+            if (sky == null && mountains == null && forest == null)
             {
-                GameObject firefly = CreateSpriteObject("Firefly", CreateCircleSprite(new Color(1f, 0.92f, 0.42f, 0.78f), 18));
-                firefly.transform.position = new Vector3(-4.2f + index * 0.92f, -0.85f + Mathf.Sin(index * 0.9f) * 0.42f, 0f);
-                firefly.transform.localScale = Vector3.one * 0.055f;
-                SetSortingOrder(firefly, -40);
+                Debug.LogWarning("[IdleRpgGame] 배경 이미지를 찾지 못해 단색 배경을 사용합니다.");
             }
+        }
+
+        private Transform CreateBackdropLayer(Transform parent, string name, string resourcePath, int sortingOrder)
+        {
+            Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+            if (texture == null)
+            {
+                Debug.LogWarning("[IdleRpgGame] 배경 텍스처를 찾을 수 없습니다: Resources/" + resourcePath);
+                return null;
+            }
+
+            GameObject layer = new GameObject(name);
+            layer.transform.SetParent(parent, false);
+            layer.transform.position = new Vector3(0f, 0f, 5f);
+
+            SpriteRenderer renderer = layer.AddComponent<SpriteRenderer>();
+            renderer.sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                BackdropPixelsPerUnit);
+            renderer.sortingOrder = sortingOrder;
+            return layer.transform;
         }
 
         private Transform CreateHero()
@@ -565,35 +559,6 @@ namespace IdleRPG
             SetSortingOrder(part, 0);
         }
 
-        private void AddCloud(float x, float y, float scale, int sortingOrder)
-        {
-            Color cloudColor = new Color(0.70f, 0.81f, 0.98f, 0.34f);
-            for (int index = 0; index < 4; index += 1)
-            {
-                GameObject puff = CreateSpriteObject("Soft Cloud", CreateCircleSprite(cloudColor, 48));
-                puff.transform.position = new Vector3(x + (index - 1.5f) * 0.34f * scale, y + Mathf.Sin(index) * 0.08f * scale, 0f);
-                puff.transform.localScale = Vector3.one * scale * (0.52f + index * 0.06f);
-                SetSortingOrder(puff, sortingOrder);
-            }
-        }
-
-        private void AddTree(float x, float y, float scale, int sortingOrder)
-        {
-            GameObject trunk = CreateSpriteObject("Tree Trunk", CreateSolidSprite(new Color(0.09f, 0.07f, 0.07f), 4, 18));
-            trunk.transform.position = new Vector3(x, y - 0.18f * scale, 0f);
-            trunk.transform.localScale = new Vector3(0.16f * scale, 0.64f * scale, 1f);
-            SetSortingOrder(trunk, sortingOrder);
-
-            Color leafColor = new Color(0.06f, 0.18f + scale * 0.04f, 0.16f);
-            for (int tier = 0; tier < 3; tier += 1)
-            {
-                GameObject leaves = CreateSpriteObject("Tree Leaves", CreateCircleSprite(leafColor, 48));
-                leaves.transform.position = new Vector3(x, y + (0.1f + tier * 0.28f) * scale, 0f);
-                leaves.transform.localScale = new Vector3((0.88f - tier * 0.12f) * scale, (0.58f - tier * 0.05f) * scale, 1f);
-                SetSortingOrder(leaves, sortingOrder + 1);
-            }
-        }
-
         private GameObject CreateSpriteObject(string name, Sprite sprite)
         {
             GameObject spriteObject = new GameObject(name);
@@ -619,25 +584,6 @@ namespace IdleRPG
             for (int index = 0; index < pixels.Length; index += 1)
             {
                 pixels[index] = color;
-            }
-
-            texture.SetPixels(pixels);
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 8f);
-        }
-
-        private Sprite CreateVerticalGradientSprite(Color bottom, Color top, int width, int height)
-        {
-            Texture2D texture = new Texture2D(width, height);
-            texture.filterMode = FilterMode.Bilinear;
-            Color[] pixels = new Color[width * height];
-            for (int y = 0; y < height; y += 1)
-            {
-                Color color = Color.Lerp(bottom, top, y / Mathf.Max(1f, height - 1f));
-                for (int x = 0; x < width; x += 1)
-                {
-                    pixels[y * width + x] = color;
-                }
             }
 
             texture.SetPixels(pixels);
