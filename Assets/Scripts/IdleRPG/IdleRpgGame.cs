@@ -38,6 +38,7 @@ namespace IdleRPG
         private Transform[] companionRoots;
         private Transform enemyRoot;
         private GameObject battleBackdropRoot;
+        private GameObject lobbyBackdropRoot;
         private SpriteRenderer[] companionRenderers;
         private SpriteRenderer enemyRenderer;
         private GUIStyle titleStyle;
@@ -46,6 +47,7 @@ namespace IdleRPG
         private GUIStyle buttonStyle;
         private float saveTimer;
         private bool companionFormationScreenOpen;
+        private bool companionGachaScreenOpen;
         private bool stageProgressScreenOpen;
         private bool companionDamageDrawerOpen;
         private GameScreenMode currentScreen = GameScreenMode.Battle;
@@ -146,6 +148,11 @@ namespace IdleRPG
                 DrawLobbyScreenGui();
             }
 
+            if (companionGachaScreenOpen)
+            {
+                DrawCompanionGachaScreen();
+            }
+
             if (companionFormationScreenOpen)
             {
                 DrawCompanionFormationScreen();
@@ -195,6 +202,7 @@ namespace IdleRPG
             DrawCompanionAttackEffectsGui();
             DrawFloatingTextsGui();
             DrawEnemyTopBar(new Rect(Screen.width * 0.5f - 280f, 68f, 560f, 62f));
+            DrawManualBattleHint();
             HandleBattleScreenInput();
         }
 
@@ -205,7 +213,7 @@ namespace IdleRPG
                 return;
             }
 
-            if (companionFormationScreenOpen || stageProgressScreenOpen)
+            if (companionFormationScreenOpen || stageProgressScreenOpen || companionGachaScreenOpen)
             {
                 return;
             }
@@ -256,9 +264,59 @@ namespace IdleRPG
             Rect gachaPanel = new Rect(rightColumn.x, upgradePanel.yMax + 12f, rightColumn.width, rightColumn.height - upgradePanel.height - 12f);
 
             DrawLobbyStatsPanel(leftPanel);
-            DrawCompanionGachaLobbyPanel(centerPanel);
+            DrawLobbyCenterPanel(centerPanel);
             DrawUpgradePanel(upgradePanel);
             DrawRelicGachaPanel(gachaPanel);
+        }
+
+        private bool IsLobbyModalOpen()
+        {
+            return companionFormationScreenOpen || companionGachaScreenOpen;
+        }
+
+        private void OpenCompanionFormationScreen()
+        {
+            if (companionGachaScreenOpen)
+            {
+                return;
+            }
+
+            stageProgressScreenOpen = false;
+            companionFormationScreenOpen = true;
+        }
+
+        private void OpenCompanionGachaScreen()
+        {
+            if (companionFormationScreenOpen)
+            {
+                return;
+            }
+
+            stageProgressScreenOpen = false;
+            companionGachaScreenOpen = true;
+        }
+
+        private void DrawLobbyCenterPanel(Rect rect)
+        {
+            DrawPanel(rect, new Color(0.08f, 0.07f, 0.13f, 0.94f));
+            GUILayout.BeginArea(new Rect(rect.x + 20f, rect.y + 18f, rect.width - 40f, rect.height - 36f));
+            GUILayout.Label("모험가의 거점", titleStyle);
+            GUILayout.Label("로비에서 강화, 유물 뽑기, 동료 소환, 편성을 진행할 수 있습니다.", labelStyle);
+            GUILayout.Space(12f);
+            DrawStat("보유 보석", FormatNumber(state.hero.gems) + "♦");
+            DrawStat("동료 보유", GetOwnedCompanionCount() + " / " + IdleRpgBalance.Companions.Length);
+            GUILayout.Space(12f);
+            if (IsLobbyModalOpen())
+            {
+                GUILayout.Label(companionFormationScreenOpen ? "동료 편성 화면이 열려 있습니다." : "동료 소환 화면이 열려 있습니다.", smallStyle);
+                GUILayout.Label("닫기 전에는 다른 화면을 열 수 없습니다.", smallStyle);
+            }
+            else
+            {
+                GUILayout.Label("왼쪽에서 동료 편성 또는 동료 소환을 열어주세요.", smallStyle);
+            }
+
+            GUILayout.EndArea();
         }
 
         private void BuildScene()
@@ -277,6 +335,7 @@ namespace IdleRPG
             camera.backgroundColor = new Color(0.08f, 0.10f, 0.22f);
 
             CreateBackdrop(camera);
+            CreateLobbyBackdrop(camera);
             CreateCompanionArt();
             heroRoot = CreateHero();
             companionRoots = new Transform[FormationSlotCount];
@@ -328,6 +387,54 @@ namespace IdleRPG
             if (sky == null && mountains == null && forest == null)
             {
                 Debug.LogWarning("[IdleRpgGame] 배경 이미지를 찾지 못해 단색 배경을 사용합니다.");
+            }
+        }
+
+        private void CreateLobbyBackdrop(Camera camera)
+        {
+            GameObject root = new GameObject("Lobby Backdrop");
+            root.transform.SetParent(transform);
+            lobbyBackdropRoot = root;
+
+            GameObject wall = CreateSpriteObject("Lobby Wall", CreateVerticalGradientSprite(
+                new Color(0.10f, 0.07f, 0.12f),
+                new Color(0.20f, 0.14f, 0.22f),
+                8,
+                96));
+            wall.transform.position = new Vector3(0f, 0.2f, 5f);
+            wall.transform.localScale = new Vector3(18f, 10.5f, 1f);
+            SetSortingOrder(wall, -100);
+
+            GameObject floor = CreateSpriteObject("Lobby Floor", CreateVerticalGradientSprite(
+                new Color(0.18f, 0.10f, 0.06f),
+                new Color(0.32f, 0.18f, 0.10f),
+                8,
+                24));
+            floor.transform.position = new Vector3(0f, -3.2f, 0f);
+            floor.transform.localScale = new Vector3(18f, 2.2f, 1f);
+            SetSortingOrder(floor, -90);
+
+            GameObject hearthGlow = CreateSpriteObject("Hearth Glow", CreateCircleSprite(new Color(1f, 0.55f, 0.22f, 0.35f), 96));
+            hearthGlow.transform.position = new Vector3(-3.8f, -1.2f, 0f);
+            hearthGlow.transform.localScale = Vector3.one * 3.4f;
+            SetSortingOrder(hearthGlow, -88);
+
+            GameObject hearth = CreateSpriteObject("Hearth", CreateCircleSprite(new Color(1f, 0.72f, 0.28f, 0.75f), 64));
+            hearth.transform.position = new Vector3(-3.8f, -1.35f, 0f);
+            hearth.transform.localScale = Vector3.one * 0.55f;
+            SetSortingOrder(hearth, -87);
+
+            GameObject lanternGlow = CreateSpriteObject("Lantern Glow", CreateCircleSprite(new Color(1f, 0.86f, 0.45f, 0.28f), 96));
+            lanternGlow.transform.position = new Vector3(3.6f, 0.4f, 0f);
+            lanternGlow.transform.localScale = Vector3.one * 2.6f;
+            SetSortingOrder(lanternGlow, -88);
+
+            for (int index = 0; index < 5; index += 1)
+            {
+                GameObject beam = CreateSpriteObject("Window Light", CreateSolidSprite(new Color(0.72f, 0.82f, 1f, 0.08f), 4, 24));
+                beam.transform.position = new Vector3(-2.2f + index * 1.1f, 2.4f, 0f);
+                beam.transform.localScale = new Vector3(0.35f, 0.9f, 1f);
+                SetSortingOrder(beam, -95);
             }
         }
 
@@ -686,6 +793,25 @@ namespace IdleRPG
             for (int index = 0; index < pixels.Length; index += 1)
             {
                 pixels[index] = color;
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f), 8f);
+        }
+
+        private Sprite CreateVerticalGradientSprite(Color bottom, Color top, int width, int height)
+        {
+            Texture2D texture = new Texture2D(width, height);
+            texture.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[width * height];
+            for (int y = 0; y < height; y += 1)
+            {
+                Color color = Color.Lerp(bottom, top, y / Mathf.Max(1f, height - 1f));
+                for (int x = 0; x < width; x += 1)
+                {
+                    pixels[y * width + x] = color;
+                }
             }
 
             texture.SetPixels(pixels);
@@ -1382,17 +1508,27 @@ namespace IdleRPG
             GUILayout.Label("골드: 강화 / 유물 뽑기", smallStyle);
             GUILayout.Label("보석: 동료 소환", smallStyle);
             GUILayout.Space(10f);
+            GUI.enabled = !companionGachaScreenOpen;
             if (GUILayout.Button("동료 편성", buttonStyle, GUILayout.Height(40f)))
             {
-                companionFormationScreenOpen = true;
-                stageProgressScreenOpen = false;
+                OpenCompanionFormationScreen();
             }
 
+            GUI.enabled = !companionFormationScreenOpen;
+            if (GUILayout.Button("동료 소환", buttonStyle, GUILayout.Height(40f)))
+            {
+                OpenCompanionGachaScreen();
+            }
+
+            GUI.enabled = !IsLobbyModalOpen();
             if (GUILayout.Button("스테이지 진행도", buttonStyle, GUILayout.Height(40f)))
             {
                 stageProgressScreenOpen = true;
                 companionFormationScreenOpen = false;
+                companionGachaScreenOpen = false;
             }
+
+            GUI.enabled = true;
 
             GUILayout.EndArea();
         }
@@ -1457,25 +1593,46 @@ namespace IdleRPG
             GUILayout.EndArea();
         }
 
-        private void DrawCompanionGachaLobbyPanel(Rect rect)
+        private void DrawCompanionGachaScreen()
         {
-            DrawPanel(rect, new Color(0.07f, 0.06f, 0.14f, 0.97f));
-            GUILayout.BeginArea(new Rect(rect.x + 18f, rect.y + 14f, rect.width - 36f, rect.height - 28f));
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            DrawPanel(overlay, new Color(0.02f, 0.02f, 0.05f, 0.92f));
+
+            float width = Mathf.Min(1100f, Screen.width - 60f);
+            float height = Mathf.Min(650f, Screen.height - 60f);
+            Rect screen = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            DrawPanel(screen, new Color(0.07f, 0.06f, 0.14f, 0.97f));
+
+            GUILayout.BeginArea(new Rect(screen.x + 24f, screen.y + 18f, screen.width - 48f, 62f));
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
             GUILayout.Label("달빛 동료 소환", titleStyle);
-            GUILayout.Label("보석으로 동료를 소환합니다. 중복 획득 시 레벨이 올라갑니다.", smallStyle);
-            GUILayout.Space(8f);
+            GUILayout.Label("보석으로 동료를 소환합니다. 중복 획득 시 레벨이 올라갑니다.", labelStyle);
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("닫기", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
+            {
+                companionGachaScreenOpen = false;
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+
+            Rect contentRect = new Rect(screen.x + 24f, screen.y + 96f, screen.width - 48f, screen.height - 120f);
+            DrawPanel(contentRect, new Color(0.10f, 0.09f, 0.18f, 0.95f));
+            GUILayout.BeginArea(new Rect(contentRect.x + 18f, contentRect.y + 14f, contentRect.width - 36f, contentRect.height - 28f));
             GUILayout.Label("보유 보석: " + FormatNumber(state.hero.gems) + "♦   |   희귀 이상 보정: " + state.companionGacha.pity + " / " + IdleRpgBalance.CompanionRarePityPulls, labelStyle);
             GUILayout.Space(8f);
 
             GUILayout.BeginHorizontal();
             GUI.enabled = state.hero.gems >= IdleRpgBalance.CompanionGachaGemCost;
-            if (GUILayout.Button("1회 소환\n" + FormatNumber(IdleRpgBalance.CompanionGachaGemCost) + "♦", buttonStyle, GUILayout.Height(64f), GUILayout.Width((rect.width - 56f) * 0.48f)))
+            if (GUILayout.Button("1회 소환\n" + FormatNumber(IdleRpgBalance.CompanionGachaGemCost) + "♦", buttonStyle, GUILayout.Height(64f), GUILayout.Width((contentRect.width - 56f) * 0.48f)))
             {
                 StartCompanionGacha(1);
             }
 
             GUI.enabled = state.hero.gems >= IdleRpgBalance.CompanionGachaTenPullGemCost;
-            if (GUILayout.Button("10회 소환\n" + FormatNumber(IdleRpgBalance.CompanionGachaTenPullGemCost) + "♦", buttonStyle, GUILayout.Height(64f), GUILayout.Width((rect.width - 56f) * 0.48f)))
+            if (GUILayout.Button("10회 소환\n" + FormatNumber(IdleRpgBalance.CompanionGachaTenPullGemCost) + "♦", buttonStyle, GUILayout.Height(64f), GUILayout.Width((contentRect.width - 56f) * 0.48f)))
             {
                 StartCompanionGacha(10);
             }
@@ -1501,6 +1658,7 @@ namespace IdleRPG
                 GUILayout.Label(FormatCompanionSkillText(featuredCompanion, featuredLevel), labelStyle);
                 GUILayout.Label(FormatCompanionStatBonusText(featuredCompanion, featuredLevel), smallStyle);
             }
+
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
             GUILayout.Space(10f);
@@ -1566,10 +1724,10 @@ namespace IdleRPG
             if (ownedCompanionCount <= 0)
             {
                 GUILayout.Label("아직 보유 동료가 없습니다. 동료 소환에서 먼저 동료를 획득하세요.", labelStyle);
-                if (GUILayout.Button("로비 동료 소환으로 이동", buttonStyle, GUILayout.Height(42f)))
+                if (GUILayout.Button("동료 소환 화면 열기", buttonStyle, GUILayout.Height(42f)))
                 {
                     companionFormationScreenOpen = false;
-                    currentScreen = GameScreenMode.Lobby;
+                    OpenCompanionGachaScreen();
                 }
             }
 
@@ -2442,20 +2600,26 @@ namespace IdleRPG
 
         private void UpdateBattleSceneVisibility()
         {
-            bool visible = currentScreen == GameScreenMode.Battle;
+            bool battleVisible = currentScreen == GameScreenMode.Battle;
+            bool lobbyVisible = currentScreen == GameScreenMode.Lobby;
             if (battleBackdropRoot != null)
             {
-                battleBackdropRoot.SetActive(visible);
+                battleBackdropRoot.SetActive(battleVisible);
+            }
+
+            if (lobbyBackdropRoot != null)
+            {
+                lobbyBackdropRoot.SetActive(lobbyVisible);
             }
 
             if (heroRoot != null)
             {
-                heroRoot.gameObject.SetActive(visible);
+                heroRoot.gameObject.SetActive(battleVisible);
             }
 
             if (enemyRoot != null)
             {
-                enemyRoot.gameObject.SetActive(visible);
+                enemyRoot.gameObject.SetActive(battleVisible);
             }
 
             if (companionRoots != null)
@@ -2464,9 +2628,17 @@ namespace IdleRPG
                 {
                     if (companionRoots[index] != null)
                     {
-                        companionRoots[index].gameObject.SetActive(visible);
+                        companionRoots[index].gameObject.SetActive(battleVisible);
                     }
                 }
+            }
+
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                camera.backgroundColor = lobbyVisible
+                    ? new Color(0.12f, 0.08f, 0.14f)
+                    : new Color(0.08f, 0.10f, 0.22f);
             }
         }
 
