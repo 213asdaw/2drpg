@@ -35,6 +35,12 @@ namespace IdleRPG
 
         private IdleRpgState state;
         private Transform heroRoot;
+        private Transform heroSwordTransform;
+        private Transform heroSwingTrailTransform;
+        private Vector3 heroSwordRestLocalPosition;
+        private float heroSwordRestLocalRotation;
+        private float heroAttackSwingTimer;
+        private const float HeroAttackSwingDuration = 0.4f;
         private Transform[] companionRoots;
         private Transform enemyRoot;
         private GameObject battleBackdropRoot;
@@ -639,9 +645,21 @@ namespace IdleRPG
             AddPart(root.transform, "Chest", new Color(0.56f, 0.69f, 1f), new Vector2(0.55f, 0.36f), new Vector3(0f, 0.42f, -0.01f));
             AddPart(root.transform, "Head", new Color(0.96f, 0.76f, 0.54f), new Vector2(0.58f, 0.56f), new Vector3(0f, 1.05f, 0f));
             AddPart(root.transform, "Hair", new Color(0.18f, 0.13f, 0.25f), new Vector2(0.68f, 0.22f), new Vector3(0f, 1.36f, -0.01f));
-            AddPart(root.transform, "Sword", new Color(0.86f, 0.93f, 1f), new Vector2(0.16f, 1.05f), new Vector3(0.68f, 0.62f, -0.02f), -38f);
             AddPart(root.transform, "Left Leg", new Color(0.08f, 0.10f, 0.18f), new Vector2(0.22f, 0.56f), new Vector3(-0.18f, -0.58f, 0f));
             AddPart(root.transform, "Right Leg", new Color(0.08f, 0.10f, 0.18f), new Vector2(0.22f, 0.56f), new Vector3(0.22f, -0.58f, 0f));
+
+            GameObject sword = AddPart(root.transform, "Sword", new Color(0.86f, 0.93f, 1f), new Vector2(0.16f, 1.05f), new Vector3(0.68f, 0.62f, -0.02f), -38f);
+            heroSwordTransform = sword.transform;
+            heroSwordRestLocalPosition = sword.transform.localPosition;
+            heroSwordRestLocalRotation = -38f;
+
+            GameObject swingTrail = CreateSpriteObject("Swing Trail", CreateSolidSprite(new Color(1f, 0.95f, 0.72f, 0f), 4, 20));
+            swingTrail.transform.SetParent(root.transform);
+            swingTrail.transform.localPosition = new Vector3(0.72f, 0.82f, -0.04f);
+            swingTrail.transform.localRotation = Quaternion.Euler(0f, 0f, 18f);
+            swingTrail.transform.localScale = Vector3.zero;
+            SetSortingOrder(swingTrail, 2);
+            heroSwingTrailTransform = swingTrail.transform;
 
             return root.transform;
         }
@@ -927,7 +945,7 @@ namespace IdleRPG
             }
         }
 
-        private void AddPart(Transform parent, string name, Color color, Vector2 scale, Vector3 localPosition, float rotation = 0f)
+        private GameObject AddPart(Transform parent, string name, Color color, Vector2 scale, Vector3 localPosition, float rotation = 0f)
         {
             GameObject part = CreateSpriteObject(name, CreateSolidSprite(color, 8, 8));
             part.transform.SetParent(parent);
@@ -935,6 +953,7 @@ namespace IdleRPG
             part.transform.localScale = new Vector3(scale.x, scale.y, 1f);
             part.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
             SetSortingOrder(part, 0);
+            return part;
         }
 
         private GameObject CreateSpriteObject(string name, Sprite sprite)
@@ -1053,6 +1072,7 @@ namespace IdleRPG
 
         private void ApplyHeroDamage(float multiplier)
         {
+            heroAttackSwingTimer = HeroAttackSwingDuration;
             bool critical = UnityEngine.Random.value < GetEffectiveCritChance();
             float criticalMultiplier = critical ? GetEffectiveCritMultiplier() : 1f;
             int damage = Mathf.Max(1, Mathf.FloorToInt(GetEffectiveAttack() * multiplier * criticalMultiplier));
@@ -1596,8 +1616,31 @@ namespace IdleRPG
         {
             if (heroRoot != null)
             {
-                float attackLean = Mathf.Clamp01(state.combat.heroAttack) * 0.16f;
-                heroRoot.position = new Vector3(-2.35f + attackLean, -1.35f + Mathf.Sin(Time.time * 3.2f) * 0.025f, 0f);
+                float swing = GetHeroAttackSwing();
+                float attackLean = Mathf.Clamp01(state.combat.heroAttack) * 0.10f;
+                float lunge = swing * 0.30f;
+                heroRoot.position = new Vector3(-2.35f + attackLean + lunge, -1.35f + Mathf.Sin(Time.time * 3.2f) * 0.025f, 0f);
+                heroRoot.localRotation = Quaternion.Euler(0f, 0f, -12f * swing);
+
+                if (heroSwordTransform != null)
+                {
+                    float swordAngle = Mathf.Lerp(heroSwordRestLocalRotation, 74f, swing);
+                    Vector3 swordOffset = new Vector3(0.14f * swing, 0.10f * swing, 0f);
+                    heroSwordTransform.localPosition = heroSwordRestLocalPosition + swordOffset;
+                    heroSwordTransform.localRotation = Quaternion.Euler(0f, 0f, swordAngle);
+                }
+
+                if (heroSwingTrailTransform != null)
+                {
+                    heroSwingTrailTransform.localScale = new Vector3(0.12f + swing * 1.25f, 0.04f + swing * 0.22f, 1f);
+                    heroSwingTrailTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-18f, 62f, swing));
+                    heroSwingTrailTransform.localPosition = new Vector3(0.58f + swing * 0.52f, 0.76f + swing * 0.18f, -0.04f);
+                    SpriteRenderer trailRenderer = heroSwingTrailTransform.GetComponent<SpriteRenderer>();
+                    if (trailRenderer != null)
+                    {
+                        trailRenderer.color = new Color(1f, 0.95f, 0.72f, swing * 0.72f);
+                    }
+                }
             }
 
             if (companionRoots != null && companionRenderers != null)
@@ -3131,6 +3174,8 @@ namespace IdleRPG
 
         private void UpdateCompanionAttackEffects(float deltaTime)
         {
+            heroAttackSwingTimer = Mathf.Max(0f, heroAttackSwingTimer - deltaTime);
+
             if (companionAttackTimers != null)
             {
                 for (int index = 0; index < companionAttackTimers.Length; index += 1)
@@ -3147,6 +3192,17 @@ namespace IdleRPG
                     companionAttackEffects.RemoveAt(index);
                 }
             }
+        }
+
+        private float GetHeroAttackSwing()
+        {
+            if (heroAttackSwingTimer <= 0f)
+            {
+                return 0f;
+            }
+
+            float normalized = 1f - heroAttackSwingTimer / HeroAttackSwingDuration;
+            return Mathf.Sin(Mathf.Clamp01(normalized) * Mathf.PI);
         }
 
         private float GetCompanionAttackLunge(int slotIndex)
