@@ -1222,10 +1222,13 @@ namespace IdleRPG
                 targetState.hero.xp -= targetState.hero.xpToNext;
                 targetState.hero.level += 1;
                 targetState.hero.xpToNext = Mathf.FloorToInt(targetState.hero.xpToNext * 1.35f + 10f);
-                targetState.hero.maxHp += 12;
-                targetState.hero.attack += 2;
-                targetState.hero.hp = targetState.hero.maxHp;
                 levelsGained += 1;
+            }
+
+            if (levelsGained > 0)
+            {
+                SyncHeroStatsFromUpgrades(targetState);
+                targetState.hero.hp = GetEffectiveMaxHp(targetState);
             }
 
             if (targetState == state && levelsGained > 0)
@@ -1246,25 +1249,10 @@ namespace IdleRPG
             }
 
             state.hero.gold -= cost;
+            int previousEffectiveMaxHp = GetEffectiveMaxHp(state);
             state.upgrades.Increment(type);
-
-            switch (type)
-            {
-                case UpgradeType.Blade:
-                    state.hero.attack += IdleRpgBalance.BladeAttackPerLevel;
-                    break;
-                case UpgradeType.Armor:
-                    state.hero.maxHp += IdleRpgBalance.ArmorHpPerLevel;
-                    state.hero.hp += IdleRpgBalance.ArmorHpPerLevel;
-                    break;
-                case UpgradeType.Regeneration:
-                    state.hero.regen += IdleRpgBalance.RegenPerLevel;
-                    break;
-                case UpgradeType.Focus:
-                    break;
-            }
-
-            SyncHeroCritStatsFromUpgrades(state);
+            SyncHeroStatsFromUpgrades(state);
+            ApplyEffectiveMaxHpDelta(state, previousEffectiveMaxHp);
 
             if (type == UpgradeType.Focus)
             {
@@ -1292,6 +1280,7 @@ namespace IdleRPG
             state.hero.gold -= IdleRpgBalance.GachaGoldCost;
             bool forceRareOrBetter = state.gacha.pity >= IdleRpgBalance.RarePityPulls - 1;
             RelicDefinition relic = IdleRpgBalance.RollRelic(UnityEngine.Random.value, forceRareOrBetter);
+            int previousEffectiveMaxHp = GetEffectiveMaxHp(state);
             state.gacha.relics.Increment(relic.Id);
             state.gacha.totalPulls += 1;
             state.gacha.lastRelicId = relic.Id;
@@ -1301,7 +1290,7 @@ namespace IdleRPG
             int newLevel = state.gacha.relics.Get(relic.Id);
             if (relic.MaxHpPerLevel > 0)
             {
-                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + relic.MaxHpPerLevel);
+                ApplyEffectiveMaxHpDelta(state, previousEffectiveMaxHp);
             }
 
             gachaCutscene.BeginRelic(relic, newLevel);
@@ -1339,6 +1328,7 @@ namespace IdleRPG
         {
             bool forceRareOrBetter = state.companionGacha.pity >= IdleRpgBalance.CompanionRarePityPulls - 1;
             CompanionDefinition companion = IdleRpgBalance.RollCompanion(UnityEngine.Random.value, forceRareOrBetter);
+            int previousEffectiveMaxHp = GetEffectiveMaxHp(state);
             state.companionGacha.companions.Increment(companion.Id);
             EquipCompanionAutomatically(state, companion.Id);
             ForceCompanionVisualRefresh();
@@ -1353,11 +1343,7 @@ namespace IdleRPG
             }
 
             int newLevel = state.companionGacha.companions.Get(companion.Id);
-            if (companion.MaxHpPerLevel > 0)
-            {
-                float immediateHpGain = state.companionGacha.formation.Contains(companion.Id) ? companion.MaxHpPerLevel : companion.MaxHpPerLevel * 0.25f;
-                state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + immediateHpGain);
-            }
+            ApplyEffectiveMaxHpDelta(state, previousEffectiveMaxHp);
 
             return companion;
         }
@@ -1370,6 +1356,7 @@ namespace IdleRPG
             newState.stats.highestStage = 1;
             newState.quest = new QuestState();
             InitializeQuest(newState);
+            SyncHeroStatsFromUpgrades(newState);
             newState.lastSavedUnixSeconds = NowUnixSeconds();
             newState.battleLog.Add("모험을 시작했습니다. 용사가 자동으로 전투합니다.");
             return newState;
@@ -1460,7 +1447,7 @@ namespace IdleRPG
             }
 
             EnsureFormationHasOwnedCompanions(loaded);
-            SyncHeroCritStatsFromUpgrades(loaded);
+            SyncHeroStatsFromUpgrades(loaded);
             EnsureQuestState(loaded);
             UpdatePeakCombatPower(loaded);
 
@@ -1589,8 +1576,10 @@ namespace IdleRPG
                 }
             }
 
+            int previousEffectiveMaxHp = GetEffectiveMaxHp(state);
             state.companionGacha.formation.Set(slotIndex, companionId);
             ForceCompanionVisualRefresh();
+            ApplyEffectiveMaxHpDelta(state, previousEffectiveMaxHp);
             AddLog(IdleRpgBalance.GetCompanion(companionId).Name + " 편성 완료!");
             RefreshQuestProgress();
             UpdatePeakCombatPower();
@@ -1600,8 +1589,10 @@ namespace IdleRPG
 
         private void UnequipCompanion(int slotIndex)
         {
+            int previousEffectiveMaxHp = GetEffectiveMaxHp(state);
             state.companionGacha.formation.Set(slotIndex, -1);
             ForceCompanionVisualRefresh();
+            ApplyEffectiveMaxHpDelta(state, previousEffectiveMaxHp);
             RefreshQuestProgress();
             UpdatePeakCombatPower();
             SaveState();
@@ -1718,8 +1709,24 @@ namespace IdleRPG
             DrawStat("스테이지", state.stage + " (" + state.stageProgress + "/5)");
             DrawStat("레벨", state.hero.level.ToString());
             DrawStat("경험치", FormatNumber(state.hero.xp) + " / " + FormatNumber(state.hero.xpToNext));
-            DrawStat("공격력", FormatNumber(GetEffectiveAttack()));
-            DrawStat("최대 HP", FormatNumber(GetEffectiveMaxHp()));
+            int heroAttack = state.hero.attack;
+            int bonusAttack = GetRelicBonusAttack(state) + GetCompanionBonusAttack(state);
+            DrawStat("용사 공격", FormatNumber(heroAttack));
+            if (bonusAttack > 0)
+            {
+                DrawStat("유물·동료", "+" + FormatNumber(bonusAttack));
+            }
+
+            DrawStat("합계 공격력", FormatNumber(GetEffectiveAttack()));
+            int heroMaxHp = state.hero.maxHp;
+            int bonusMaxHp = GetRelicBonusMaxHp(state) + GetCompanionBonusMaxHp(state);
+            DrawStat("용사 HP", FormatNumber(heroMaxHp));
+            if (bonusMaxHp > 0)
+            {
+                DrawStat("유물·동료 HP", "+" + FormatNumber(bonusMaxHp));
+            }
+
+            DrawStat("합계 HP", FormatNumber(GetEffectiveMaxHp()));
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
@@ -1812,8 +1819,12 @@ namespace IdleRPG
             GUILayout.Space(14f);
             GUILayout.Label("강화", titleStyle);
             GUILayout.Space(4f);
+            DrawStat("용사 공격", FormatNumber(state.hero.attack));
+            DrawStat("용사 HP", FormatNumber(state.hero.maxHp));
+            DrawStat("용사 회복", state.hero.regen.ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
+            GUILayout.Label("골드 강화는 용사 기본 능력치만 올립니다. 동료는 편성 시 추가 보너스.", smallStyle);
             GUILayout.Space(6f);
 
             for (int index = 0; index < IdleRpgBalance.Upgrades.Length; index += 1)
@@ -2740,15 +2751,102 @@ namespace IdleRPG
             return targetState.hero.regen + bonus;
         }
 
-        private void SyncHeroCritStatsFromUpgrades(IdleRpgState targetState)
+        private void SyncHeroStatsFromUpgrades(IdleRpgState targetState)
         {
             if (targetState == null || targetState.hero == null || targetState.upgrades == null)
             {
                 return;
             }
 
+            targetState.hero.attack = IdleRpgBalance.GetHeroAttackFromProgress(targetState.hero.level, targetState.upgrades.blade);
+            targetState.hero.maxHp = IdleRpgBalance.GetHeroMaxHpFromProgress(targetState.hero.level, targetState.upgrades.armor);
+            targetState.hero.regen = IdleRpgBalance.GetHeroRegenFromProgress(targetState.upgrades.regeneration);
             targetState.hero.critChance = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades.focus);
             targetState.hero.critMultiplier = IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(targetState.upgrades.focus);
+        }
+
+        private void ApplyEffectiveMaxHpDelta(IdleRpgState targetState, int previousEffectiveMaxHp)
+        {
+            if (targetState == null || targetState.hero == null)
+            {
+                return;
+            }
+
+            int newEffectiveMaxHp = GetEffectiveMaxHp(targetState);
+            int delta = newEffectiveMaxHp - previousEffectiveMaxHp;
+            if (delta > 0)
+            {
+                targetState.hero.hp = Mathf.Min(newEffectiveMaxHp, targetState.hero.hp + delta);
+            }
+            else
+            {
+                targetState.hero.hp = Mathf.Min(newEffectiveMaxHp, targetState.hero.hp);
+            }
+        }
+
+        private int GetRelicBonusAttack(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.AttackPerLevel * GetRelicLevel(targetState, relic.Id);
+            }
+
+            return bonus;
+        }
+
+        private int GetCompanionBonusAttack(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                float multiplier = GetCompanionStatMultiplier(targetState, companion.Id);
+                if (multiplier <= 0f)
+                {
+                    continue;
+                }
+
+                bonus += IdleRpgBalance.GetCompanionAttackBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
+            }
+
+            return bonus;
+        }
+
+        private int GetRelicBonusMaxHp(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                RelicDefinition relic = IdleRpgBalance.Relics[index];
+                bonus += relic.MaxHpPerLevel * GetRelicLevel(targetState, relic.Id);
+            }
+
+            return bonus;
+        }
+
+        private int GetCompanionBonusMaxHp(IdleRpgState targetState)
+        {
+            int bonus = 0;
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = IdleRpgBalance.Companions[index];
+                float multiplier = GetCompanionStatMultiplier(targetState, companion.Id);
+                if (multiplier <= 0f)
+                {
+                    continue;
+                }
+
+                bonus += IdleRpgBalance.GetCompanionMaxHpBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
+            }
+
+            return bonus;
+        }
+
+        private void SyncHeroCritStatsFromUpgrades(IdleRpgState targetState)
+        {
+            SyncHeroStatsFromUpgrades(targetState);
         }
 
         private void EnsureQuestState(IdleRpgState targetState)
@@ -2987,7 +3085,7 @@ namespace IdleRPG
                 return 1f;
             }
 
-            return 0.25f;
+            return 0f;
         }
 
         private int GetOwnedCompanionCount()
@@ -3181,21 +3279,15 @@ namespace IdleRPG
 
         private string FormatCompanionStatBonusText(CompanionDefinition companion, int level)
         {
-            int ownedAttack = IdleRpgBalance.GetCompanionAttackBonus(companion, level, 0.25f);
             int formedAttack = IdleRpgBalance.GetCompanionAttackBonus(companion, level, 1f);
-            int ownedHp = IdleRpgBalance.GetCompanionMaxHpBonus(companion, level, 0.25f);
             int formedHp = IdleRpgBalance.GetCompanionMaxHpBonus(companion, level, 1f);
-            float ownedRegen = IdleRpgBalance.GetCompanionRegenBonus(companion, level, 0.25f);
             float formedRegen = IdleRpgBalance.GetCompanionRegenBonus(companion, level, 1f);
-            int ownedCrit = Mathf.RoundToInt(IdleRpgBalance.GetCompanionCritBonus(companion, level, 0.25f) * 100f);
             int formedCrit = Mathf.RoundToInt(IdleRpgBalance.GetCompanionCritBonus(companion, level, 1f) * 100f);
 
-            return "보유 Lv." + level + ": 공격+" + ownedAttack + ", HP+" + ownedHp
-                + (ownedRegen > 0f ? ", 회복+" + ownedRegen.ToString("0.0") : string.Empty)
-                + (ownedCrit > 0 ? ", 치명+" + ownedCrit + "%" : string.Empty)
-                + "\n편성 Lv." + level + ": 공격+" + formedAttack + ", HP+" + formedHp
+            return "편성 시 Lv." + level + ": 공격+" + formedAttack + ", HP+" + formedHp
                 + (formedRegen > 0f ? ", 회복+" + formedRegen.ToString("0.0") : string.Empty)
-                + (formedCrit > 0 ? ", 치명+" + formedCrit + "%" : string.Empty);
+                + (formedCrit > 0 ? ", 치명+" + formedCrit + "%" : string.Empty)
+                + "\n편성된 동료만 용사 능력치에 적용됩니다.";
         }
 
         private void UpdateCompanionAttackEffects(float deltaTime)

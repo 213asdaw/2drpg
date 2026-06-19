@@ -172,6 +172,31 @@ namespace IdleRPG
         public const int ArmorHpPerLevel = 28;
         public const float RegenPerLevel = 0.9f;
 
+        public const int HeroBaseAttack = 8;
+        public const int HeroBaseMaxHp = 100;
+        public const float HeroBaseRegen = 1f;
+        public const int HeroAttackPerLevel = 2;
+        public const int HeroMaxHpPerLevel = 12;
+
+        public static int GetHeroAttackFromProgress(int heroLevel, int bladeLevel)
+        {
+            return HeroBaseAttack
+                + Mathf.Max(0, heroLevel - 1) * HeroAttackPerLevel
+                + Mathf.Max(0, bladeLevel) * BladeAttackPerLevel;
+        }
+
+        public static int GetHeroMaxHpFromProgress(int heroLevel, int armorLevel)
+        {
+            return HeroBaseMaxHp
+                + Mathf.Max(0, heroLevel - 1) * HeroMaxHpPerLevel
+                + Mathf.Max(0, armorLevel) * ArmorHpPerLevel;
+        }
+
+        public static float GetHeroRegenFromProgress(int regenerationLevel)
+        {
+            return HeroBaseRegen + Mathf.Max(0, regenerationLevel) * RegenPerLevel;
+        }
+
         public static readonly UpgradeDefinition[] Upgrades =
         {
             new UpgradeDefinition(UpgradeType.Blade, "검술 훈련", "공격력 +" + BladeAttackPerLevel, 20, 1.28f),
