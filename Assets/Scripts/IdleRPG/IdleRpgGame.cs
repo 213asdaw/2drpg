@@ -1421,8 +1421,8 @@ namespace IdleRPG
                             displayedCompanionIds[slotIndex] = companionId;
                         }
 
-                        float x = -3.08f + slotIndex * 0.42f;
-                        float y = -1.78f + Mathf.Sin(Time.time * (4.2f + slotIndex * 0.35f)) * 0.025f + slotIndex * 0.03f;
+                        float x = -4.45f + slotIndex * 0.60f;
+                        float y = -1.82f + Mathf.Sin(Time.time * (4.2f + slotIndex * 0.35f)) * 0.025f + slotIndex * 0.03f;
                         float baseScale = 0.56f - slotIndex * 0.03f;
                         float attackLunge = GetCompanionAttackLunge(slotIndex);
                         x += attackLunge * 0.30f;
@@ -1488,6 +1488,12 @@ namespace IdleRPG
                 GUILayout.Label("전투 화면 중앙을 터치하면 공격합니다.", smallStyle);
             }
 
+            GUILayout.Space(10f);
+            if (GUILayout.Button("스테이지 진행도", buttonStyle, GUILayout.Height(40f)))
+            {
+                stageProgressScreenOpen = true;
+            }
+
             GUILayout.EndArea();
         }
 
@@ -1518,14 +1524,6 @@ namespace IdleRPG
             if (GUILayout.Button("동료 소환", buttonStyle, GUILayout.Height(40f)))
             {
                 OpenCompanionGachaScreen();
-            }
-
-            GUI.enabled = !IsLobbyModalOpen();
-            if (GUILayout.Button("스테이지 진행도", buttonStyle, GUILayout.Height(40f)))
-            {
-                stageProgressScreenOpen = true;
-                companionFormationScreenOpen = false;
-                companionGachaScreenOpen = false;
             }
 
             GUI.enabled = true;
@@ -2053,7 +2051,7 @@ namespace IdleRPG
             const float drawerWidth = 252f;
             const float drawerHeight = 196f;
             const float tabWidth = 38f;
-            float drawerY = Screen.height - 312f;
+            float drawerY = Screen.height - 352f;
 
             Rect tabRect = new Rect(12f, drawerY + (drawerHeight - 108f) * 0.5f, tabWidth, 108f);
             DrawPanel(tabRect, new Color(0.08f, 0.12f, 0.22f, 0.94f));
@@ -2436,7 +2434,7 @@ namespace IdleRPG
         private void AddCompanionAttackEffect(CompanionDefinition companion, int slotIndex, int damage)
         {
             string label = GetCompanionAttackLabel(companion);
-            Vector2 start = new Vector2(0.28f + slotIndex * 0.04f, 0.62f - slotIndex * 0.02f);
+            Vector2 start = new Vector2(0.22f + slotIndex * 0.04f, 0.62f - slotIndex * 0.02f);
             Vector2 end = new Vector2(0.68f, 0.56f);
             if (companionAttackTimers != null && slotIndex >= 0 && slotIndex < companionAttackTimers.Length)
             {
