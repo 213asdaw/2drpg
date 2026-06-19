@@ -106,6 +106,7 @@ namespace IdleRPG
         public readonly int MaxHpPerLevel;
         public readonly float RegenPerLevel;
         public readonly float CritChancePerLevel;
+        public readonly int SkillDamagePerLevel;
         public readonly Color HairColor;
         public readonly Color OutfitColor;
         public readonly Color AccentColor;
@@ -121,6 +122,7 @@ namespace IdleRPG
             int maxHpPerLevel,
             float regenPerLevel,
             float critChancePerLevel,
+            int skillDamagePerLevel,
             Color hairColor,
             Color outfitColor,
             Color accentColor)
@@ -135,6 +137,7 @@ namespace IdleRPG
             MaxHpPerLevel = maxHpPerLevel;
             RegenPerLevel = regenPerLevel;
             CritChancePerLevel = critChancePerLevel;
+            SkillDamagePerLevel = skillDamagePerLevel;
             HairColor = hairColor;
             OutfitColor = outfitColor;
             AccentColor = accentColor;
@@ -180,18 +183,18 @@ namespace IdleRPG
 
         public static readonly CompanionDefinition[] Companions =
         {
-            new CompanionDefinition(0, "루나", "달빛 견습 마법사", "가벼운 별마법으로 공격을 보조합니다.", RelicRarity.Common, 28f, 4, 4, 0f, 0f, new Color(0.25f, 0.18f, 0.38f), new Color(0.42f, 0.52f, 0.98f), new Color(0.92f, 0.88f, 1f)),
-            new CompanionDefinition(1, "미오", "고양이 귀 도적", "빠른 단검술로 공격력을 올립니다.", RelicRarity.Common, 26f, 5, 2, 0f, 0.002f, new Color(0.20f, 0.16f, 0.14f), new Color(0.98f, 0.58f, 0.42f), new Color(1f, 0.86f, 0.38f)),
-            new CompanionDefinition(2, "나리", "민들레 치유사", "작은 치유 마법으로 회복을 돕습니다.", RelicRarity.Common, 24f, 2, 8, 0.15f, 0f, new Color(0.46f, 0.30f, 0.18f), new Color(0.92f, 0.72f, 0.28f), new Color(0.74f, 1f, 0.58f)),
-            new CompanionDefinition(3, "아리아", "꽃잎 궁수", "꽃잎 화살로 체력과 치명타를 올립니다.", RelicRarity.Rare, 18f, 3, 18, 0f, 0.006f, new Color(0.58f, 0.31f, 0.20f), new Color(0.96f, 0.45f, 0.65f), new Color(0.64f, 1f, 0.70f)),
-            new CompanionDefinition(4, "린", "푸른 검무희", "검무로 공격과 생존력을 함께 올립니다.", RelicRarity.Rare, 17f, 5, 12, 0.08f, 0.004f, new Color(0.10f, 0.24f, 0.45f), new Color(0.26f, 0.78f, 0.95f), new Color(0.82f, 1f, 1f)),
-            new CompanionDefinition(5, "채이", "체리 폭탄 연금술사", "폭발 물약으로 공격 보너스를 줍니다.", RelicRarity.Rare, 16f, 6, 8, 0f, 0.005f, new Color(0.72f, 0.16f, 0.25f), new Color(0.98f, 0.38f, 0.46f), new Color(1f, 0.78f, 0.32f)),
-            new CompanionDefinition(6, "세린", "별빛 성녀", "별빛 기도로 회복과 생존력을 보강합니다.", RelicRarity.Epic, 9f, 3, 24, 0.45f, 0.006f, new Color(0.95f, 0.88f, 0.58f), new Color(0.82f, 0.55f, 1f), new Color(1f, 0.96f, 0.60f)),
-            new CompanionDefinition(7, "하늘", "구름 용기사", "용의 바람으로 모든 능력을 고르게 올립니다.", RelicRarity.Epic, 8f, 5, 20, 0.20f, 0.008f, new Color(0.55f, 0.78f, 1f), new Color(0.34f, 0.48f, 0.92f), new Color(1f, 1f, 0.74f)),
-            new CompanionDefinition(8, "레나", "홍련 아이돌", "응원 무대로 공격과 치명타를 강화합니다.", RelicRarity.Epic, 7f, 7, 10, 0.12f, 0.012f, new Color(0.96f, 0.28f, 0.44f), new Color(1f, 0.48f, 0.72f), new Color(1f, 0.92f, 0.42f)),
-            new CompanionDefinition(9, "유리", "여우 검희", "여우불 검술로 공격과 치명타를 폭발적으로 강화합니다.", RelicRarity.Legendary, 3.2f, 8, 14, 0.25f, 0.018f, new Color(0.98f, 0.78f, 0.45f), new Color(0.95f, 0.22f, 0.30f), new Color(1f, 0.82f, 0.30f)),
-            new CompanionDefinition(10, "시아", "은하 마녀", "은하 주문으로 회복과 치명타를 크게 올립니다.", RelicRarity.Legendary, 2.8f, 6, 20, 0.45f, 0.016f, new Color(0.74f, 0.62f, 1f), new Color(0.22f, 0.18f, 0.48f), new Color(0.64f, 1f, 1f)),
-            new CompanionDefinition(11, "이렌", "백화 공주기사", "공주기사의 축복으로 모든 능력을 크게 올립니다.", RelicRarity.Legendary, 2.4f, 7, 24, 0.30f, 0.014f, new Color(1f, 0.92f, 0.82f), new Color(0.98f, 0.88f, 0.96f), new Color(0.92f, 0.68f, 1f))
+            new CompanionDefinition(0, "루나", "달빛 견습 마법사", "가벼운 별마법으로 공격을 보조합니다.", RelicRarity.Common, 28f, 4, 4, 0f, 0f, 8, new Color(0.25f, 0.18f, 0.38f), new Color(0.42f, 0.52f, 0.98f), new Color(0.92f, 0.88f, 1f)),
+            new CompanionDefinition(1, "미오", "고양이 귀 도적", "빠른 단검술로 공격력을 올립니다.", RelicRarity.Common, 26f, 5, 2, 0f, 0.002f, 9, new Color(0.20f, 0.16f, 0.14f), new Color(0.98f, 0.58f, 0.42f), new Color(1f, 0.86f, 0.38f)),
+            new CompanionDefinition(2, "나리", "민들레 치유사", "작은 치유 마법으로 회복을 돕습니다.", RelicRarity.Common, 24f, 2, 8, 0.15f, 0f, 4, new Color(0.46f, 0.30f, 0.18f), new Color(0.92f, 0.72f, 0.28f), new Color(0.74f, 1f, 0.58f)),
+            new CompanionDefinition(3, "아리아", "꽃잎 궁수", "꽃잎 화살로 체력과 치명타를 올립니다.", RelicRarity.Rare, 18f, 3, 18, 0f, 0.006f, 6, new Color(0.58f, 0.31f, 0.20f), new Color(0.96f, 0.45f, 0.65f), new Color(0.64f, 1f, 0.70f)),
+            new CompanionDefinition(4, "린", "푸른 검무희", "검무로 공격과 생존력을 함께 올립니다.", RelicRarity.Rare, 17f, 5, 12, 0.08f, 0.004f, 7, new Color(0.10f, 0.24f, 0.45f), new Color(0.26f, 0.78f, 0.95f), new Color(0.82f, 1f, 1f)),
+            new CompanionDefinition(5, "채이", "체리 폭탄 연금술사", "폭발 물약으로 공격 보너스를 줍니다.", RelicRarity.Rare, 16f, 6, 8, 0f, 0.005f, 11, new Color(0.72f, 0.16f, 0.25f), new Color(0.98f, 0.38f, 0.46f), new Color(1f, 0.78f, 0.32f)),
+            new CompanionDefinition(6, "세린", "별빛 성녀", "별빛 기도로 회복과 생존력을 보강합니다.", RelicRarity.Epic, 9f, 3, 24, 0.45f, 0.006f, 5, new Color(0.95f, 0.88f, 0.58f), new Color(0.82f, 0.55f, 1f), new Color(1f, 0.96f, 0.60f)),
+            new CompanionDefinition(7, "하늘", "구름 용기사", "용의 바람으로 모든 능력을 고르게 올립니다.", RelicRarity.Epic, 8f, 5, 20, 0.20f, 0.008f, 7, new Color(0.55f, 0.78f, 1f), new Color(0.34f, 0.48f, 0.92f), new Color(1f, 1f, 0.74f)),
+            new CompanionDefinition(8, "레나", "홍련 아이돌", "응원 무대로 공격과 치명타를 강화합니다.", RelicRarity.Epic, 7f, 7, 10, 0.12f, 0.012f, 10, new Color(0.96f, 0.28f, 0.44f), new Color(1f, 0.48f, 0.72f), new Color(1f, 0.92f, 0.42f)),
+            new CompanionDefinition(9, "유리", "여우 검희", "여우불 검술로 공격과 치명타를 폭발적으로 강화합니다.", RelicRarity.Legendary, 3.2f, 8, 14, 0.25f, 0.018f, 14, new Color(0.98f, 0.78f, 0.45f), new Color(0.95f, 0.22f, 0.30f), new Color(1f, 0.82f, 0.30f)),
+            new CompanionDefinition(10, "시아", "은하 마녀", "은하 주문으로 회복과 치명타를 크게 올립니다.", RelicRarity.Legendary, 2.8f, 6, 20, 0.45f, 0.016f, 9, new Color(0.74f, 0.62f, 1f), new Color(0.22f, 0.18f, 0.48f), new Color(0.64f, 1f, 1f)),
+            new CompanionDefinition(11, "이렌", "백화 공주기사", "공주기사의 축복으로 모든 능력을 크게 올립니다.", RelicRarity.Legendary, 2.4f, 7, 24, 0.30f, 0.014f, 10, new Color(1f, 0.92f, 0.82f), new Color(0.98f, 0.88f, 0.96f), new Color(0.92f, 0.68f, 1f))
         };
 
         public static EnemyState CreateEnemy(int stage)
@@ -357,6 +360,32 @@ namespace IdleRPG
                 default:
                     return Color.white;
             }
+        }
+
+        public static int GetCompanionAttackBonus(CompanionDefinition companion, int level, float multiplier)
+        {
+            return Mathf.FloorToInt(companion.AttackPerLevel * Mathf.Max(1, level) * multiplier);
+        }
+
+        public static int GetCompanionMaxHpBonus(CompanionDefinition companion, int level, float multiplier)
+        {
+            return Mathf.FloorToInt(companion.MaxHpPerLevel * Mathf.Max(1, level) * multiplier);
+        }
+
+        public static float GetCompanionRegenBonus(CompanionDefinition companion, int level, float multiplier)
+        {
+            return companion.RegenPerLevel * Mathf.Max(1, level) * multiplier;
+        }
+
+        public static float GetCompanionCritBonus(CompanionDefinition companion, int level, float multiplier)
+        {
+            return companion.CritChancePerLevel * Mathf.Max(1, level) * multiplier;
+        }
+
+        public static int GetCompanionSkillDamage(CompanionDefinition companion, int companionLevel, int heroLevel)
+        {
+            int level = Mathf.Max(1, companionLevel);
+            return Mathf.Max(1, Mathf.FloorToInt(companion.SkillDamagePerLevel * level + heroLevel * 0.45f));
         }
     }
 }

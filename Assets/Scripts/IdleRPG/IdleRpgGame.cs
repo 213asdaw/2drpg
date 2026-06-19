@@ -732,7 +732,7 @@ namespace IdleRPG
 
                 CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
                 int level = Mathf.Max(1, GetCompanionLevel(state, companionId));
-                int assistDamage = Mathf.Max(1, Mathf.FloorToInt((companion.AttackPerLevel * level + state.hero.level * 0.5f) * 0.35f));
+                int assistDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, level, state.hero.level);
                 state.enemy.hp = Mathf.Max(0f, state.enemy.hp - assistDamage);
                 state.stageCompanionDamage.Add(companionId, assistDamage);
                 AddCompanionAttackEffect(companion, slotIndex, assistDamage);
@@ -1422,6 +1422,12 @@ namespace IdleRPG
             GUI.color = previous;
             GUILayout.Label(featuredCompanion.Title, labelStyle);
             GUILayout.Label(featuredCompanion.Description, smallStyle);
+            int featuredLevel = GetCompanionLevel(state, featuredCompanion.Id);
+            if (featuredLevel > 0)
+            {
+                GUILayout.Label(FormatCompanionSkillText(featuredCompanion, featuredLevel), labelStyle);
+                GUILayout.Label(FormatCompanionStatBonusText(featuredCompanion, featuredLevel), smallStyle);
+            }
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
             GUILayout.Space(10f);
@@ -1557,8 +1563,8 @@ namespace IdleRPG
             GUI.color = previous;
 
             GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 36f, cardRect.width - 370f, 42f), companion.Title + " - " + companion.Description, smallStyle);
-            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 78f, cardRect.width - 370f, 44f), "스킬: " + GetCompanionSkillDescription(companion), smallStyle);
-            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 122f, cardRect.width - 370f, 20f), "보유 25% / 편성 100%: 공격 +" + companion.AttackPerLevel + ", HP +" + companion.MaxHpPerLevel, smallStyle);
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 78f, cardRect.width - 370f, 44f), FormatCompanionSkillText(companion, level), smallStyle);
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 122f, cardRect.width - 370f, 36f), FormatCompanionStatBonusText(companion, level), smallStyle);
 
             string statusText;
             if (level <= 0)
@@ -1748,7 +1754,15 @@ namespace IdleRPG
             GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 12f, cardRect.width - 134f, 26f), "Lv." + level + " [" + IdleRpgBalance.GetRarityName(companion.Rarity) + "] " + companion.Name, labelStyle);
             GUI.color = previous;
             GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 42f, cardRect.width - 134f, 60f), companion.Title + " - " + companion.Description, smallStyle);
-            GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 104f, cardRect.width - 134f, 64f), "전투 효과: " + GetCompanionAttackLabel(companion) + "\n스킬: " + GetCompanionSkillDescription(companion) + "\n보유 25% / 편성 100% 능력치 적용", smallStyle);
+            if (level > 0)
+            {
+                GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 88f, cardRect.width - 134f, 40f), FormatCompanionSkillText(companion, level), smallStyle);
+                GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 126f, cardRect.width - 134f, 44f), FormatCompanionStatBonusText(companion, level), smallStyle);
+            }
+            else
+            {
+                GUI.Label(new Rect(cardRect.x + 122f, cardRect.y + 104f, cardRect.width - 134f, 64f), "소환 후 레벨에 따라 능력치와 스킬 피해가 증가합니다.", smallStyle);
+            }
         }
 
         private void DrawRelicRow(RelicDefinition relic)
@@ -1854,6 +1868,8 @@ namespace IdleRPG
                 GUILayout.Label("[" + IdleRpgBalance.GetRarityName(companion.Rarity) + "]", smallStyle, GUILayout.Width(44f));
                 GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(72f));
                 GUILayout.FlexibleSpace();
+                int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, GetCompanionLevel(state, companionId), state.hero.level);
+                GUILayout.Label("스킬 " + skillDamage, smallStyle, GUILayout.Width(58f));
                 GUILayout.Label(FormatNumber(damage), labelStyle);
                 GUILayout.EndHorizontal();
             }
@@ -1889,6 +1905,8 @@ namespace IdleRPG
                     GUI.Label(new Rect(card.x + 56f, card.y + 8f, card.width - 62f, 20f), companion.Name, labelStyle);
                     GUI.color = previous;
                     GUI.Label(new Rect(card.x + 56f, card.y + 32f, card.width - 62f, 20f), "Lv." + GetCompanionLevel(state, companion.Id) + " " + companion.Title, smallStyle);
+                    int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, GetCompanionLevel(state, companion.Id), state.hero.level);
+                    GUI.Label(new Rect(card.x + 56f, card.y + 54f, card.width - 62f, 18f), GetCompanionAttackLabel(companion) + " " + skillDamage, smallStyle);
                 }
                 else
                 {
@@ -1950,7 +1968,7 @@ namespace IdleRPG
                     continue;
                 }
 
-                bonus += Mathf.FloorToInt(companion.AttackPerLevel * GetCompanionLevel(targetState, companion.Id) * multiplier);
+                bonus += IdleRpgBalance.GetCompanionAttackBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
             }
 
             return targetState.hero.attack + bonus;
@@ -1979,7 +1997,7 @@ namespace IdleRPG
                     continue;
                 }
 
-                bonus += Mathf.FloorToInt(companion.MaxHpPerLevel * GetCompanionLevel(targetState, companion.Id) * multiplier);
+                bonus += IdleRpgBalance.GetCompanionMaxHpBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
             }
 
             return targetState.hero.maxHp + bonus;
@@ -2003,7 +2021,7 @@ namespace IdleRPG
                     continue;
                 }
 
-                bonus += companion.RegenPerLevel * GetCompanionLevel(state, companion.Id) * multiplier;
+                bonus += IdleRpgBalance.GetCompanionRegenBonus(companion, GetCompanionLevel(state, companion.Id), multiplier);
             }
 
             return state.hero.regen + bonus;
@@ -2027,7 +2045,7 @@ namespace IdleRPG
                     continue;
                 }
 
-                bonus += companion.CritChancePerLevel * GetCompanionLevel(state, companion.Id) * multiplier;
+                bonus += IdleRpgBalance.GetCompanionCritBonus(companion, GetCompanionLevel(state, companion.Id), multiplier);
             }
 
             return Mathf.Min(0.60f, state.hero.critChance + bonus);
@@ -2249,6 +2267,31 @@ namespace IdleRPG
                 default:
                     return "편성 시 보조 공격과 능력치 보너스를 제공합니다.";
             }
+        }
+
+        private string FormatCompanionSkillText(CompanionDefinition companion, int level)
+        {
+            int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, level, state.hero.level);
+            return GetCompanionAttackLabel(companion) + " - " + GetCompanionSkillDescription(companion) + "  [스킬 피해 " + skillDamage + "]";
+        }
+
+        private string FormatCompanionStatBonusText(CompanionDefinition companion, int level)
+        {
+            int ownedAttack = IdleRpgBalance.GetCompanionAttackBonus(companion, level, 0.25f);
+            int formedAttack = IdleRpgBalance.GetCompanionAttackBonus(companion, level, 1f);
+            int ownedHp = IdleRpgBalance.GetCompanionMaxHpBonus(companion, level, 0.25f);
+            int formedHp = IdleRpgBalance.GetCompanionMaxHpBonus(companion, level, 1f);
+            float ownedRegen = IdleRpgBalance.GetCompanionRegenBonus(companion, level, 0.25f);
+            float formedRegen = IdleRpgBalance.GetCompanionRegenBonus(companion, level, 1f);
+            int ownedCrit = Mathf.RoundToInt(IdleRpgBalance.GetCompanionCritBonus(companion, level, 0.25f) * 100f);
+            int formedCrit = Mathf.RoundToInt(IdleRpgBalance.GetCompanionCritBonus(companion, level, 1f) * 100f);
+
+            return "보유 Lv." + level + ": 공격+" + ownedAttack + ", HP+" + ownedHp
+                + (ownedRegen > 0f ? ", 회복+" + ownedRegen.ToString("0.0") : string.Empty)
+                + (ownedCrit > 0 ? ", 치명+" + ownedCrit + "%" : string.Empty)
+                + "\n편성 Lv." + level + ": 공격+" + formedAttack + ", HP+" + formedHp
+                + (formedRegen > 0f ? ", 회복+" + formedRegen.ToString("0.0") : string.Empty)
+                + (formedCrit > 0 ? ", 치명+" + formedCrit + "%" : string.Empty);
         }
 
         private void UpdateCompanionAttackEffects(float deltaTime)
