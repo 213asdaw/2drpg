@@ -48,6 +48,8 @@ namespace IdleRPG
         private float saveTimer;
         private bool companionFormationScreenOpen;
         private bool companionGachaScreenOpen;
+        private bool relicProbabilityScreenOpen;
+        private bool companionProbabilityScreenOpen;
         private bool stageProgressScreenOpen;
         private bool companionDamageDrawerOpen;
         private GameScreenMode currentScreen = GameScreenMode.Battle;
@@ -57,8 +59,9 @@ namespace IdleRPG
         private Texture2D[] companionPortraitTextures;
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
-        private Vector2 companionGachaProbabilityScroll;
         private Vector2 relicGachaScroll;
+        private Vector2 relicProbabilityScroll;
+        private Vector2 companionProbabilityScroll;
         private Vector2 companionFormationScroll;
         private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
@@ -164,6 +167,16 @@ namespace IdleRPG
             {
                 DrawStageProgressScreen();
             }
+
+            if (relicProbabilityScreenOpen)
+            {
+                DrawRelicProbabilityScreen();
+            }
+
+            if (companionProbabilityScreenOpen)
+            {
+                DrawCompanionProbabilityScreen();
+            }
         }
 
         private void DrawScreenNavigationHeader()
@@ -215,7 +228,7 @@ namespace IdleRPG
                 return;
             }
 
-            if (companionFormationScreenOpen || stageProgressScreenOpen || companionGachaScreenOpen)
+            if (companionFormationScreenOpen || stageProgressScreenOpen || companionGachaScreenOpen || relicProbabilityScreenOpen || companionProbabilityScreenOpen)
             {
                 return;
             }
@@ -273,7 +286,7 @@ namespace IdleRPG
 
         private bool IsLobbyModalOpen()
         {
-            return companionFormationScreenOpen || companionGachaScreenOpen;
+            return companionFormationScreenOpen || companionGachaScreenOpen || relicProbabilityScreenOpen || companionProbabilityScreenOpen;
         }
 
         private void OpenCompanionFormationScreen()
@@ -310,7 +323,14 @@ namespace IdleRPG
             GUILayout.Space(12f);
             if (IsLobbyModalOpen())
             {
-                GUILayout.Label(companionFormationScreenOpen ? "동료 편성 화면이 열려 있습니다." : "동료 소환 화면이 열려 있습니다.", smallStyle);
+                string modalMessage = companionFormationScreenOpen
+                    ? "동료 편성 화면이 열려 있습니다."
+                    : companionGachaScreenOpen
+                        ? "동료 소환 화면이 열려 있습니다."
+                        : relicProbabilityScreenOpen
+                            ? "유물 확률표가 열려 있습니다."
+                            : "동료 소환 확률표가 열려 있습니다.";
+                GUILayout.Label(modalMessage, smallStyle);
                 GUILayout.Label("닫기 전에는 다른 화면을 열 수 없습니다.", smallStyle);
             }
             else
@@ -1585,7 +1605,11 @@ namespace IdleRPG
             }
 
             GUILayout.Space(6f);
-            DrawRelicGachaProbabilityTable();
+            if (GUILayout.Button("확률표 보기", buttonStyle, GUILayout.Height(38f)))
+            {
+                relicProbabilityScreenOpen = true;
+            }
+
             GUILayout.Space(6f);
             GUILayout.Label("보유 유물", labelStyle);
             relicGachaScroll = GUILayout.BeginScrollView(relicGachaScroll, GUILayout.ExpandHeight(true));
@@ -1615,6 +1639,11 @@ namespace IdleRPG
             GUILayout.Label("보석으로 동료를 소환합니다. 중복 획득 시 레벨이 올라갑니다.", labelStyle);
             GUILayout.EndVertical();
             GUILayout.FlexibleSpace();
+            if (GUILayout.Button("확률표", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
+            {
+                companionProbabilityScreenOpen = true;
+            }
+
             if (GUILayout.Button("닫기", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
             {
                 companionGachaScreenOpen = false;
@@ -1666,9 +1695,6 @@ namespace IdleRPG
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
-            GUILayout.Space(10f);
-
-            DrawCompanionGachaProbabilityTable();
             GUILayout.Space(10f);
 
             GUILayout.Label("최근 소환 / 동료 도감", labelStyle);
@@ -2013,45 +2039,109 @@ namespace IdleRPG
             GUI.color = previous;
         }
 
-        private void DrawRelicGachaProbabilityTable()
+        private void DrawRelicProbabilityScreen()
         {
-            GUILayout.Label("유물 확률표", labelStyle);
-            GUILayout.Label("희귀 이상 보정은 " + IdleRpgBalance.RarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용됩니다.", smallStyle);
-            DrawGachaProbabilityHeader();
-            DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetRelicRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetRelicRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetRelicRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetRelicRarityDropProbability);
-            GUILayout.Space(4f);
+            DrawGachaProbabilityModal(
+                "유물 뽑기 확률표",
+                "골드 " + FormatNumber(IdleRpgBalance.GachaGoldCost) + "G로 1회 뽑기  |  희귀 이상 보정은 " + IdleRpgBalance.RarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용",
+                ref relicProbabilityScreenOpen,
+                ref relicProbabilityScroll,
+                DrawRelicGachaProbabilityContent);
+        }
+
+        private void DrawCompanionProbabilityScreen()
+        {
+            DrawGachaProbabilityModal(
+                "동료 소환 확률표",
+                "보석 " + FormatNumber(IdleRpgBalance.CompanionGachaGemCost) + "♦ / 10회 " + FormatNumber(IdleRpgBalance.CompanionGachaTenPullGemCost) + "♦  |  희귀 이상 보정은 " + IdleRpgBalance.CompanionRarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용",
+                ref companionProbabilityScreenOpen,
+                ref companionProbabilityScroll,
+                DrawCompanionGachaProbabilityContent);
+        }
+
+        private void DrawGachaProbabilityModal(string title, string description, ref bool isOpen, ref Vector2 scrollPosition, Action drawContent)
+        {
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            DrawPanel(overlay, new Color(0.02f, 0.02f, 0.05f, 0.92f));
+
+            float width = Mathf.Min(760f, Screen.width - 80f);
+            float height = Mathf.Min(620f, Screen.height - 80f);
+            Rect screen = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            DrawPanel(screen, new Color(0.07f, 0.06f, 0.14f, 0.98f));
+
+            GUILayout.BeginArea(new Rect(screen.x + 24f, screen.y + 18f, screen.width - 48f, 62f));
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+            GUILayout.Label(title, titleStyle);
+            GUILayout.Label(description, labelStyle);
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("닫기", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
+            {
+                isOpen = false;
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+
+            Rect contentRect = new Rect(screen.x + 24f, screen.y + 96f, screen.width - 48f, screen.height - 120f);
+            DrawPanel(contentRect, new Color(0.10f, 0.09f, 0.18f, 0.95f));
+            GUILayout.BeginArea(new Rect(contentRect.x + 18f, contentRect.y + 14f, contentRect.width - 36f, contentRect.height - 28f));
+            GUILayout.Label("등급별 확률", labelStyle);
+            DrawGachaProbabilityHeader(false);
+            drawContent(false);
+            GUILayout.Space(12f);
+            GUILayout.Label("개별 확률", labelStyle);
+            DrawGachaProbabilityHeader(true);
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.ExpandHeight(true));
+            drawContent(true);
+            GUILayout.EndScrollView();
+            GUILayout.EndArea();
+        }
+
+        private void DrawRelicGachaProbabilityContent(bool itemsOnly)
+        {
+            if (!itemsOnly)
+            {
+                DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetRelicRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetRelicRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetRelicRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetRelicRarityDropProbability);
+                return;
+            }
+
             for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
             {
                 DrawRelicProbabilityRow(IdleRpgBalance.Relics[index]);
             }
         }
 
-        private void DrawCompanionGachaProbabilityTable()
+        private void DrawCompanionGachaProbabilityContent(bool itemsOnly)
         {
-            GUILayout.Label("동료 소환 확률표", labelStyle);
-            GUILayout.Label("희귀 이상 보정은 " + IdleRpgBalance.CompanionRarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용됩니다.", smallStyle);
-            DrawGachaProbabilityHeader();
-            DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetCompanionRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetCompanionRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetCompanionRarityDropProbability);
-            DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetCompanionRarityDropProbability);
-            GUILayout.Space(4f);
-            companionGachaProbabilityScroll = GUILayout.BeginScrollView(companionGachaProbabilityScroll, GUILayout.Height(168f));
+            if (!itemsOnly)
+            {
+                DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetCompanionRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetCompanionRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetCompanionRarityDropProbability);
+                DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetCompanionRarityDropProbability);
+                return;
+            }
+
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
                 DrawCompanionProbabilityRow(IdleRpgBalance.Companions[index]);
             }
-
-            GUILayout.EndScrollView();
         }
 
-        private void DrawGachaProbabilityHeader()
+        private void DrawGachaProbabilityHeader(bool includeNameColumn)
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label("등급", smallStyle, GUILayout.Width(44f));
+            if (includeNameColumn)
+            {
+                GUILayout.Label("이름", smallStyle, GUILayout.Width(88f));
+            }
+
             GUILayout.Label("일반", smallStyle, GUILayout.Width(58f));
             GUILayout.Label("보정", smallStyle, GUILayout.Width(58f));
             GUILayout.FlexibleSpace();
