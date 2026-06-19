@@ -1,0 +1,20 @@
+{
+    "name": "IdleRPG.Runtime",
+    "rootNamespace": "",
+    "references": [
+        "Unity.2D.Sprite",
+        "UnityEngine.IMGUIModule",
+        "UnityEngine.UIModule",
+        "UnityEngine.JSONSerializeModule",
+        "UnityEngine.Physics2DModule"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
