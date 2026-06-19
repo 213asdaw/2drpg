@@ -74,6 +74,7 @@ namespace IdleRPG
         private Vector2 companionProbabilityScroll;
         private Vector2 companionFormationScroll;
         private Vector2 stageSelectScroll;
+        private Vector2 battleStatsScroll;
         private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
@@ -198,8 +199,13 @@ namespace IdleRPG
             GUILayout.BeginArea(new Rect(header.x + 14f, header.y + 8f, header.width - 28f, header.height - 16f));
             GUILayout.BeginHorizontal();
             GUILayout.Label(currentScreen == GameScreenMode.Battle ? "전투" : "로비", titleStyle, GUILayout.Width(72f));
-            GUILayout.Label("스테이지 " + state.stage + "  |  전투력 " + FormatNumber(GetCombatPower()) + "  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
+            GUILayout.Label("스테이지 " + state.stage + "  |  전투력 " + FormatNumber(GetCombatPower()) + "  |  치명 " + Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
             GUILayout.FlexibleSpace();
+            if (GUILayout.Button("퀘스트", buttonStyle, GUILayout.Width(80f), GUILayout.Height(34f)))
+            {
+                stageProgressScreenOpen = true;
+            }
+
             if (currentScreen == GameScreenMode.Battle)
             {
                 if (GUILayout.Button("로비", buttonStyle, GUILayout.Width(88f), GUILayout.Height(34f)))
@@ -652,13 +658,14 @@ namespace IdleRPG
             heroSwordTransform = sword.transform;
             heroSwordRestLocalPosition = sword.transform.localPosition;
             heroSwordRestLocalRotation = -38f;
+            SetSortingOrder(sword, 8);
 
-            GameObject swingTrail = CreateSpriteObject("Swing Trail", CreateSolidSprite(new Color(1f, 0.95f, 0.72f, 0f), 4, 20));
+            GameObject swingTrail = CreateSpriteObject("Swing Trail", CreateSolidSprite(new Color(1f, 0.92f, 0.45f, 0f), 6, 28));
             swingTrail.transform.SetParent(root.transform);
             swingTrail.transform.localPosition = new Vector3(0.72f, 0.82f, -0.04f);
             swingTrail.transform.localRotation = Quaternion.Euler(0f, 0f, 18f);
             swingTrail.transform.localScale = Vector3.zero;
-            SetSortingOrder(swingTrail, 2);
+            SetSortingOrder(swingTrail, 9);
             heroSwingTrailTransform = swingTrail.transform;
 
             return root.transform;
@@ -1259,8 +1266,16 @@ namespace IdleRPG
 
             SyncHeroCritStatsFromUpgrades(state);
 
-            AddFloatingText("강화!", new Vector2(0.50f, 0.66f), new Color(0.97f, 0.84f, 0.43f));
-            AddLog(IdleRpgBalance.GetUpgrade(type).Label + " 강화 완료!");
+            if (type == UpgradeType.Focus)
+            {
+                AddFloatingText("치명 " + Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%", new Vector2(0.50f, 0.70f), new Color(1f, 0.88f, 0.35f));
+                AddLog("집중 수련 Lv." + state.upgrades.focus + "  |  치명타 " + Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%  |  치명 피해 " + Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
+            }
+            else
+            {
+                AddFloatingText("강화!", new Vector2(0.50f, 0.66f), new Color(0.97f, 0.84f, 0.43f));
+                AddLog(IdleRpgBalance.GetUpgrade(type).Label + " 강화 완료!");
+            }
             RefreshQuestProgress();
             UpdatePeakCombatPower();
             SaveState();
@@ -1618,27 +1633,28 @@ namespace IdleRPG
             {
                 float swing = GetHeroAttackSwing();
                 float attackLean = Mathf.Clamp01(state.combat.heroAttack) * 0.10f;
-                float lunge = swing * 0.30f;
+                float lunge = swing * 0.42f;
                 heroRoot.position = new Vector3(-2.35f + attackLean + lunge, -1.35f + Mathf.Sin(Time.time * 3.2f) * 0.025f, 0f);
-                heroRoot.localRotation = Quaternion.Euler(0f, 0f, -12f * swing);
+                heroRoot.localRotation = Quaternion.Euler(0f, 0f, -18f * swing);
 
                 if (heroSwordTransform != null)
                 {
-                    float swordAngle = Mathf.Lerp(heroSwordRestLocalRotation, 74f, swing);
-                    Vector3 swordOffset = new Vector3(0.14f * swing, 0.10f * swing, 0f);
+                    float swordAngle = Mathf.Lerp(heroSwordRestLocalRotation, 92f, swing);
+                    Vector3 swordOffset = new Vector3(0.22f * swing, 0.14f * swing, 0f);
                     heroSwordTransform.localPosition = heroSwordRestLocalPosition + swordOffset;
                     heroSwordTransform.localRotation = Quaternion.Euler(0f, 0f, swordAngle);
+                    heroSwordTransform.localScale = new Vector3(0.16f * (1f + swing * 0.35f), 1.05f * (1f + swing * 0.2f), 1f);
                 }
 
                 if (heroSwingTrailTransform != null)
                 {
-                    heroSwingTrailTransform.localScale = new Vector3(0.12f + swing * 1.25f, 0.04f + swing * 0.22f, 1f);
-                    heroSwingTrailTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-18f, 62f, swing));
-                    heroSwingTrailTransform.localPosition = new Vector3(0.58f + swing * 0.52f, 0.76f + swing * 0.18f, -0.04f);
+                    heroSwingTrailTransform.localScale = new Vector3(0.18f + swing * 1.8f, 0.06f + swing * 0.34f, 1f);
+                    heroSwingTrailTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-28f, 78f, swing));
+                    heroSwingTrailTransform.localPosition = new Vector3(0.62f + swing * 0.72f, 0.72f + swing * 0.24f, -0.04f);
                     SpriteRenderer trailRenderer = heroSwingTrailTransform.GetComponent<SpriteRenderer>();
                     if (trailRenderer != null)
                     {
-                        trailRenderer.color = new Color(1f, 0.95f, 0.72f, swing * 0.72f);
+                        trailRenderer.color = new Color(1f, 0.92f, 0.45f, swing * 0.9f);
                     }
                 }
             }
@@ -1695,9 +1711,10 @@ namespace IdleRPG
         {
             DrawPanel(rect, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(rect);
-            GUILayout.Space(14f);
+            GUILayout.Space(10f);
             GUILayout.Label("전투 정보", titleStyle);
-            GUILayout.Space(6f);
+            GUILayout.Space(4f);
+            battleStatsScroll = GUILayout.BeginScrollView(battleStatsScroll, GUILayout.ExpandHeight(true));
             DrawStat("스테이지", state.stage + " (" + state.stageProgress + "/5)");
             DrawStat("레벨", state.hero.level.ToString());
             DrawStat("경험치", FormatNumber(state.hero.xp) + " / " + FormatNumber(state.hero.xpToNext));
@@ -1706,9 +1723,10 @@ namespace IdleRPG
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
+            DrawStat("집중 수련", "Lv." + state.upgrades.focus);
             DrawStat("전투력", FormatNumber(GetCombatPower()));
             DrawStat("처치 수", FormatNumber(state.stats.kills));
-            GUILayout.Space(10f);
+            GUILayout.Space(8f);
             GUILayout.Label("전투 방식", labelStyle);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button(state.combatMode == CombatMode.Auto ? "[자동]" : "자동", buttonStyle, GUILayout.Height(36f)))
@@ -1733,7 +1751,8 @@ namespace IdleRPG
                 GUILayout.Label("전투 화면 중앙을 터치하면 공격합니다.", smallStyle);
             }
 
-            GUILayout.Space(10f);
+            GUILayout.EndScrollView();
+            GUILayout.Space(6f);
             if (GUILayout.Button("스테이지 / 퀘스트", buttonStyle, GUILayout.Height(40f)))
             {
                 stageProgressScreenOpen = true;
@@ -1756,6 +1775,9 @@ namespace IdleRPG
             DrawStat("동료 보유", GetOwnedCompanionCount() + " / " + IdleRpgBalance.Companions.Length);
             DrawStat("최고 스테이지", state.stats.highestStage.ToString());
             DrawStat("전투력", FormatNumber(GetCombatPower()));
+            DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
+            DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
+            DrawStat("집중 수련", "Lv." + state.upgrades.focus);
             GUILayout.Space(8f);
             GUILayout.Label("골드: 강화 / 유물 뽑기", smallStyle);
             GUILayout.Label("보석: 동료 소환", smallStyle);
@@ -1789,6 +1811,9 @@ namespace IdleRPG
             GUILayout.BeginArea(rect);
             GUILayout.Space(14f);
             GUILayout.Label("강화", titleStyle);
+            GUILayout.Space(4f);
+            DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
+            DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
             GUILayout.Space(6f);
 
             for (int index = 0; index < IdleRpgBalance.Upgrades.Length; index += 1)
@@ -2913,7 +2938,7 @@ namespace IdleRPG
                 bonus += IdleRpgBalance.GetCompanionCritBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
             }
 
-            float fromUpgrades = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades.Get(UpgradeType.Focus));
+            float fromUpgrades = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades != null ? targetState.upgrades.Get(UpgradeType.Focus) : 0);
             return Mathf.Min(IdleRpgBalance.MaxCritChance, fromUpgrades + bonus);
         }
 
@@ -2924,9 +2949,10 @@ namespace IdleRPG
 
         private float GetEffectiveCritMultiplier(IdleRpgState targetState)
         {
+            int focusLevel = targetState.upgrades != null ? targetState.upgrades.Get(UpgradeType.Focus) : 0;
             return Mathf.Min(
                 IdleRpgBalance.MaxCritMultiplier,
-                IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(targetState.upgrades.Get(UpgradeType.Focus)));
+                IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(focusLevel));
         }
 
         private int GetRelicLevel(IdleRpgState targetState, int relicId)
