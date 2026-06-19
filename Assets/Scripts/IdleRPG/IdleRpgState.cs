@@ -28,6 +28,7 @@ namespace IdleRPG
         public int xp;
         public int xpToNext = 20;
         public int gold;
+        public int gems;
         public int attack = 8;
         public int maxHp = 100;
         public float hp = 100f;

@@ -145,8 +145,13 @@ namespace IdleRPG
     {
         public const int GachaGoldCost = 120;
         public const int RarePityPulls = 8;
-        public const int CompanionGachaGoldCost = 240;
+        public const int CompanionGachaGemCost = 160;
+        public const int CompanionGachaTenPullGemCost = 1440;
         public const int CompanionRarePityPulls = 10;
+        public const int StartingGems = 480;
+        public const int StageClearGemReward = 40;
+        public const int BossKillGemReward = 20;
+        public const int NormalKillGemReward = 3;
 
         public static readonly UpgradeDefinition[] Upgrades =
         {
