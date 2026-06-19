@@ -2059,7 +2059,7 @@ namespace IdleRPG
                 DrawCompanionGachaProbabilityContent);
         }
 
-        private void DrawGachaProbabilityModal(string title, string description, ref bool isOpen, ref Vector2 scrollPosition, Action drawContent)
+        private void DrawGachaProbabilityModal(string title, string description, ref bool isOpen, ref Vector2 scrollPosition, Action<bool> drawContent)
         {
             Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
             DrawPanel(overlay, new Color(0.02f, 0.02f, 0.05f, 0.92f));
