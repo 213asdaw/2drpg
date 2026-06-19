@@ -2186,7 +2186,6 @@ namespace IdleRPG
             RefreshQuestProgress();
             QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
             GUILayout.Label("반복 퀘스트", titleStyle);
-            GUILayout.Label("순서: 스테이지 밀기 → 유물 뽑기 → 동료 소환 → 전투력 올리기", smallStyle);
             GUILayout.Space(10f);
             GUILayout.Label("현재 퀘스트 #" + state.quest.tier, labelStyle);
             GUILayout.Label(IdleRpgBalance.GetQuestTitle(questType), titleStyle);
@@ -2198,8 +2197,6 @@ namespace IdleRPG
             GUILayout.Space(8f);
             DrawStat("현재 전투력", FormatNumber(GetCombatPower()));
             DrawStat("최고 전투력", FormatNumber(state.stats.peakCombatPower));
-            GUILayout.Space(8f);
-            GUILayout.Label(GetQuestCyclePreviewText(), smallStyle);
         }
 
         private void DrawQuestSummaryCompact()
@@ -2208,19 +2205,6 @@ namespace IdleRPG
             QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
             GUILayout.Label("진행 퀘스트: " + IdleRpgBalance.GetQuestTitle(questType), labelStyle);
             DrawProgressBar(IdleRpgBalance.GetQuestDescription(questType, state.quest.target), state.quest.progress, state.quest.target, new Color(0.98f, 0.74f, 0.25f));
-        }
-
-        private string GetQuestCyclePreviewText()
-        {
-            string[] labels = { "스테이지", "유물", "동료", "전투력" };
-            string text = "다음 순환: ";
-            for (int index = 0; index < labels.Length; index += 1)
-            {
-                int cycle = (state.quest.cycleIndex + index) % labels.Length;
-                text += (index == 0 ? string.Empty : " → ") + labels[cycle];
-            }
-
-            return text;
         }
 
         private void DrawStageSelectContent()
@@ -2856,8 +2840,9 @@ namespace IdleRPG
                 targetState.quest = new QuestState();
             }
 
-            if (targetState.quest.target <= 0)
+            if (targetState.quest.target <= 0 || targetState.quest.formatVersion < 2)
             {
+                targetState.quest.formatVersion = 2;
                 InitializeQuest(targetState);
             }
         }
@@ -2870,41 +2855,61 @@ namespace IdleRPG
             }
 
             QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
+            targetState.quest.formatVersion = 2;
             targetState.quest.target = IdleRpgBalance.GetQuestTarget(questType, targetState.quest.tier);
-            targetState.quest.progress = 0;
-            targetState.quest.stageBaseline = targetState.stats.highestStage;
             targetState.quest.relicPullBaseline = targetState.gacha != null ? targetState.gacha.totalPulls : 0;
             targetState.quest.companionPullBaseline = targetState.companionGacha != null ? targetState.companionGacha.totalPulls : 0;
-            targetState.quest.combatPowerBaseline = GetCombatPower(targetState);
+            UpdateQuestProgressValues(targetState);
         }
 
         private void RefreshQuestProgress()
         {
-            if (state == null || state.quest == null)
+            RefreshQuestProgress(state);
+        }
+
+        private void RefreshQuestProgress(IdleRpgState targetState)
+        {
+            if (targetState == null || targetState.quest == null)
             {
                 return;
             }
 
-            QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
+            UpdateQuestProgressValues(targetState);
+
+            if (targetState != state)
+            {
+                return;
+            }
+
+            if (targetState.quest.progress >= targetState.quest.target)
+            {
+                QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
+                CompleteQuest(questType);
+            }
+        }
+
+        private void UpdateQuestProgressValues(IdleRpgState targetState)
+        {
+            if (targetState == null || targetState.quest == null)
+            {
+                return;
+            }
+
+            QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
             switch (questType)
             {
                 case QuestType.PushStages:
-                    state.quest.progress = Mathf.Max(0, state.stats.highestStage - state.quest.stageBaseline);
+                    targetState.quest.progress = Mathf.Min(targetState.stats.highestStage, targetState.quest.target);
                     break;
                 case QuestType.RelicGacha:
-                    state.quest.progress = Mathf.Max(0, state.gacha.totalPulls - state.quest.relicPullBaseline);
+                    targetState.quest.progress = Mathf.Max(0, targetState.gacha.totalPulls - targetState.quest.relicPullBaseline);
                     break;
                 case QuestType.CompanionGacha:
-                    state.quest.progress = Mathf.Max(0, state.companionGacha.totalPulls - state.quest.companionPullBaseline);
+                    targetState.quest.progress = Mathf.Max(0, targetState.companionGacha.totalPulls - targetState.quest.companionPullBaseline);
                     break;
                 case QuestType.RaiseCombatPower:
-                    state.quest.progress = Mathf.Max(0, GetCombatPower(state) - state.quest.combatPowerBaseline);
+                    targetState.quest.progress = Mathf.Min(GetCombatPower(targetState), targetState.quest.target);
                     break;
-            }
-
-            if (state.quest.progress >= state.quest.target)
-            {
-                CompleteQuest(questType);
             }
         }
 

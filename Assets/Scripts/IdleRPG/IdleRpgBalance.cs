@@ -156,10 +156,12 @@ namespace IdleRPG
         public const int BossKillGemReward = 6;
         public const int NormalKillGemReward = 1;
 
-        public const int QuestPushStageTarget = 5;
+        public const int QuestBaseStageTarget = 5;
+        public const int QuestStageTargetStep = 5;
         public const int QuestBaseRelicPullTarget = 3;
         public const int QuestBaseCompanionPullTarget = 2;
-        public const int QuestBaseCombatPowerTarget = 280;
+        public const int QuestBaseCombatPowerTarget = 500;
+        public const int QuestCombatPowerTargetStep = 250;
 
         public const float BaseCritChance = 0.05f;
         public const float BaseCritMultiplier = 1.8f;
@@ -577,13 +579,13 @@ namespace IdleRPG
             switch (type)
             {
                 case QuestType.PushStages:
-                    return "최고 스테이지를 " + target + "단계 올리세요.";
+                    return "스테이지 " + target + "에 도달하세요.";
                 case QuestType.RelicGacha:
                     return "유물 뽑기를 " + target + "회 진행하세요.";
                 case QuestType.CompanionGacha:
                     return "동료 소환을 " + target + "회 진행하세요.";
                 case QuestType.RaiseCombatPower:
-                    return "전투력을 " + FormatNumber(target) + " 이상 올리세요.";
+                    return "전투력 " + FormatNumber(target) + " 이상 달성하세요.";
                 default:
                     return string.Empty;
             }
@@ -595,13 +597,13 @@ namespace IdleRPG
             switch (type)
             {
                 case QuestType.PushStages:
-                    return QuestPushStageTarget;
+                    return QuestBaseStageTarget + (safeTier - 1) * QuestStageTargetStep;
                 case QuestType.RelicGacha:
                     return QuestBaseRelicPullTarget + (safeTier - 1);
                 case QuestType.CompanionGacha:
                     return QuestBaseCompanionPullTarget + (safeTier - 1) / 2;
                 case QuestType.RaiseCombatPower:
-                    return QuestBaseCombatPowerTarget + (safeTier - 1) * 90;
+                    return QuestBaseCombatPowerTarget + (safeTier - 1) * QuestCombatPowerTargetStep;
                 default:
                     return 1;
             }
