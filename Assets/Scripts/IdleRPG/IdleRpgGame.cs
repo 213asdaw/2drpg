@@ -66,6 +66,7 @@ namespace IdleRPG
         private readonly GachaCutsceneState gachaCutscene = new GachaCutsceneState();
         private int[] displayedCompanionIds;
         private float[] companionAttackTimers;
+        private float[] companionSkillCooldowns;
         private Texture2D[] companionPortraitTextures;
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
@@ -385,6 +386,7 @@ namespace IdleRPG
             companionRenderers = new SpriteRenderer[FormationSlotCount];
             displayedCompanionIds = new int[FormationSlotCount];
             companionAttackTimers = new float[FormationSlotCount];
+            companionSkillCooldowns = new float[FormationSlotCount];
             for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
             {
                 displayedCompanionIds[slotIndex] = -999;
@@ -1090,34 +1092,61 @@ namespace IdleRPG
             if (state.enemy.hp <= 0f)
             {
                 DefeatEnemy();
+            }
+        }
+
+        private bool TryUseCompanionSkill(int slotIndex)
+        {
+            if (currentScreen != GameScreenMode.Battle
+                || state.hero.hp <= 0f
+                || state.enemy.hp <= 0f
+                || slotIndex < 0
+                || slotIndex >= FormationSlotCount
+                || companionSkillCooldowns == null)
+            {
+                return false;
+            }
+
+            if (companionSkillCooldowns[slotIndex] > 0f)
+            {
+                return false;
+            }
+
+            int companionId = GetFormationCompanionId(slotIndex);
+            if (companionId < 0)
+            {
+                return false;
+            }
+
+            CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
+            int level = Mathf.Max(1, GetCompanionLevel(state, companionId));
+            int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, level, state.hero.level);
+
+            state.enemy.hp = Mathf.Max(0f, state.enemy.hp - skillDamage);
+            state.stageCompanionDamage.Add(companionId, skillDamage);
+            AddCompanionAttackEffect(companion, slotIndex, skillDamage);
+            AddFloatingText(GetCompanionAttackLabel(companion) + " " + skillDamage, new Vector2(0.64f, 0.48f - slotIndex * 0.03f), IdleRpgBalance.GetRarityColor(companion.Rarity));
+            companionSkillCooldowns[slotIndex] = IdleRpgBalance.GetCompanionSkillCooldown(companion);
+            SaveState();
+
+            if (state.enemy.hp <= 0f)
+            {
+                DefeatEnemy();
+            }
+
+            return true;
+        }
+
+        private void ResetCompanionSkillCooldowns()
+        {
+            if (companionSkillCooldowns == null)
+            {
                 return;
             }
 
-            ApplyCompanionAssists();
-        }
-
-        private void ApplyCompanionAssists()
-        {
-            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            for (int slotIndex = 0; slotIndex < companionSkillCooldowns.Length; slotIndex += 1)
             {
-                int companionId = GetFormationCompanionId(slotIndex);
-                if (companionId < 0 || state.enemy.hp <= 0f)
-                {
-                    continue;
-                }
-
-                CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
-                int level = Mathf.Max(1, GetCompanionLevel(state, companionId));
-                int assistDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, level, state.hero.level);
-                state.enemy.hp = Mathf.Max(0f, state.enemy.hp - assistDamage);
-                state.stageCompanionDamage.Add(companionId, assistDamage);
-                AddCompanionAttackEffect(companion, slotIndex, assistDamage);
-
-                if (state.enemy.hp <= 0f)
-                {
-                    DefeatEnemy();
-                    return;
-                }
+                companionSkillCooldowns[slotIndex] = 0f;
             }
         }
 
@@ -1145,6 +1174,7 @@ namespace IdleRPG
             state.combat.heroAttack = 0f;
             state.combat.enemyAttack = 0f;
             ResetStageCompanionDamage();
+            ResetCompanionSkillCooldowns();
             AddLog("용사가 쓰러져 스테이지 " + state.stage + "를 처음부터 다시 시작합니다.");
             AddFloatingText("STAGE RETRY", new Vector2(0.50f, 0.66f), new Color(1f, 0.62f, 0.35f));
         }
@@ -1169,6 +1199,7 @@ namespace IdleRPG
             {
                 state.stageProgress = 0;
                 ResetStageCompanionDamage();
+                ResetCompanionSkillCooldowns();
                 state.hero.hp = GetEffectiveMaxHp();
                 if (state.stage >= state.stats.highestStage)
                 {
@@ -2564,7 +2595,7 @@ namespace IdleRPG
             GUILayout.BeginArea(contentRect);
             GUILayout.Space(8f);
             GUILayout.Label("이번 스테이지 동료 딜량", titleStyle);
-            GUILayout.Label("편성 동료의 누적 피해량", smallStyle);
+            GUILayout.Label("스킬로 가한 누적 피해량", smallStyle);
             DrawCompanionDamageMeter();
             GUILayout.EndArea();
         }
@@ -2587,8 +2618,6 @@ namespace IdleRPG
                 GUILayout.Label("[" + IdleRpgBalance.GetRarityName(companion.Rarity) + "]", smallStyle, GUILayout.Width(44f));
                 GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(72f));
                 GUILayout.FlexibleSpace();
-                int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, GetCompanionLevel(state, companionId), state.hero.level);
-                GUILayout.Label("스킬 " + skillDamage, smallStyle, GUILayout.Width(58f));
                 GUILayout.Label(FormatNumber(damage), labelStyle);
                 GUILayout.EndHorizontal();
             }
@@ -2624,8 +2653,41 @@ namespace IdleRPG
                     GUI.Label(new Rect(card.x + 56f, card.y + 8f, card.width - 62f, 20f), companion.Name, labelStyle);
                     GUI.color = previous;
                     GUI.Label(new Rect(card.x + 56f, card.y + 32f, card.width - 62f, 20f), "Lv." + GetCompanionLevel(state, companion.Id) + " " + companion.Title, smallStyle);
-                    int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, GetCompanionLevel(state, companion.Id), state.hero.level);
-                    GUI.Label(new Rect(card.x + 56f, card.y + 54f, card.width - 62f, 18f), GetCompanionAttackLabel(companion) + " " + skillDamage, smallStyle);
+
+                    float cooldown = companionSkillCooldowns != null ? companionSkillCooldowns[slotIndex] : 0f;
+                    if (cooldown > 0f)
+                    {
+                        Color dim = new Color(0f, 0f, 0f, 0.48f);
+                        GUI.color = dim;
+                        GUI.DrawTexture(card, Texture2D.whiteTexture);
+                        GUI.color = previous;
+                        GUIStyle cooldownStyle = new GUIStyle(titleStyle)
+                        {
+                            alignment = TextAnchor.MiddleCenter,
+                            fontSize = Mathf.Max(16, titleStyle.fontSize)
+                        };
+                        GUI.Label(card, cooldown.ToString("0.0") + "s", cooldownStyle);
+                    }
+                    else
+                    {
+                        GUI.Label(new Rect(card.x + 56f, card.y + 54f, card.width - 62f, 18f), GetCompanionAttackLabel(companion) + " 준비", smallStyle);
+                    }
+
+                    bool canUseSkill = cooldown <= 0f
+                        && state.hero.hp > 0f
+                        && state.enemy.hp > 0f
+                        && !companionFormationScreenOpen
+                        && !stageProgressScreenOpen
+                        && !companionGachaScreenOpen
+                        && !relicProbabilityScreenOpen
+                        && !companionProbabilityScreenOpen;
+                    GUI.enabled = canUseSkill;
+                    if (GUI.Button(card, GUIContent.none, GUIStyle.none))
+                    {
+                        TryUseCompanionSkill(slotIndex);
+                    }
+
+                    GUI.enabled = true;
                 }
                 else
                 {
@@ -2984,6 +3046,7 @@ namespace IdleRPG
             state.combat.enemyAttack = 0f;
             state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp);
             ResetStageCompanionDamage();
+            ResetCompanionSkillCooldowns();
             AddLog("스테이지 " + stageNumber + "에 입장했습니다.");
             SaveState();
         }
@@ -3324,8 +3387,7 @@ namespace IdleRPG
 
         private string FormatCompanionSkillText(CompanionDefinition companion, int level)
         {
-            int skillDamage = IdleRpgBalance.GetCompanionSkillDamage(companion, level, state.hero.level);
-            return GetCompanionAttackLabel(companion) + " - " + GetCompanionSkillDescription(companion) + "  [스킬 피해 " + skillDamage + "]";
+            return GetCompanionAttackLabel(companion) + " - " + GetCompanionSkillDescription(companion);
         }
 
         private string FormatCompanionStatBonusText(CompanionDefinition companion, int level)
@@ -3350,6 +3412,14 @@ namespace IdleRPG
                 for (int index = 0; index < companionAttackTimers.Length; index += 1)
                 {
                     companionAttackTimers[index] = Mathf.Max(0f, companionAttackTimers[index] - deltaTime);
+                }
+            }
+
+            if (companionSkillCooldowns != null && currentScreen == GameScreenMode.Battle)
+            {
+                for (int index = 0; index < companionSkillCooldowns.Length; index += 1)
+                {
+                    companionSkillCooldowns[index] = Mathf.Max(0f, companionSkillCooldowns[index] - deltaTime);
                 }
             }
 

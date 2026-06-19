@@ -523,7 +523,22 @@ namespace IdleRPG
         {
             int level = Mathf.Max(1, companionLevel);
             float rarityScale = GetCompanionSkillRarityScale(companion.Rarity);
-            return Mathf.Max(1, Mathf.FloorToInt((companion.SkillDamagePerLevel * level + heroLevel * 0.55f) * rarityScale));
+            return Mathf.Max(1, Mathf.FloorToInt((companion.SkillDamagePerLevel * level * 1.4f + heroLevel * 1.15f) * rarityScale * 1.35f));
+        }
+
+        public static float GetCompanionSkillCooldown(CompanionDefinition companion)
+        {
+            switch (companion.Rarity)
+            {
+                case RelicRarity.Legendary:
+                    return 8.5f;
+                case RelicRarity.Epic:
+                    return 7f;
+                case RelicRarity.Rare:
+                    return 5.8f;
+                default:
+                    return 4.8f;
+            }
         }
 
         public static float GetHeroCritChanceFromUpgrades(int focusLevel)
@@ -541,11 +556,11 @@ namespace IdleRPG
             switch (rarity)
             {
                 case RelicRarity.Legendary:
-                    return 1.28f;
+                    return 1.45f;
                 case RelicRarity.Epic:
-                    return 1.12f;
+                    return 1.22f;
                 case RelicRarity.Rare:
-                    return 1.05f;
+                    return 1.10f;
                 default:
                     return 1f;
             }
