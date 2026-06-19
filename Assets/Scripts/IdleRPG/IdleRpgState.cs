@@ -131,11 +131,12 @@ namespace IdleRPG
     [Serializable]
     public sealed class QuestState
     {
-        public int formatVersion = 2;
+        public int formatVersion = 3;
         public int cycleIndex;
         public int tier = 1;
         public int progress;
         public int target = 5;
+        public bool readyToClaim;
         public int relicPullBaseline;
         public int companionPullBaseline;
     }

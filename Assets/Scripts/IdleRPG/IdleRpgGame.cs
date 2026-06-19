@@ -1169,6 +1169,7 @@ namespace IdleRPG
             {
                 state.stageProgress = 0;
                 ResetStageCompanionDamage();
+                state.hero.hp = GetEffectiveMaxHp();
                 if (state.stage >= state.stats.highestStage)
                 {
                     state.stage += 1;
@@ -1227,8 +1228,9 @@ namespace IdleRPG
 
             if (levelsGained > 0)
             {
+                float currentHp = targetState.hero.hp;
                 SyncHeroStatsFromUpgrades(targetState);
-                targetState.hero.hp = GetEffectiveMaxHp(targetState);
+                targetState.hero.hp = Mathf.Min(currentHp, GetEffectiveMaxHp(targetState));
             }
 
             if (targetState == state && levelsGained > 0)
@@ -2195,6 +2197,15 @@ namespace IdleRPG
             IdleRpgBalance.GetQuestRewards(questType, state.quest.tier, out int rewardGold, out int rewardGems);
             GUILayout.Label("완료 보상: " + FormatNumber(rewardGold) + "G  +  " + FormatNumber(rewardGems) + "♦", labelStyle);
             GUILayout.Space(8f);
+            if (state.quest.readyToClaim)
+            {
+                GUILayout.Label("퀘스트를 달성했습니다. 보상을 수령하면 다음 퀘스트가 시작됩니다.", labelStyle);
+                if (GUILayout.Button("보상 수령", buttonStyle, GUILayout.Height(44f)))
+                {
+                    ClaimQuestReward();
+                }
+            }
+            GUILayout.Space(8f);
             DrawStat("현재 전투력", FormatNumber(GetCombatPower()));
             DrawStat("최고 전투력", FormatNumber(state.stats.peakCombatPower));
         }
@@ -2204,6 +2215,11 @@ namespace IdleRPG
             RefreshQuestProgress();
             QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
             GUILayout.Label("진행 퀘스트: " + IdleRpgBalance.GetQuestTitle(questType), labelStyle);
+            if (state.quest.readyToClaim)
+            {
+                GUILayout.Label("달성 완료 — 퀘스트 화면에서 보상 수령", smallStyle);
+            }
+
             DrawProgressBar(IdleRpgBalance.GetQuestDescription(questType, state.quest.target), state.quest.progress, state.quest.target, new Color(0.98f, 0.74f, 0.25f));
         }
 
@@ -2840,10 +2856,19 @@ namespace IdleRPG
                 targetState.quest = new QuestState();
             }
 
-            if (targetState.quest.target <= 0 || targetState.quest.formatVersion < 2)
+            if (targetState.quest.target <= 0 || targetState.quest.formatVersion < 3)
             {
-                targetState.quest.formatVersion = 2;
-                InitializeQuest(targetState);
+                bool wasCompleted = targetState.quest.progress >= targetState.quest.target && targetState.quest.target > 0;
+                targetState.quest.formatVersion = 3;
+                if (wasCompleted && !targetState.quest.readyToClaim)
+                {
+                    targetState.quest.readyToClaim = true;
+                }
+
+                if (targetState.quest.target <= 0)
+                {
+                    InitializeQuest(targetState);
+                }
             }
         }
 
@@ -2855,8 +2880,9 @@ namespace IdleRPG
             }
 
             QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
-            targetState.quest.formatVersion = 2;
+            targetState.quest.formatVersion = 3;
             targetState.quest.target = IdleRpgBalance.GetQuestTarget(questType, targetState.quest.tier);
+            targetState.quest.readyToClaim = false;
             targetState.quest.relicPullBaseline = targetState.gacha != null ? targetState.gacha.totalPulls : 0;
             targetState.quest.companionPullBaseline = targetState.companionGacha != null ? targetState.companionGacha.totalPulls : 0;
             UpdateQuestProgressValues(targetState);
@@ -2881,10 +2907,13 @@ namespace IdleRPG
                 return;
             }
 
-            if (targetState.quest.progress >= targetState.quest.target)
+            if (!targetState.quest.readyToClaim
+                && targetState.quest.progress >= targetState.quest.target
+                && targetState.quest.target > 0)
             {
-                QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
-                CompleteQuest(questType);
+                targetState.quest.readyToClaim = true;
+                AddLog("퀘스트 달성! 퀘스트 화면에서 보상을 수령하세요.");
+                SaveState();
             }
         }
 
@@ -2902,15 +2931,31 @@ namespace IdleRPG
                     targetState.quest.progress = Mathf.Min(targetState.stats.highestStage, targetState.quest.target);
                     break;
                 case QuestType.RelicGacha:
-                    targetState.quest.progress = Mathf.Max(0, targetState.gacha.totalPulls - targetState.quest.relicPullBaseline);
+                    targetState.quest.progress = Mathf.Min(
+                        targetState.quest.target,
+                        Mathf.Max(0, targetState.gacha.totalPulls - targetState.quest.relicPullBaseline));
                     break;
                 case QuestType.CompanionGacha:
-                    targetState.quest.progress = Mathf.Max(0, targetState.companionGacha.totalPulls - targetState.quest.companionPullBaseline);
+                    targetState.quest.progress = Mathf.Min(
+                        targetState.quest.target,
+                        Mathf.Max(0, targetState.companionGacha.totalPulls - targetState.quest.companionPullBaseline));
                     break;
                 case QuestType.RaiseCombatPower:
                     targetState.quest.progress = Mathf.Min(GetCombatPower(targetState), targetState.quest.target);
                     break;
             }
+        }
+
+        private bool ClaimQuestReward()
+        {
+            if (state == null || state.quest == null || !state.quest.readyToClaim)
+            {
+                return false;
+            }
+
+            QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
+            CompleteQuest(questType);
+            return true;
         }
 
         private void CompleteQuest(QuestType questType)
@@ -2922,6 +2967,7 @@ namespace IdleRPG
             AddLog("퀘스트 완료: " + IdleRpgBalance.GetQuestTitle(questType) + "  +" + FormatNumber(rewardGold) + "G  +" + FormatNumber(rewardGems) + "♦");
             AddFloatingText("퀘스트 완료!", new Vector2(0.50f, 0.72f), new Color(0.98f, 0.74f, 0.25f));
 
+            state.quest.readyToClaim = false;
             state.quest.cycleIndex = (state.quest.cycleIndex + 1) % 4;
             state.quest.tier += 1;
             InitializeQuest(state);
