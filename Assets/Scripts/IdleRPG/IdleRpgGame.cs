@@ -41,6 +41,7 @@ namespace IdleRPG
         private bool companionGachaScreenOpen;
         private bool companionFormationScreenOpen;
         private bool stageProgressScreenOpen;
+        private bool companionDamageDrawerOpen;
         private int[] displayedCompanionIds;
         private float[] companionAttackTimers;
         private Texture2D[] companionPortraitTextures;
@@ -139,6 +140,7 @@ namespace IdleRPG
             DrawGachaPanel(gachaPanel);
             DrawBattlePanel(bottomPanel);
             DrawPartyHud(partyPanel);
+            DrawCompanionDamageDrawer();
             DrawCompanionAttackEffectsGui();
             DrawFloatingTextsGui();
 
@@ -1711,8 +1713,6 @@ namespace IdleRPG
             GUILayout.Label("전투 상황", titleStyle);
             DrawProgressBar("용사 HP", state.hero.hp, GetEffectiveMaxHp(), new Color(0.24f, 0.85f, 0.54f));
             DrawProgressBar("경험치 - 레벨업 시 공격 +2 / 최대 HP +12", state.hero.xp, state.hero.xpToNext, new Color(0.40f, 0.60f, 1f));
-            GUILayout.Label("이번 스테이지 동료 딜량", smallStyle);
-            DrawCompanionDamageMeter();
             GUILayout.EndArea();
 
             Rect logRect = new Rect(rect.x, rect.y - 188f, rect.width, 176f);
@@ -1743,6 +1743,43 @@ namespace IdleRPG
             GUI.Label(new Rect(bar.x, bar.y - 1f, bar.width, 18f), Mathf.FloorToInt(state.enemy.hp) + " / " + state.enemy.maxHp, smallStyle);
         }
 
+        private void DrawCompanionDamageDrawer()
+        {
+            const float drawerWidth = 252f;
+            const float drawerHeight = 196f;
+            const float tabWidth = 38f;
+            float drawerY = Screen.height - 312f;
+
+            if (companionDamageDrawerOpen)
+            {
+                Rect panelRect = new Rect(12f, drawerY, drawerWidth, drawerHeight);
+                DrawPanel(panelRect, new Color(0.05f, 0.08f, 0.15f, 0.94f));
+
+                Rect headerRect = new Rect(panelRect.x + 10f, panelRect.y + 8f, panelRect.width - 20f, 30f);
+                GUI.Label(new Rect(headerRect.x, headerRect.y, headerRect.width - 44f, headerRect.height), "동료 딜량", titleStyle);
+                if (GUI.Button(new Rect(headerRect.xMax - 40f, headerRect.y, 40f, 28f), "닫기", buttonStyle))
+                {
+                    companionDamageDrawerOpen = false;
+                }
+
+                Rect contentRect = new Rect(panelRect.x + 10f, panelRect.y + 42f, panelRect.width - 20f, panelRect.height - 52f);
+                DrawPanel(contentRect, new Color(0.08f, 0.11f, 0.20f, 0.92f));
+                GUILayout.BeginArea(contentRect);
+                GUILayout.Space(8f);
+                GUILayout.Label("이번 스테이지 누적 피해량", smallStyle);
+                DrawCompanionDamageMeter();
+                GUILayout.EndArea();
+                return;
+            }
+
+            Rect tabRect = new Rect(12f, drawerY + (drawerHeight - tabWidth) * 0.5f, tabWidth, 108f);
+            DrawPanel(tabRect, new Color(0.08f, 0.12f, 0.22f, 0.94f));
+            if (GUI.Button(tabRect, "딜량\n열기", buttonStyle))
+            {
+                companionDamageDrawerOpen = true;
+            }
+        }
+
         private void DrawCompanionDamageMeter()
         {
             bool hasCompanion = false;
@@ -1758,8 +1795,10 @@ namespace IdleRPG
                 CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
                 int damage = state.stageCompanionDamage != null ? state.stageCompanionDamage.Get(companionId) : 0;
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(82f));
-                GUILayout.Label(FormatNumber(damage), smallStyle);
+                GUILayout.Label("[" + IdleRpgBalance.GetRarityName(companion.Rarity) + "]", smallStyle, GUILayout.Width(44f));
+                GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(72f));
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(FormatNumber(damage), labelStyle);
                 GUILayout.EndHorizontal();
             }
 
