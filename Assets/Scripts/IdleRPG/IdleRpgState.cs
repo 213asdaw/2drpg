@@ -35,6 +35,7 @@ namespace IdleRPG
         public CombatMode combatMode = CombatMode.Auto;
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
+        public string playerName = string.Empty;
     }
 
     [Serializable]

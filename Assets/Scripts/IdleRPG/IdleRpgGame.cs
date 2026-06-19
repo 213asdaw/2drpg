@@ -12,7 +12,7 @@ namespace IdleRPG
 
     public sealed class IdleRpgGame : MonoBehaviour
     {
-        private const string SaveKey = "idle-rpg-save-v1";
+        private const string SaveKey = IdleRpgAccountService.LegacySaveKey;
         private const int MaxLogEntries = 8;
         private const int MaxOfflineSeconds = 2 * 60 * 60;
         private const int FormationSlotCount = 3;
@@ -80,6 +80,14 @@ namespace IdleRPG
         private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
         private readonly List<CompanionAttackEffect> companionAttackEffects = new List<CompanionAttackEffect>();
+        private SessionData activeSession;
+        private bool isAuthenticated;
+        private bool sceneBuilt;
+        private LoginPanelMode loginPanelMode = LoginPanelMode.Login;
+        private string loginUsernameInput = string.Empty;
+        private string loginPasswordInput = string.Empty;
+        private string loginPasswordConfirmInput = string.Empty;
+        private string loginErrorMessage = string.Empty;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -97,13 +105,89 @@ namespace IdleRPG
         private void Awake()
         {
             ConfigureLandscapeDisplay();
+            if (IdleRpgAccountService.ResumeSessionAccount(out SessionData restoredSession))
+            {
+                BeginPlaySession(restoredSession);
+            }
+        }
+
+        private void BeginPlaySession(SessionData session)
+        {
+            activeSession = session;
+            isAuthenticated = true;
+            loginErrorMessage = string.Empty;
             state = LoadState();
-            BuildScene();
+            if (state != null)
+            {
+                state.playerName = session.username;
+            }
+
+            if (!sceneBuilt)
+            {
+                BuildScene();
+                sceneBuilt = true;
+            }
+
             UpdateBattleSceneVisibility();
+        }
+
+        private void ShowLoginScreen()
+        {
+            isAuthenticated = false;
+            activeSession = null;
+            state = null;
+            loginErrorMessage = string.Empty;
+            SetGameplaySceneVisible(false);
+        }
+
+        private void SetGameplaySceneVisible(bool visible)
+        {
+            if (!sceneBuilt)
+            {
+                return;
+            }
+
+            bool battleVisible = visible && currentScreen == GameScreenMode.Battle;
+            bool lobbyVisible = visible && currentScreen == GameScreenMode.Lobby;
+            if (battleBackdropRoot != null)
+            {
+                battleBackdropRoot.SetActive(battleVisible);
+            }
+
+            if (lobbyBackdropRoot != null)
+            {
+                lobbyBackdropRoot.SetActive(lobbyVisible);
+            }
+
+            if (heroRoot != null)
+            {
+                heroRoot.gameObject.SetActive(battleVisible);
+            }
+
+            if (enemyRoot != null)
+            {
+                enemyRoot.gameObject.SetActive(battleVisible);
+            }
+
+            if (companionRoots != null)
+            {
+                for (int index = 0; index < companionRoots.Length; index += 1)
+                {
+                    if (companionRoots[index] != null)
+                    {
+                        companionRoots[index].gameObject.SetActive(battleVisible);
+                    }
+                }
+            }
         }
 
         private void Update()
         {
+            if (!isAuthenticated || state == null)
+            {
+                return;
+            }
+
             Tick(Time.deltaTime);
             UpdateSceneObjects();
             UpdateLobbyAmbience(Time.deltaTime);
@@ -149,6 +233,12 @@ namespace IdleRPG
         private void OnGUI()
         {
             EnsureStyles();
+
+            if (!isAuthenticated)
+            {
+                DrawLoginScreen();
+                return;
+            }
 
             if (gachaCutscene.Active)
             {
@@ -200,8 +290,14 @@ namespace IdleRPG
             GUILayout.BeginArea(new Rect(header.x + 14f, header.y + 8f, header.width - 28f, header.height - 16f));
             GUILayout.BeginHorizontal();
             GUILayout.Label(currentScreen == GameScreenMode.Battle ? "전투" : "로비", titleStyle, GUILayout.Width(72f));
-            GUILayout.Label("스테이지 " + state.stage + "  |  전투력 " + FormatNumber(GetCombatPower()) + "  |  치명 " + Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
+            string playerLabel = activeSession != null ? activeSession.username : state.playerName;
+            GUILayout.Label(playerLabel + "  |  스테이지 " + state.stage + "  |  전투력 " + FormatNumber(GetCombatPower()) + "  |  치명 " + Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
             GUILayout.FlexibleSpace();
+            if (GUILayout.Button("로그아웃", buttonStyle, GUILayout.Width(80f), GUILayout.Height(34f)))
+            {
+                LogoutCurrentAccount();
+            }
+
             if (GUILayout.Button("퀘스트", buttonStyle, GUILayout.Width(80f), GUILayout.Height(34f)))
             {
                 stageProgressScreenOpen = true;
@@ -1391,13 +1487,15 @@ namespace IdleRPG
             InitializeQuest(newState);
             SyncHeroStatsFromUpgrades(newState);
             newState.lastSavedUnixSeconds = NowUnixSeconds();
+            newState.playerName = activeSession != null ? activeSession.username : string.Empty;
             newState.battleLog.Add("모험을 시작했습니다. 용사가 자동으로 전투합니다.");
             return newState;
         }
 
         private IdleRpgState LoadState()
         {
-            string serialized = PlayerPrefs.GetString(SaveKey, string.Empty);
+            string saveKey = GetActiveSaveKey();
+            string serialized = PlayerPrefs.GetString(saveKey, string.Empty);
             if (string.IsNullOrEmpty(serialized))
             {
                 return CreateInitialState();
@@ -1412,6 +1510,11 @@ namespace IdleRPG
                 }
 
                 EnsureStateDefaults(loaded);
+                if (activeSession != null)
+                {
+                    loaded.playerName = activeSession.username;
+                }
+
                 ApplyOfflineProgress(loaded, NowUnixSeconds() - loaded.lastSavedUnixSeconds);
                 loaded.lastSavedUnixSeconds = NowUnixSeconds();
                 return loaded;
@@ -1420,6 +1523,144 @@ namespace IdleRPG
             {
                 return CreateInitialState();
             }
+        }
+
+        private string GetActiveSaveKey()
+        {
+            if (activeSession != null && !string.IsNullOrEmpty(activeSession.accountId))
+            {
+                return IdleRpgAccountService.GetSaveKey(activeSession.accountId);
+            }
+
+            return SaveKey;
+        }
+
+        private void LogoutCurrentAccount()
+        {
+            if (isAuthenticated && state != null)
+            {
+                SaveState();
+            }
+
+            IdleRpgAccountService.ClearSession();
+            ShowLoginScreen();
+        }
+
+        private void DrawLoginScreen()
+        {
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            DrawPanel(overlay, new Color(0.03f, 0.05f, 0.10f, 0.98f));
+
+            float width = Mathf.Min(520f, Screen.width - 80f);
+            float height = Mathf.Min(520f, Screen.height - 80f);
+            Rect panel = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            DrawPanel(panel, new Color(0.07f, 0.10f, 0.18f, 0.98f));
+
+            GUILayout.BeginArea(new Rect(panel.x + 28f, panel.y + 24f, panel.width - 56f, panel.height - 48f));
+            GUILayout.Label("2D Idle RPG", titleStyle);
+            GUILayout.Label("계정에 로그인하고 모험을 이어가세요.", labelStyle);
+            GUILayout.Space(12f);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(loginPanelMode == LoginPanelMode.Login ? "[ 로그인 ]" : "로그인", buttonStyle, GUILayout.Height(40f)))
+            {
+                loginPanelMode = LoginPanelMode.Login;
+                loginErrorMessage = string.Empty;
+            }
+
+            if (GUILayout.Button(loginPanelMode == LoginPanelMode.Register ? "[ 회원가입 ]" : "회원가입", buttonStyle, GUILayout.Height(40f)))
+            {
+                loginPanelMode = LoginPanelMode.Register;
+                loginErrorMessage = string.Empty;
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.Space(14f);
+
+            GUILayout.Label("닉네임", labelStyle);
+            loginUsernameInput = GUILayout.TextField(loginUsernameInput, 16, GUILayout.Height(34f));
+            GUILayout.Space(8f);
+            GUILayout.Label("비밀번호", labelStyle);
+            loginPasswordInput = GUILayout.PasswordField(loginPasswordInput, 24, GUILayout.Height(34f));
+
+            if (loginPanelMode == LoginPanelMode.Register)
+            {
+                GUILayout.Space(8f);
+                GUILayout.Label("비밀번호 확인", labelStyle);
+                loginPasswordConfirmInput = GUILayout.PasswordField(loginPasswordConfirmInput, 24, GUILayout.Height(34f));
+            }
+
+            GUILayout.Space(12f);
+            if (!string.IsNullOrEmpty(loginErrorMessage))
+            {
+                Color previous = GUI.color;
+                GUI.color = new Color(1f, 0.55f, 0.55f);
+                GUILayout.Label(loginErrorMessage, labelStyle);
+                GUI.color = previous;
+            }
+
+            GUILayout.Space(8f);
+            if (loginPanelMode == LoginPanelMode.Login)
+            {
+                if (GUILayout.Button("로그인", buttonStyle, GUILayout.Height(46f)))
+                {
+                    AttemptLogin();
+                }
+            }
+            else if (GUILayout.Button("가입하고 시작", buttonStyle, GUILayout.Height(46f)))
+            {
+                AttemptRegister();
+            }
+
+            GUILayout.Space(10f);
+            if (GUILayout.Button("게스트로 시작", buttonStyle, GUILayout.Height(42f)))
+            {
+                AttemptGuestLogin();
+            }
+
+            GUILayout.Space(8f);
+            GUILayout.Label("게스트 / 회원가입 계정마다 저장 데이터가 분리됩니다.", smallStyle);
+            GUILayout.Label("현재는 기기 안에만 저장되는 로컬 로그인입니다.", smallStyle);
+            GUILayout.EndArea();
+        }
+
+        private void AttemptLogin()
+        {
+            if (IdleRpgAccountService.TryLogin(loginUsernameInput, loginPasswordInput, out SessionData session, out string errorMessage))
+            {
+                loginPasswordInput = string.Empty;
+                loginPasswordConfirmInput = string.Empty;
+                BeginPlaySession(session);
+                return;
+            }
+
+            loginErrorMessage = errorMessage;
+        }
+
+        private void AttemptRegister()
+        {
+            if (IdleRpgAccountService.TryRegister(loginUsernameInput, loginPasswordInput, loginPasswordConfirmInput, out SessionData session, out string errorMessage))
+            {
+                loginPasswordInput = string.Empty;
+                loginPasswordConfirmInput = string.Empty;
+                BeginPlaySession(session);
+                return;
+            }
+
+            loginErrorMessage = errorMessage;
+        }
+
+        private void AttemptGuestLogin()
+        {
+            if (IdleRpgAccountService.TryCreateGuest(out SessionData session, out string errorMessage))
+            {
+                loginPasswordInput = string.Empty;
+                loginPasswordConfirmInput = string.Empty;
+                BeginPlaySession(session);
+                return;
+            }
+
+            loginErrorMessage = errorMessage;
         }
 
         private void EnsureStateDefaults(IdleRpgState loaded)
@@ -1646,8 +1887,18 @@ namespace IdleRPG
 
         private void SaveState()
         {
+            if (!isAuthenticated || state == null)
+            {
+                return;
+            }
+
+            if (activeSession != null)
+            {
+                state.playerName = activeSession.username;
+            }
+
             state.lastSavedUnixSeconds = NowUnixSeconds();
-            PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(state));
+            PlayerPrefs.SetString(GetActiveSaveKey(), JsonUtility.ToJson(state));
             PlayerPrefs.Save();
         }
 
@@ -3499,39 +3750,15 @@ namespace IdleRPG
 
         private void UpdateBattleSceneVisibility()
         {
-            bool battleVisible = currentScreen == GameScreenMode.Battle;
+            if (!isAuthenticated)
+            {
+                SetGameplaySceneVisible(false);
+                return;
+            }
+
+            SetGameplaySceneVisible(true);
+
             bool lobbyVisible = currentScreen == GameScreenMode.Lobby;
-            if (battleBackdropRoot != null)
-            {
-                battleBackdropRoot.SetActive(battleVisible);
-            }
-
-            if (lobbyBackdropRoot != null)
-            {
-                lobbyBackdropRoot.SetActive(lobbyVisible);
-            }
-
-            if (heroRoot != null)
-            {
-                heroRoot.gameObject.SetActive(battleVisible);
-            }
-
-            if (enemyRoot != null)
-            {
-                enemyRoot.gameObject.SetActive(battleVisible);
-            }
-
-            if (companionRoots != null)
-            {
-                for (int index = 0; index < companionRoots.Length; index += 1)
-                {
-                    if (companionRoots[index] != null)
-                    {
-                        companionRoots[index].gameObject.SetActive(battleVisible);
-                    }
-                }
-            }
-
             Camera camera = Camera.main;
             if (camera != null)
             {
