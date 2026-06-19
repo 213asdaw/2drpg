@@ -238,6 +238,100 @@ namespace IdleRPG
             throw new ArgumentOutOfRangeException("type", type, "Unknown upgrade type.");
         }
 
+        public static float GetRelicPoolTotalWeight(bool forceRareOrBetter)
+        {
+            float totalWeight = 0f;
+            for (int index = 0; index < Relics.Length; index += 1)
+            {
+                RelicDefinition relic = Relics[index];
+                if (!forceRareOrBetter || relic.Rarity != RelicRarity.Common)
+                {
+                    totalWeight += relic.Weight;
+                }
+            }
+
+            return totalWeight;
+        }
+
+        public static float GetRelicDropProbability(RelicDefinition relic, bool forceRareOrBetter)
+        {
+            if (forceRareOrBetter && relic.Rarity == RelicRarity.Common)
+            {
+                return 0f;
+            }
+
+            float totalWeight = GetRelicPoolTotalWeight(forceRareOrBetter);
+            return totalWeight <= 0f ? 0f : relic.Weight / totalWeight;
+        }
+
+        public static float GetRelicRarityDropProbability(RelicRarity rarity, bool forceRareOrBetter)
+        {
+            float totalWeight = GetRelicPoolTotalWeight(forceRareOrBetter);
+            if (totalWeight <= 0f)
+            {
+                return 0f;
+            }
+
+            float rarityWeight = 0f;
+            for (int index = 0; index < Relics.Length; index += 1)
+            {
+                RelicDefinition relic = Relics[index];
+                if (relic.Rarity == rarity && (!forceRareOrBetter || relic.Rarity != RelicRarity.Common))
+                {
+                    rarityWeight += relic.Weight;
+                }
+            }
+
+            return rarityWeight / totalWeight;
+        }
+
+        public static float GetCompanionPoolTotalWeight(bool forceRareOrBetter)
+        {
+            float totalWeight = 0f;
+            for (int index = 0; index < Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = Companions[index];
+                if (!forceRareOrBetter || companion.Rarity != RelicRarity.Common)
+                {
+                    totalWeight += companion.Weight;
+                }
+            }
+
+            return totalWeight;
+        }
+
+        public static float GetCompanionDropProbability(CompanionDefinition companion, bool forceRareOrBetter)
+        {
+            if (forceRareOrBetter && companion.Rarity == RelicRarity.Common)
+            {
+                return 0f;
+            }
+
+            float totalWeight = GetCompanionPoolTotalWeight(forceRareOrBetter);
+            return totalWeight <= 0f ? 0f : companion.Weight / totalWeight;
+        }
+
+        public static float GetCompanionRarityDropProbability(RelicRarity rarity, bool forceRareOrBetter)
+        {
+            float totalWeight = GetCompanionPoolTotalWeight(forceRareOrBetter);
+            if (totalWeight <= 0f)
+            {
+                return 0f;
+            }
+
+            float rarityWeight = 0f;
+            for (int index = 0; index < Companions.Length; index += 1)
+            {
+                CompanionDefinition companion = Companions[index];
+                if (companion.Rarity == rarity && (!forceRareOrBetter || companion.Rarity != RelicRarity.Common))
+                {
+                    rarityWeight += companion.Weight;
+                }
+            }
+
+            return rarityWeight / totalWeight;
+        }
+
         public static RelicDefinition RollRelic(float roll, bool forceRareOrBetter)
         {
             float totalWeight = 0f;

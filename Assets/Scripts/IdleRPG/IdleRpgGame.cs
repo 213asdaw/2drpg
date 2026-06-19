@@ -57,6 +57,8 @@ namespace IdleRPG
         private Texture2D[] companionPortraitTextures;
         private Sprite[] companionSprites;
         private Vector2 companionGachaScroll;
+        private Vector2 companionGachaProbabilityScroll;
+        private Vector2 relicGachaScroll;
         private Vector2 companionFormationScroll;
         private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
@@ -1582,12 +1584,17 @@ namespace IdleRPG
                 GUI.color = previous;
             }
 
-            GUILayout.Space(4f);
+            GUILayout.Space(6f);
+            DrawRelicGachaProbabilityTable();
+            GUILayout.Space(6f);
+            GUILayout.Label("보유 유물", labelStyle);
+            relicGachaScroll = GUILayout.BeginScrollView(relicGachaScroll, GUILayout.ExpandHeight(true));
             for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
             {
                 DrawRelicRow(IdleRpgBalance.Relics[index]);
             }
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
@@ -1659,6 +1666,9 @@ namespace IdleRPG
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+            GUILayout.Space(10f);
+
+            DrawCompanionGachaProbabilityTable();
             GUILayout.Space(10f);
 
             GUILayout.Label("최근 소환 / 동료 도감", labelStyle);
@@ -2001,6 +2011,92 @@ namespace IdleRPG
             GUI.color = IdleRpgBalance.GetRarityColor(relic.Rarity);
             GUILayout.Label("Lv." + level + " " + relic.Name + " - " + relic.Description, smallStyle);
             GUI.color = previous;
+        }
+
+        private void DrawRelicGachaProbabilityTable()
+        {
+            GUILayout.Label("유물 확률표", labelStyle);
+            GUILayout.Label("희귀 이상 보정은 " + IdleRpgBalance.RarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용됩니다.", smallStyle);
+            DrawGachaProbabilityHeader();
+            DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetRelicRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetRelicRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetRelicRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetRelicRarityDropProbability);
+            GUILayout.Space(4f);
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                DrawRelicProbabilityRow(IdleRpgBalance.Relics[index]);
+            }
+        }
+
+        private void DrawCompanionGachaProbabilityTable()
+        {
+            GUILayout.Label("동료 소환 확률표", labelStyle);
+            GUILayout.Label("희귀 이상 보정은 " + IdleRpgBalance.CompanionRarePityPulls + "회 연속 일반 미출 시 다음 뽑기에 적용됩니다.", smallStyle);
+            DrawGachaProbabilityHeader();
+            DrawGachaRarityProbabilityRow(RelicRarity.Common, IdleRpgBalance.GetCompanionRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Rare, IdleRpgBalance.GetCompanionRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Epic, IdleRpgBalance.GetCompanionRarityDropProbability);
+            DrawGachaRarityProbabilityRow(RelicRarity.Legendary, IdleRpgBalance.GetCompanionRarityDropProbability);
+            GUILayout.Space(4f);
+            companionGachaProbabilityScroll = GUILayout.BeginScrollView(companionGachaProbabilityScroll, GUILayout.Height(168f));
+            for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
+            {
+                DrawCompanionProbabilityRow(IdleRpgBalance.Companions[index]);
+            }
+
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawGachaProbabilityHeader()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("등급", smallStyle, GUILayout.Width(44f));
+            GUILayout.Label("일반", smallStyle, GUILayout.Width(58f));
+            GUILayout.Label("보정", smallStyle, GUILayout.Width(58f));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawGachaRarityProbabilityRow(RelicRarity rarity, Func<RelicRarity, bool, float> probabilityLookup)
+        {
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(rarity);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(IdleRpgBalance.GetRarityName(rarity), smallStyle, GUILayout.Width(44f));
+            GUI.color = previous;
+            GUILayout.Label(FormatPercent(probabilityLookup(rarity, false)), smallStyle, GUILayout.Width(58f));
+            GUILayout.Label(FormatPercent(probabilityLookup(rarity, true)), smallStyle, GUILayout.Width(58f));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawRelicProbabilityRow(RelicDefinition relic)
+        {
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(relic.Rarity);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("[" + IdleRpgBalance.GetRarityName(relic.Rarity) + "]", smallStyle, GUILayout.Width(44f));
+            GUI.color = previous;
+            GUILayout.Label(relic.Name, smallStyle, GUILayout.Width(88f));
+            GUILayout.Label(FormatPercent(IdleRpgBalance.GetRelicDropProbability(relic, false)), smallStyle, GUILayout.Width(58f));
+            GUILayout.Label(FormatPercent(IdleRpgBalance.GetRelicDropProbability(relic, true)), smallStyle, GUILayout.Width(58f));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawCompanionProbabilityRow(CompanionDefinition companion)
+        {
+            Color previous = GUI.color;
+            GUI.color = IdleRpgBalance.GetRarityColor(companion.Rarity);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("[" + IdleRpgBalance.GetRarityName(companion.Rarity) + "]", smallStyle, GUILayout.Width(44f));
+            GUI.color = previous;
+            GUILayout.Label(companion.Name, smallStyle, GUILayout.Width(88f));
+            GUILayout.Label(FormatPercent(IdleRpgBalance.GetCompanionDropProbability(companion, false)), smallStyle, GUILayout.Width(58f));
+            GUILayout.Label(FormatPercent(IdleRpgBalance.GetCompanionDropProbability(companion, true)), smallStyle, GUILayout.Width(58f));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
 
         private void DrawBattlePanel(Rect rect)
@@ -2749,6 +2845,11 @@ namespace IdleRPG
                     AddFloatingText(result.ItemName + "!", new Vector2(0.42f + index * 0.02f, 0.68f), result.RarityColor);
                 }
             }
+        }
+
+        private string FormatPercent(float probability)
+        {
+            return (probability * 100f).ToString("0.#") + "%";
         }
 
         private string FormatNumber(int value)
