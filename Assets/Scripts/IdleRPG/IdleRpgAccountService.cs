@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
 using UnityEngine;
 
 namespace IdleRPG
@@ -407,17 +405,20 @@ namespace IdleRPG
 
         private static string HashPassword(string password, string salt)
         {
-            using (SHA256 sha = SHA256.Create())
+            string payload = salt + ":" + password;
+            int hash = 17;
+            for (int index = 0; index < payload.Length; index += 1)
             {
-                byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(salt + ":" + password));
-                StringBuilder builder = new StringBuilder(bytes.Length * 2);
-                for (int index = 0; index < bytes.Length; index += 1)
-                {
-                    builder.Append(bytes[index].ToString("x2"));
-                }
-
-                return builder.ToString();
+                hash = (hash * 31) + payload[index];
             }
+
+            long hash64 = 5381;
+            for (int index = 0; index < payload.Length; index += 1)
+            {
+                hash64 = ((hash64 << 5) + hash64) ^ payload[index];
+            }
+
+            return hash.ToString("x8") + hash64.ToString("x16");
         }
 
         private static bool VerifyPassword(string password, string expectedHash, string salt)

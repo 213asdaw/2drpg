@@ -2932,13 +2932,16 @@ namespace IdleRPG
                         && !companionGachaScreenOpen
                         && !relicProbabilityScreenOpen
                         && !companionProbabilityScreenOpen;
-                    GUI.enabled = canUseSkill;
-                    if (GUI.Button(card, GUIContent.none, GUIStyle.none))
+                    if (canUseSkill
+                        && Event.current.type == EventType.MouseDown
+                        && Event.current.button == 0
+                        && card.Contains(Event.current.mousePosition))
                     {
-                        TryUseCompanionSkill(slotIndex);
+                        if (TryUseCompanionSkill(slotIndex))
+                        {
+                            Event.current.Use();
+                        }
                     }
-
-                    GUI.enabled = true;
                 }
                 else
                 {

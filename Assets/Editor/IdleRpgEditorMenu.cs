@@ -1,3 +1,4 @@
+using IdleRPG;
 using UnityEditor;
 using UnityEngine;
 
