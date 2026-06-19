@@ -1039,7 +1039,7 @@ namespace IdleRPG
 
         private void Tick(float deltaTime)
         {
-            if (deltaTime <= 0f)
+            if (deltaTime <= 0f || currentScreen != GameScreenMode.Battle)
             {
                 return;
             }
