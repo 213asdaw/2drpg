@@ -39,6 +39,10 @@ namespace IdleRPG
         private Transform enemyRoot;
         private GameObject battleBackdropRoot;
         private GameObject lobbyBackdropRoot;
+        private Transform lobbyHearthGlow;
+        private Transform lobbyLanternGlow;
+        private Transform lobbyMoonGlow;
+        private Transform[] lobbyEmbers;
         private SpriteRenderer[] companionRenderers;
         private SpriteRenderer enemyRenderer;
         private GUIStyle titleStyle;
@@ -93,6 +97,7 @@ namespace IdleRPG
         {
             Tick(Time.deltaTime);
             UpdateSceneObjects();
+            UpdateLobbyAmbience(Time.deltaTime);
             UpdateFloatingTexts(Time.deltaTime);
             UpdateCompanionAttackEffects(Time.deltaTime);
             UpdateGachaCutscene(Time.deltaTime);
@@ -418,45 +423,183 @@ namespace IdleRPG
             root.transform.SetParent(transform);
             lobbyBackdropRoot = root;
 
+            Transform sky = CreateBackdropLayer(root.transform, "Lobby Sky", "Background/bg_sky", -112);
+            if (sky != null)
+            {
+                sky.position = new Vector3(0f, 1.4f, 5f);
+                sky.localScale = new Vector3(1.55f, 1.55f, 1f);
+                SpriteRenderer skyRenderer = sky.GetComponent<SpriteRenderer>();
+                if (skyRenderer != null)
+                {
+                    skyRenderer.color = new Color(0.42f, 0.48f, 0.82f);
+                }
+
+                BackgroundFill fill = sky.gameObject.AddComponent<BackgroundFill>();
+                fill.fitMode = BackgroundFill.FitMode.Cover;
+                fill.targetCamera = camera;
+            }
+
+            Transform mountains = CreateBackdropLayer(root.transform, "Lobby Mountains", "Background/bg_mountains", -105);
+            if (mountains != null)
+            {
+                mountains.position = new Vector3(0f, -0.35f, 4.8f);
+                mountains.localScale = new Vector3(1.45f, 1.25f, 1f);
+                SpriteRenderer mountainRenderer = mountains.GetComponent<SpriteRenderer>();
+                if (mountainRenderer != null)
+                {
+                    mountainRenderer.color = new Color(0.22f, 0.18f, 0.34f);
+                }
+
+                ParallaxLayer parallax = mountains.gameObject.AddComponent<ParallaxLayer>();
+                parallax.targetCamera = camera;
+                parallax.parallaxFactor = 0.18f;
+            }
+
+            GameObject ceiling = CreateSpriteObject("Lobby Ceiling", CreateVerticalGradientSprite(
+                new Color(0.08f, 0.05f, 0.10f),
+                new Color(0.16f, 0.10f, 0.18f),
+                8,
+                64));
+            ceiling.transform.position = new Vector3(0f, 3.4f, 3.5f);
+            ceiling.transform.localScale = new Vector3(18f, 3.2f, 1f);
+            SetSortingOrder(ceiling, -98);
+
             GameObject wall = CreateSpriteObject("Lobby Wall", CreateVerticalGradientSprite(
-                new Color(0.10f, 0.07f, 0.12f),
-                new Color(0.20f, 0.14f, 0.22f),
+                new Color(0.16f, 0.10f, 0.08f),
+                new Color(0.28f, 0.18f, 0.12f),
                 8,
                 96));
-            wall.transform.position = new Vector3(0f, 0.2f, 5f);
-            wall.transform.localScale = new Vector3(18f, 10.5f, 1f);
-            SetSortingOrder(wall, -100);
+            wall.transform.position = new Vector3(0f, 0.15f, 4f);
+            wall.transform.localScale = new Vector3(18f, 10.2f, 1f);
+            SetSortingOrder(wall, -96);
+
+            GameObject windowFrame = CreateSpriteObject("Window Frame", CreateSolidSprite(new Color(0.34f, 0.22f, 0.14f), 8, 8));
+            windowFrame.transform.position = new Vector3(0f, 1.55f, 3.2f);
+            windowFrame.transform.localScale = new Vector3(5.4f, 3.2f, 1f);
+            SetSortingOrder(windowFrame, -94);
+
+            GameObject windowGlass = CreateSpriteObject("Window Glass", CreateSolidSprite(new Color(0.52f, 0.68f, 0.95f, 0.22f), 8, 8));
+            windowGlass.transform.position = new Vector3(0f, 1.55f, 3.15f);
+            windowGlass.transform.localScale = new Vector3(4.8f, 2.7f, 1f);
+            SetSortingOrder(windowGlass, -93);
+
+            lobbyMoonGlow = CreateSpriteObject("Moon Glow", CreateCircleSprite(new Color(0.92f, 0.96f, 1f, 0.18f), 96)).transform;
+            lobbyMoonGlow.position = new Vector3(1.1f, 2.05f, 3.1f);
+            lobbyMoonGlow.localScale = Vector3.one * 1.8f;
+            SetSortingOrder(lobbyMoonGlow.gameObject, -92);
+
+            GameObject moon = CreateSpriteObject("Moon", CreateCircleSprite(new Color(0.98f, 0.98f, 0.88f, 0.95f), 64));
+            moon.transform.position = new Vector3(1.1f, 2.05f, 3.05f);
+            moon.transform.localScale = Vector3.one * 0.42f;
+            SetSortingOrder(moon, -91);
+
+            for (int index = 0; index < 6; index += 1)
+            {
+                GameObject shelf = CreateSpriteObject("Bookshelf", CreateSolidSprite(new Color(0.24f + index * 0.02f, 0.14f, 0.10f), 4, 8));
+                float side = index < 3 ? -1f : 1f;
+                float offset = index % 3;
+                shelf.transform.position = new Vector3(side * (5.2f + offset * 0.15f), -0.2f + offset * 0.55f, 2.8f);
+                shelf.transform.localScale = new Vector3(1.8f, 2.4f + offset * 0.35f, 1f);
+                SetSortingOrder(shelf, -89);
+            }
+
+            GameObject rug = CreateSpriteObject("Lobby Rug", CreateCircleSprite(new Color(0.62f, 0.22f, 0.18f, 0.55f), 96));
+            rug.transform.position = new Vector3(0.4f, -2.55f, 1.5f);
+            rug.transform.localScale = new Vector3(5.8f, 1.4f, 1f);
+            SetSortingOrder(rug, -88);
 
             GameObject floor = CreateSpriteObject("Lobby Floor", CreateVerticalGradientSprite(
-                new Color(0.18f, 0.10f, 0.06f),
-                new Color(0.32f, 0.18f, 0.10f),
+                new Color(0.20f, 0.12f, 0.07f),
+                new Color(0.34f, 0.20f, 0.11f),
                 8,
                 24));
-            floor.transform.position = new Vector3(0f, -3.2f, 0f);
-            floor.transform.localScale = new Vector3(18f, 2.2f, 1f);
-            SetSortingOrder(floor, -90);
+            floor.transform.position = new Vector3(0f, -3.15f, 1.2f);
+            floor.transform.localScale = new Vector3(18f, 2.4f, 1f);
+            SetSortingOrder(floor, -87);
 
-            GameObject hearthGlow = CreateSpriteObject("Hearth Glow", CreateCircleSprite(new Color(1f, 0.55f, 0.22f, 0.35f), 96));
-            hearthGlow.transform.position = new Vector3(-3.8f, -1.2f, 0f);
-            hearthGlow.transform.localScale = Vector3.one * 3.4f;
-            SetSortingOrder(hearthGlow, -88);
+            lobbyHearthGlow = CreateSpriteObject("Hearth Glow", CreateCircleSprite(new Color(1f, 0.48f, 0.18f, 0.42f), 96)).transform;
+            lobbyHearthGlow.position = new Vector3(-4.1f, -1.15f, 0.8f);
+            lobbyHearthGlow.localScale = Vector3.one * 3.8f;
+            SetSortingOrder(lobbyHearthGlow.gameObject, -86);
 
-            GameObject hearth = CreateSpriteObject("Hearth", CreateCircleSprite(new Color(1f, 0.72f, 0.28f, 0.75f), 64));
-            hearth.transform.position = new Vector3(-3.8f, -1.35f, 0f);
-            hearth.transform.localScale = Vector3.one * 0.55f;
-            SetSortingOrder(hearth, -87);
+            GameObject hearth = CreateSpriteObject("Hearth", CreateCircleSprite(new Color(1f, 0.68f, 0.24f, 0.82f), 64));
+            hearth.transform.position = new Vector3(-4.1f, -1.3f, 0.7f);
+            hearth.transform.localScale = Vector3.one * 0.62f;
+            SetSortingOrder(hearth, -85);
 
-            GameObject lanternGlow = CreateSpriteObject("Lantern Glow", CreateCircleSprite(new Color(1f, 0.86f, 0.45f, 0.28f), 96));
-            lanternGlow.transform.position = new Vector3(3.6f, 0.4f, 0f);
-            lanternGlow.transform.localScale = Vector3.one * 2.6f;
-            SetSortingOrder(lanternGlow, -88);
+            lobbyLanternGlow = CreateSpriteObject("Lantern Glow", CreateCircleSprite(new Color(1f, 0.82f, 0.38f, 0.34f), 96)).transform;
+            lobbyLanternGlow.position = new Vector3(4.2f, 0.55f, 0.8f);
+            lobbyLanternGlow.localScale = Vector3.one * 2.8f;
+            SetSortingOrder(lobbyLanternGlow.gameObject, -86);
 
-            for (int index = 0; index < 5; index += 1)
+            GameObject lantern = CreateSpriteObject("Lantern", CreateCircleSprite(new Color(1f, 0.92f, 0.52f, 0.88f), 48));
+            lantern.transform.position = new Vector3(4.2f, 0.55f, 0.7f);
+            lantern.transform.localScale = Vector3.one * 0.34f;
+            SetSortingOrder(lantern, -84);
+
+            lobbyEmbers = new Transform[10];
+            for (int index = 0; index < lobbyEmbers.Length; index += 1)
             {
-                GameObject beam = CreateSpriteObject("Window Light", CreateSolidSprite(new Color(0.72f, 0.82f, 1f, 0.08f), 4, 24));
-                beam.transform.position = new Vector3(-2.2f + index * 1.1f, 2.4f, 0f);
-                beam.transform.localScale = new Vector3(0.35f, 0.9f, 1f);
-                SetSortingOrder(beam, -95);
+                GameObject ember = CreateSpriteObject("Ember", CreateCircleSprite(new Color(1f, 0.62f + index * 0.03f, 0.18f, 0.75f), 16));
+                ember.transform.position = new Vector3(-4.1f + UnityEngine.Random.Range(-0.35f, 0.35f), -1.0f + index * 0.08f, 0.6f);
+                ember.transform.localScale = Vector3.one * (0.08f + index * 0.01f);
+                SetSortingOrder(ember, -83);
+                lobbyEmbers[index] = ember.transform;
+            }
+
+            for (int index = 0; index < 8; index += 1)
+            {
+                GameObject garland = CreateSpriteObject("Garland Light", CreateCircleSprite(new Color(1f, 0.88f, 0.45f, 0.55f), 24));
+                garland.transform.position = new Vector3(-3.4f + index * 0.95f, 2.75f, 2.5f);
+                garland.transform.localScale = Vector3.one * 0.12f;
+                SetSortingOrder(garland, -82);
+            }
+        }
+
+        private void UpdateLobbyAmbience(float deltaTime)
+        {
+            if (currentScreen != GameScreenMode.Lobby || lobbyBackdropRoot == null || !lobbyBackdropRoot.activeSelf)
+            {
+                return;
+            }
+
+            float hearthPulse = 0.88f + Mathf.Sin(Time.time * 3.1f) * 0.14f;
+            if (lobbyHearthGlow != null)
+            {
+                lobbyHearthGlow.localScale = Vector3.one * 3.8f * hearthPulse;
+            }
+
+            float lanternPulse = 0.92f + Mathf.Sin(Time.time * 2.2f + 0.8f) * 0.1f;
+            if (lobbyLanternGlow != null)
+            {
+                lobbyLanternGlow.localScale = Vector3.one * 2.8f * lanternPulse;
+            }
+
+            if (lobbyMoonGlow != null)
+            {
+                lobbyMoonGlow.localScale = Vector3.one * (1.8f + Mathf.Sin(Time.time * 1.4f) * 0.08f);
+            }
+
+            if (lobbyEmbers != null)
+            {
+                for (int index = 0; index < lobbyEmbers.Length; index += 1)
+                {
+                    Transform ember = lobbyEmbers[index];
+                    if (ember == null)
+                    {
+                        continue;
+                    }
+
+                    Vector3 position = ember.position;
+                    position.y += deltaTime * (0.55f + index * 0.04f);
+                    position.x += Mathf.Sin(Time.time * 2.4f + index) * deltaTime * 0.12f;
+                    if (position.y > -0.35f)
+                    {
+                        position = new Vector3(-4.1f + UnityEngine.Random.Range(-0.35f, 0.35f), -1.15f, 0.6f);
+                    }
+
+                    ember.position = position;
+                }
             }
         }
 
@@ -907,7 +1050,7 @@ namespace IdleRPG
         private void ApplyHeroDamage(float multiplier)
         {
             bool critical = UnityEngine.Random.value < GetEffectiveCritChance();
-            float criticalMultiplier = critical ? state.hero.critMultiplier : 1f;
+            float criticalMultiplier = critical ? GetEffectiveCritMultiplier() : 1f;
             int damage = Mathf.Max(1, Mathf.FloorToInt(GetEffectiveAttack() * multiplier * criticalMultiplier));
 
             state.enemy.hp = Mathf.Max(0f, state.enemy.hp - damage);
@@ -1062,19 +1205,20 @@ namespace IdleRPG
             switch (type)
             {
                 case UpgradeType.Blade:
-                    state.hero.attack += 4;
+                    state.hero.attack += IdleRpgBalance.BladeAttackPerLevel;
                     break;
                 case UpgradeType.Armor:
-                    state.hero.maxHp += 22;
-                    state.hero.hp += 22f;
+                    state.hero.maxHp += IdleRpgBalance.ArmorHpPerLevel;
+                    state.hero.hp += IdleRpgBalance.ArmorHpPerLevel;
                     break;
                 case UpgradeType.Regeneration:
-                    state.hero.regen += 0.7f;
+                    state.hero.regen += IdleRpgBalance.RegenPerLevel;
                     break;
                 case UpgradeType.Focus:
-                    state.hero.critChance = Mathf.Min(0.45f, state.hero.critChance + 0.025f);
                     break;
             }
+
+            SyncHeroCritStatsFromUpgrades(state);
 
             AddFloatingText("강화!", new Vector2(0.50f, 0.66f), new Color(0.97f, 0.84f, 0.43f));
             AddLog(IdleRpgBalance.GetUpgrade(type).Label + " 강화 완료!");
@@ -1254,6 +1398,7 @@ namespace IdleRPG
             }
 
             EnsureFormationHasOwnedCompanions(loaded);
+            SyncHeroCritStatsFromUpgrades(loaded);
 
             if (loaded.battleLog == null)
             {
@@ -1484,6 +1629,7 @@ namespace IdleRPG
             DrawStat("최대 HP", FormatNumber(GetEffectiveMaxHp()));
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
+            DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
             DrawStat("처치 수", FormatNumber(state.stats.kills));
             GUILayout.Space(10f);
             GUILayout.Label("전투 방식", labelStyle);
@@ -2442,28 +2588,57 @@ namespace IdleRPG
             return state.hero.regen + bonus;
         }
 
+        private void SyncHeroCritStatsFromUpgrades(IdleRpgState targetState)
+        {
+            if (targetState == null || targetState.hero == null || targetState.upgrades == null)
+            {
+                return;
+            }
+
+            targetState.hero.critChance = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades.focus);
+            targetState.hero.critMultiplier = IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(targetState.upgrades.focus);
+        }
+
         private float GetEffectiveCritChance()
+        {
+            return GetEffectiveCritChance(state);
+        }
+
+        private float GetEffectiveCritChance(IdleRpgState targetState)
         {
             float bonus = 0f;
             for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
             {
                 RelicDefinition relic = IdleRpgBalance.Relics[index];
-                bonus += relic.CritChancePerLevel * GetRelicLevel(state, relic.Id);
+                bonus += relic.CritChancePerLevel * GetRelicLevel(targetState, relic.Id);
             }
 
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
                 CompanionDefinition companion = IdleRpgBalance.Companions[index];
-                float multiplier = GetCompanionStatMultiplier(state, companion.Id);
+                float multiplier = GetCompanionStatMultiplier(targetState, companion.Id);
                 if (multiplier <= 0f)
                 {
                     continue;
                 }
 
-                bonus += IdleRpgBalance.GetCompanionCritBonus(companion, GetCompanionLevel(state, companion.Id), multiplier);
+                bonus += IdleRpgBalance.GetCompanionCritBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
             }
 
-            return Mathf.Min(0.60f, state.hero.critChance + bonus);
+            float fromUpgrades = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades.Get(UpgradeType.Focus));
+            return Mathf.Min(IdleRpgBalance.MaxCritChance, fromUpgrades + bonus);
+        }
+
+        private float GetEffectiveCritMultiplier()
+        {
+            return GetEffectiveCritMultiplier(state);
+        }
+
+        private float GetEffectiveCritMultiplier(IdleRpgState targetState)
+        {
+            return Mathf.Min(
+                IdleRpgBalance.MaxCritMultiplier,
+                IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(targetState.upgrades.Get(UpgradeType.Focus)));
         }
 
         private int GetRelicLevel(IdleRpgState targetState, int relicId)
@@ -2821,7 +2996,7 @@ namespace IdleRPG
             if (camera != null)
             {
                 camera.backgroundColor = lobbyVisible
-                    ? new Color(0.12f, 0.08f, 0.14f)
+                    ? new Color(0.10f, 0.07f, 0.13f)
                     : new Color(0.08f, 0.10f, 0.22f);
             }
         }

@@ -156,12 +156,23 @@ namespace IdleRPG
         public const int BossKillGemReward = 20;
         public const int NormalKillGemReward = 3;
 
+        public const float BaseCritChance = 0.05f;
+        public const float BaseCritMultiplier = 1.8f;
+        public const float FocusCritChancePerLevel = 0.03f;
+        public const float FocusCritDamagePerLevel = 0.10f;
+        public const float MaxCritChance = 0.65f;
+        public const float MaxCritMultiplier = 3.2f;
+
+        public const int BladeAttackPerLevel = 5;
+        public const int ArmorHpPerLevel = 28;
+        public const float RegenPerLevel = 0.9f;
+
         public static readonly UpgradeDefinition[] Upgrades =
         {
-            new UpgradeDefinition(UpgradeType.Blade, "검술 훈련", "공격력 +4", 24, 1.32f),
-            new UpgradeDefinition(UpgradeType.Armor, "강화 갑옷", "최대 HP +22", 32, 1.36f),
-            new UpgradeDefinition(UpgradeType.Regeneration, "회복의 룬", "초당 회복 +0.7", 45, 1.42f),
-            new UpgradeDefinition(UpgradeType.Focus, "집중 수련", "치명타 확률 +2.5%", 58, 1.46f)
+            new UpgradeDefinition(UpgradeType.Blade, "검술 훈련", "공격력 +" + BladeAttackPerLevel, 20, 1.28f),
+            new UpgradeDefinition(UpgradeType.Armor, "강화 갑옷", "최대 HP +" + ArmorHpPerLevel, 28, 1.30f),
+            new UpgradeDefinition(UpgradeType.Regeneration, "회복의 룬", "초당 회복 +" + RegenPerLevel.ToString("0.0"), 38, 1.34f),
+            new UpgradeDefinition(UpgradeType.Focus, "집중 수련", "치명타 +" + Mathf.RoundToInt(FocusCritChancePerLevel * 100f) + "% / 치명 피해 +" + Mathf.RoundToInt(FocusCritDamagePerLevel * 100f) + "%", 48, 1.36f)
         };
 
         private static readonly EnemyTemplate[] EnemyRoster =
@@ -192,9 +203,9 @@ namespace IdleRPG
             new CompanionDefinition(6, "세린", "별빛 성녀", "별빛 기도로 회복과 생존력을 보강합니다.", RelicRarity.Epic, 9f, 3, 24, 0.45f, 0.006f, 5, new Color(0.95f, 0.88f, 0.58f), new Color(0.82f, 0.55f, 1f), new Color(1f, 0.96f, 0.60f)),
             new CompanionDefinition(7, "하늘", "구름 용기사", "용의 바람으로 모든 능력을 고르게 올립니다.", RelicRarity.Epic, 8f, 5, 20, 0.20f, 0.008f, 7, new Color(0.55f, 0.78f, 1f), new Color(0.34f, 0.48f, 0.92f), new Color(1f, 1f, 0.74f)),
             new CompanionDefinition(8, "레나", "홍련 아이돌", "응원 무대로 공격과 치명타를 강화합니다.", RelicRarity.Epic, 7f, 7, 10, 0.12f, 0.012f, 10, new Color(0.96f, 0.28f, 0.44f), new Color(1f, 0.48f, 0.72f), new Color(1f, 0.92f, 0.42f)),
-            new CompanionDefinition(9, "유리", "여우 검희", "여우불 검술로 공격과 치명타를 폭발적으로 강화합니다.", RelicRarity.Legendary, 3.2f, 8, 14, 0.25f, 0.018f, 14, new Color(0.98f, 0.78f, 0.45f), new Color(0.95f, 0.22f, 0.30f), new Color(1f, 0.82f, 0.30f)),
-            new CompanionDefinition(10, "시아", "은하 마녀", "은하 주문으로 회복과 치명타를 크게 올립니다.", RelicRarity.Legendary, 2.8f, 6, 20, 0.45f, 0.016f, 9, new Color(0.74f, 0.62f, 1f), new Color(0.22f, 0.18f, 0.48f), new Color(0.64f, 1f, 1f)),
-            new CompanionDefinition(11, "이렌", "백화 공주기사", "공주기사의 축복으로 모든 능력을 크게 올립니다.", RelicRarity.Legendary, 2.4f, 7, 24, 0.30f, 0.014f, 10, new Color(1f, 0.92f, 0.82f), new Color(0.98f, 0.88f, 0.96f), new Color(0.92f, 0.68f, 1f))
+            new CompanionDefinition(9, "유리", "여우 검희", "여우불 검술로 공격과 치명타를 폭발적으로 강화합니다.", RelicRarity.Legendary, 3.2f, 12, 22, 0.32f, 0.024f, 26, new Color(0.98f, 0.78f, 0.45f), new Color(0.95f, 0.22f, 0.30f), new Color(1f, 0.82f, 0.30f)),
+            new CompanionDefinition(10, "시아", "은하 마녀", "은하 주문으로 회복과 치명타를 크게 올립니다.", RelicRarity.Legendary, 2.8f, 10, 32, 0.55f, 0.022f, 22, new Color(0.74f, 0.62f, 1f), new Color(0.22f, 0.18f, 0.48f), new Color(0.64f, 1f, 1f)),
+            new CompanionDefinition(11, "이렌", "백화 공주기사", "공주기사의 축복으로 모든 능력을 크게 올립니다.", RelicRarity.Legendary, 2.4f, 11, 36, 0.40f, 0.020f, 24, new Color(1f, 0.92f, 0.82f), new Color(0.98f, 0.88f, 0.96f), new Color(0.92f, 0.68f, 1f))
         };
 
         public static EnemyState CreateEnemy(int stage)
@@ -479,7 +490,33 @@ namespace IdleRPG
         public static int GetCompanionSkillDamage(CompanionDefinition companion, int companionLevel, int heroLevel)
         {
             int level = Mathf.Max(1, companionLevel);
-            return Mathf.Max(1, Mathf.FloorToInt(companion.SkillDamagePerLevel * level + heroLevel * 0.45f));
+            float rarityScale = GetCompanionSkillRarityScale(companion.Rarity);
+            return Mathf.Max(1, Mathf.FloorToInt((companion.SkillDamagePerLevel * level + heroLevel * 0.55f) * rarityScale));
+        }
+
+        public static float GetHeroCritChanceFromUpgrades(int focusLevel)
+        {
+            return BaseCritChance + focusLevel * FocusCritChancePerLevel;
+        }
+
+        public static float GetHeroCritMultiplierFromUpgrades(int focusLevel)
+        {
+            return BaseCritMultiplier + focusLevel * FocusCritDamagePerLevel;
+        }
+
+        private static float GetCompanionSkillRarityScale(RelicRarity rarity)
+        {
+            switch (rarity)
+            {
+                case RelicRarity.Legendary:
+                    return 1.28f;
+                case RelicRarity.Epic:
+                    return 1.12f;
+                case RelicRarity.Rare:
+                    return 1.05f;
+                default:
+                    return 1f;
+            }
         }
     }
 }
