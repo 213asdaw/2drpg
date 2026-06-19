@@ -195,6 +195,56 @@ namespace IdleRPG
             DrawCompanionAttackEffectsGui();
             DrawFloatingTextsGui();
             DrawEnemyTopBar(new Rect(Screen.width * 0.5f - 280f, 68f, 560f, 62f));
+            HandleBattleScreenInput();
+        }
+
+        private void HandleBattleScreenInput()
+        {
+            if (state.combatMode != CombatMode.Manual)
+            {
+                return;
+            }
+
+            if (companionFormationScreenOpen || stageProgressScreenOpen)
+            {
+                return;
+            }
+
+            Event currentEvent = Event.current;
+            if (currentEvent == null || currentEvent.type != EventType.MouseDown || currentEvent.button != 0)
+            {
+                return;
+            }
+
+            if (!IsManualBattleTapZone(currentEvent.mousePosition))
+            {
+                return;
+            }
+
+            if (ManualStrike())
+            {
+                currentEvent.Use();
+            }
+        }
+
+        private bool IsManualBattleTapZone(Vector2 mousePosition)
+        {
+            Rect tapZone = new Rect(360f, 140f, Screen.width - 720f, Screen.height - 340f);
+            return tapZone.Contains(mousePosition);
+        }
+
+        private void DrawManualBattleHint()
+        {
+            if (state.combatMode != CombatMode.Manual)
+            {
+                return;
+            }
+
+            Rect tapZone = new Rect(360f, 140f, Screen.width - 720f, Screen.height - 340f);
+            Color previous = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.55f);
+            GUI.Label(new Rect(tapZone.x, tapZone.yMax - 42f, tapZone.width, 28f), "전투 화면 터치 = 공격", smallStyle);
+            GUI.color = previous;
         }
 
         private void DrawLobbyScreenGui()
@@ -675,13 +725,16 @@ namespace IdleRPG
 
             float safeDelta = Mathf.Min(deltaTime, 5f);
             state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp + GetEffectiveRegen() * safeDelta);
-            state.combat.heroAttack += safeDelta;
             state.combat.enemyAttack += safeDelta;
 
-            while (state.combat.heroAttack >= 1f)
+            if (state.combatMode == CombatMode.Auto)
             {
-                state.combat.heroAttack -= 1f;
-                ApplyHeroDamage(1f);
+                state.combat.heroAttack += safeDelta;
+                while (state.combat.heroAttack >= 1f)
+                {
+                    state.combat.heroAttack -= 1f;
+                    ApplyHeroDamage(1f);
+                }
             }
 
             while (state.combat.enemyAttack >= 1.45f)
@@ -691,15 +744,16 @@ namespace IdleRPG
             }
         }
 
-        private void ManualStrike()
+        private bool ManualStrike()
         {
             if (state.hero.hp <= 0f)
             {
-                return;
+                return false;
             }
 
-            ApplyHeroDamage(0.65f);
+            ApplyHeroDamage(1f);
             SaveState();
+            return true;
         }
 
         private void ApplyHeroDamage(float multiplier)
@@ -1284,9 +1338,28 @@ namespace IdleRPG
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("처치 수", FormatNumber(state.stats.kills));
             GUILayout.Space(10f);
-            if (GUILayout.Button("직접 공격", buttonStyle, GUILayout.Height(44f)))
+            GUILayout.Label("전투 방식", labelStyle);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(state.combatMode == CombatMode.Auto ? "[자동]" : "자동", buttonStyle, GUILayout.Height(36f)))
             {
-                ManualStrike();
+                state.combatMode = CombatMode.Auto;
+                state.combat.heroAttack = 0f;
+            }
+
+            if (GUILayout.Button(state.combatMode == CombatMode.Manual ? "[직접]" : "직접", buttonStyle, GUILayout.Height(36f)))
+            {
+                state.combatMode = CombatMode.Manual;
+                state.combat.heroAttack = 0f;
+            }
+
+            GUILayout.EndHorizontal();
+            if (state.combatMode == CombatMode.Auto)
+            {
+                GUILayout.Label("1초마다 자동 공격합니다. 화면 터치는 공격하지 않습니다.", smallStyle);
+            }
+            else
+            {
+                GUILayout.Label("전투 화면 중앙을 터치하면 공격합니다.", smallStyle);
             }
 
             GUILayout.EndArea();
@@ -1551,7 +1624,7 @@ namespace IdleRPG
         private void DrawFormationCompanionCard(CompanionDefinition companion)
         {
             int level = state.companionGacha.companions.Get(companion.Id);
-            Rect cardRect = GUILayoutUtility.GetRect(10f, 168f, GUILayout.ExpandWidth(true));
+            Rect cardRect = GUILayoutUtility.GetRect(10f, 188f, GUILayout.ExpandWidth(true));
             DrawPanel(cardRect, level > 0 ? new Color(0.12f, 0.14f, 0.25f, 0.95f) : new Color(0.06f, 0.07f, 0.10f, 0.74f));
 
             Rect portrait = new Rect(cardRect.x + 10f, cardRect.y + 8f, 92f, 138f);
@@ -1580,7 +1653,7 @@ namespace IdleRPG
                 statusText = "편성 가능";
             }
 
-            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 142f, cardRect.width - 370f, 20f), statusText, smallStyle);
+            GUI.Label(new Rect(cardRect.x + 104f, cardRect.y + 158f, cardRect.width - 370f, 20f), statusText, smallStyle);
 
             Rect equipButton = new Rect(cardRect.xMax - 242f, cardRect.y + 14f, 228f, 42f);
             Rect directLabel = new Rect(cardRect.xMax - 242f, cardRect.y + 62f, 228f, 20f);

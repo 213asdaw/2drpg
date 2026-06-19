@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 namespace IdleRPG
 {
+    public enum CombatMode
+    {
+        Auto,
+        Manual
+    }
+
     [Serializable]
     public sealed class IdleRpgState
     {
@@ -17,6 +23,7 @@ namespace IdleRPG
         public GachaState gacha = new GachaState();
         public CompanionGachaState companionGacha = new CompanionGachaState();
         public CompanionDamageStats stageCompanionDamage = new CompanionDamageStats();
+        public CombatMode combatMode = CombatMode.Auto;
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
     }
