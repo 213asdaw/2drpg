@@ -67,6 +67,7 @@ namespace IdleRPG
         private Vector2 relicProbabilityScroll;
         private Vector2 companionProbabilityScroll;
         private Vector2 companionFormationScroll;
+        private Vector2 stageSelectScroll;
         private Vector2 recentCompanionPullScroll;
         private readonly List<int> recentCompanionPullIds = new List<int>();
         private readonly List<FloatingText> floatingTexts = new List<FloatingText>();
@@ -191,7 +192,7 @@ namespace IdleRPG
             GUILayout.BeginArea(new Rect(header.x + 14f, header.y + 8f, header.width - 28f, header.height - 16f));
             GUILayout.BeginHorizontal();
             GUILayout.Label(currentScreen == GameScreenMode.Battle ? "전투" : "로비", titleStyle, GUILayout.Width(72f));
-            GUILayout.Label("스테이지 " + state.stage + "  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
+            GUILayout.Label("스테이지 " + state.stage + "  |  전투력 " + FormatNumber(GetCombatPower()) + "  |  골드 " + FormatNumber(state.hero.gold) + "G  |  보석 " + FormatNumber(state.hero.gems) + "♦", labelStyle);
             GUILayout.FlexibleSpace();
             if (currentScreen == GameScreenMode.Battle)
             {
@@ -325,7 +326,10 @@ namespace IdleRPG
             GUILayout.Space(12f);
             DrawStat("보유 보석", FormatNumber(state.hero.gems) + "♦");
             DrawStat("동료 보유", GetOwnedCompanionCount() + " / " + IdleRpgBalance.Companions.Length);
-            GUILayout.Space(12f);
+            DrawStat("전투력", FormatNumber(GetCombatPower()));
+            GUILayout.Space(10f);
+            DrawQuestSummaryCompact();
+            GUILayout.Space(10f);
             if (IsLobbyModalOpen())
             {
                 string modalMessage = companionFormationScreenOpen
@@ -1136,12 +1140,19 @@ namespace IdleRPG
 
             if (state.stageProgress >= 5)
             {
-                state.stage += 1;
                 state.stageProgress = 0;
-                state.stats.highestStage = Mathf.Max(state.stats.highestStage, state.stage);
-                state.hero.gems += IdleRpgBalance.StageClearGemReward;
                 ResetStageCompanionDamage();
-                AddLog("스테이지 " + state.stage + "에 도달했습니다. 보석 +" + IdleRpgBalance.StageClearGemReward);
+                if (state.stage >= state.stats.highestStage)
+                {
+                    state.stage += 1;
+                    state.stats.highestStage = state.stage;
+                    state.hero.gems += IdleRpgBalance.StageClearGemReward;
+                    AddLog("스테이지 " + state.stage + "에 도달했습니다. 보석 +" + IdleRpgBalance.StageClearGemReward);
+                }
+                else
+                {
+                    AddLog("스테이지 " + state.stage + " 파밍을 계속합니다.");
+                }
             }
             else
             {
@@ -1149,6 +1160,8 @@ namespace IdleRPG
             }
 
             state.enemy = IdleRpgBalance.CreateEnemy(state.stage);
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
         }
 
         private void ResetStageCompanionDamage()
@@ -1188,6 +1201,12 @@ namespace IdleRPG
                 levelsGained += 1;
             }
 
+            if (targetState == state && levelsGained > 0)
+            {
+                RefreshQuestProgress();
+                UpdatePeakCombatPower();
+            }
+
             return levelsGained;
         }
 
@@ -1222,6 +1241,8 @@ namespace IdleRPG
 
             AddFloatingText("강화!", new Vector2(0.50f, 0.66f), new Color(0.97f, 0.84f, 0.43f));
             AddLog(IdleRpgBalance.GetUpgrade(type).Label + " 강화 완료!");
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
             SaveState();
             return true;
         }
@@ -1250,6 +1271,8 @@ namespace IdleRPG
 
             gachaCutscene.BeginRelic(relic, newLevel);
             AddLog("뽑기 성공: [" + state.gacha.lastRarity + "] " + relic.Name + " Lv." + newLevel);
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
             SaveState();
         }
 
@@ -1272,6 +1295,8 @@ namespace IdleRPG
             }
 
             gachaCutscene.BeginCompanion(results);
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
             SaveState();
         }
 
@@ -1308,6 +1333,8 @@ namespace IdleRPG
             newState.hero.gems = IdleRpgBalance.StartingGems;
             newState.enemy = IdleRpgBalance.CreateEnemy(1);
             newState.stats.highestStage = 1;
+            newState.quest = new QuestState();
+            InitializeQuest(newState);
             newState.lastSavedUnixSeconds = NowUnixSeconds();
             newState.battleLog.Add("모험을 시작했습니다. 용사가 자동으로 전투합니다.");
             return newState;
@@ -1399,6 +1426,8 @@ namespace IdleRPG
 
             EnsureFormationHasOwnedCompanions(loaded);
             SyncHeroCritStatsFromUpgrades(loaded);
+            EnsureQuestState(loaded);
+            UpdatePeakCombatPower(loaded);
 
             if (loaded.battleLog == null)
             {
@@ -1528,6 +1557,8 @@ namespace IdleRPG
             state.companionGacha.formation.Set(slotIndex, companionId);
             ForceCompanionVisualRefresh();
             AddLog(IdleRpgBalance.GetCompanion(companionId).Name + " 편성 완료!");
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
             SaveState();
             return true;
         }
@@ -1536,6 +1567,8 @@ namespace IdleRPG
         {
             state.companionGacha.formation.Set(slotIndex, -1);
             ForceCompanionVisualRefresh();
+            RefreshQuestProgress();
+            UpdatePeakCombatPower();
             SaveState();
         }
 
@@ -1630,6 +1663,7 @@ namespace IdleRPG
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
+            DrawStat("전투력", FormatNumber(GetCombatPower()));
             DrawStat("처치 수", FormatNumber(state.stats.kills));
             GUILayout.Space(10f);
             GUILayout.Label("전투 방식", labelStyle);
@@ -1657,7 +1691,7 @@ namespace IdleRPG
             }
 
             GUILayout.Space(10f);
-            if (GUILayout.Button("스테이지 진행도", buttonStyle, GUILayout.Height(40f)))
+            if (GUILayout.Button("스테이지 / 퀘스트", buttonStyle, GUILayout.Height(40f)))
             {
                 stageProgressScreenOpen = true;
             }
@@ -1678,6 +1712,7 @@ namespace IdleRPG
             DrawStat("보석", FormatNumber(state.hero.gems) + "♦");
             DrawStat("동료 보유", GetOwnedCompanionCount() + " / " + IdleRpgBalance.Companions.Length);
             DrawStat("최고 스테이지", state.stats.highestStage.ToString());
+            DrawStat("전투력", FormatNumber(GetCombatPower()));
             GUILayout.Space(8f);
             GUILayout.Label("골드: 강화 / 유물 뽑기", smallStyle);
             GUILayout.Label("보석: 동료 소환", smallStyle);
@@ -1695,6 +1730,12 @@ namespace IdleRPG
             }
 
             GUI.enabled = true;
+
+            GUILayout.Space(8f);
+            if (GUILayout.Button("퀘스트 / 스테이지", buttonStyle, GUILayout.Height(40f)))
+            {
+                stageProgressScreenOpen = true;
+            }
 
             GUILayout.EndArea();
         }
@@ -2027,16 +2068,16 @@ namespace IdleRPG
             Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
             DrawPanel(overlay, new Color(0.02f, 0.02f, 0.05f, 0.90f));
 
-            float width = Mathf.Min(1040f, Screen.width - 60f);
-            float height = Mathf.Min(610f, Screen.height - 60f);
+            float width = Mathf.Min(1120f, Screen.width - 60f);
+            float height = Mathf.Min(650f, Screen.height - 60f);
             Rect screen = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
             DrawPanel(screen, new Color(0.05f, 0.08f, 0.15f, 0.97f));
 
             GUILayout.BeginArea(new Rect(screen.x + 24f, screen.y + 18f, screen.width - 48f, 62f));
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
-            GUILayout.Label("스테이지 진행도", titleStyle);
-            GUILayout.Label("스테이지마다 5번 승리하면 다음 지역으로 넘어갑니다.", labelStyle);
+            GUILayout.Label("스테이지 선택 / 퀘스트", titleStyle);
+            GUILayout.Label("해금된 스테이지를 선택해 파밍하거나, 퀘스트를 반복해 보상을 받으세요.", labelStyle);
             GUILayout.EndVertical();
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("닫기", buttonStyle, GUILayout.Width(92f), GUILayout.Height(42f)))
@@ -2047,54 +2088,92 @@ namespace IdleRPG
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
 
-            Rect summaryRect = new Rect(screen.x + 24f, screen.y + 100f, screen.width - 48f, 130f);
-            DrawPanel(summaryRect, new Color(0.11f, 0.10f, 0.21f, 0.94f));
-            GUILayout.BeginArea(new Rect(summaryRect.x + 18f, summaryRect.y + 16f, summaryRect.width - 36f, summaryRect.height - 32f));
-            GUILayout.Label("현재 스테이지 " + state.stage, titleStyle);
-            DrawProgressBar("다음 스테이지까지", state.stageProgress, 5, new Color(0.49f, 0.97f, 0.76f));
-            GUILayout.Label("최고 도달 스테이지: " + state.stats.highestStage + " / 현재 적: " + state.enemy.name, labelStyle);
+            Rect leftRect = new Rect(screen.x + 24f, screen.y + 96f, screen.width * 0.42f - 18f, screen.height - 120f);
+            Rect rightRect = new Rect(leftRect.xMax + 24f, leftRect.y, screen.width - leftRect.width - 72f, leftRect.height);
+            DrawPanel(leftRect, new Color(0.10f, 0.09f, 0.18f, 0.95f));
+            DrawPanel(rightRect, new Color(0.08f, 0.08f, 0.14f, 0.95f));
+
+            GUILayout.BeginArea(new Rect(leftRect.x + 16f, leftRect.y + 14f, leftRect.width - 32f, leftRect.height - 28f));
+            DrawQuestPanelContent();
             GUILayout.EndArea();
 
-            Rect pathRect = new Rect(screen.x + 24f, summaryRect.yMax + 24f, screen.width - 48f, 170f);
-            DrawPanel(pathRect, new Color(0.06f, 0.11f, 0.17f, 0.92f));
-            GUILayout.BeginArea(new Rect(pathRect.x + 18f, pathRect.y + 16f, pathRect.width - 36f, pathRect.height - 32f));
-            GUILayout.Label("현재 지역 진행", titleStyle);
-            Rect nodeRow = GUILayoutUtility.GetRect(10f, 90f, GUILayout.ExpandWidth(true));
-            for (int node = 0; node < 5; node += 1)
-            {
-                float x = nodeRow.x + 45f + node * ((nodeRow.width - 90f) / 4f);
-                DrawStageNode(new Rect(x - 32f, nodeRow.y + 18f, 64f, 64f), node + 1, node < state.stageProgress, node == state.stageProgress);
-            }
-
-            GUILayout.EndArea();
-
-            Rect previewRect = new Rect(screen.x + 24f, pathRect.yMax + 24f, screen.width - 48f, screen.height - pathRect.yMax + screen.y - 48f);
-            DrawPanel(previewRect, new Color(0.08f, 0.08f, 0.14f, 0.92f));
-            GUILayout.BeginArea(new Rect(previewRect.x + 18f, previewRect.y + 14f, previewRect.width - 36f, previewRect.height - 28f));
-            GUILayout.Label("앞으로 만날 적", titleStyle);
-            GUILayout.BeginHorizontal();
-            for (int index = 0; index < 6; index += 1)
-            {
-                int stage = state.stage + index;
-                EnemyState preview = IdleRpgBalance.CreateEnemy(stage);
-                GUILayout.BeginVertical(GUILayout.Width(150f));
-                GUILayout.Label("Stage " + stage, labelStyle);
-                GUILayout.Label(preview.isBoss ? preview.name + " ★" : preview.name, smallStyle);
-                GUILayout.Label("HP " + preview.maxHp + " / 보상 " + preview.rewardGold + "G", smallStyle);
-                GUILayout.EndVertical();
-            }
-
-            GUILayout.EndHorizontal();
+            GUILayout.BeginArea(new Rect(rightRect.x + 16f, rightRect.y + 14f, rightRect.width - 32f, rightRect.height - 28f));
+            DrawStageSelectContent();
             GUILayout.EndArea();
         }
 
-        private void DrawStageNode(Rect rect, int nodeNumber, bool cleared, bool current)
+        private void DrawQuestPanelContent()
         {
-            Color previous = GUI.color;
-            GUI.color = cleared ? new Color(0.49f, 0.97f, 0.76f) : current ? new Color(1f, 0.82f, 0.35f) : new Color(0.25f, 0.30f, 0.42f);
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = previous;
-            GUI.Label(new Rect(rect.x, rect.y + 20f, rect.width, 24f), cleared ? "완료" : current ? "진행" : nodeNumber.ToString(), labelStyle);
+            RefreshQuestProgress();
+            QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
+            GUILayout.Label("반복 퀘스트", titleStyle);
+            GUILayout.Label("순서: 스테이지 밀기 → 유물 뽑기 → 동료 소환 → 전투력 올리기", smallStyle);
+            GUILayout.Space(10f);
+            GUILayout.Label("현재 퀘스트 #" + state.quest.tier, labelStyle);
+            GUILayout.Label(IdleRpgBalance.GetQuestTitle(questType), titleStyle);
+            GUILayout.Label(IdleRpgBalance.GetQuestDescription(questType, state.quest.target), labelStyle);
+            DrawProgressBar("진행도", state.quest.progress, state.quest.target, new Color(0.98f, 0.74f, 0.25f));
+            GUILayout.Space(8f);
+            IdleRpgBalance.GetQuestRewards(questType, state.quest.tier, out int rewardGold, out int rewardGems);
+            GUILayout.Label("완료 보상: " + FormatNumber(rewardGold) + "G  +  " + FormatNumber(rewardGems) + "♦", labelStyle);
+            GUILayout.Space(8f);
+            DrawStat("현재 전투력", FormatNumber(GetCombatPower()));
+            DrawStat("최고 전투력", FormatNumber(state.stats.peakCombatPower));
+            GUILayout.Space(8f);
+            GUILayout.Label(GetQuestCyclePreviewText(), smallStyle);
+        }
+
+        private void DrawQuestSummaryCompact()
+        {
+            RefreshQuestProgress();
+            QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
+            GUILayout.Label("진행 퀘스트: " + IdleRpgBalance.GetQuestTitle(questType), labelStyle);
+            DrawProgressBar(IdleRpgBalance.GetQuestDescription(questType, state.quest.target), state.quest.progress, state.quest.target, new Color(0.98f, 0.74f, 0.25f));
+        }
+
+        private string GetQuestCyclePreviewText()
+        {
+            string[] labels = { "스테이지", "유물", "동료", "전투력" };
+            string text = "다음 순환: ";
+            for (int index = 0; index < labels.Length; index += 1)
+            {
+                int cycle = (state.quest.cycleIndex + index) % labels.Length;
+                text += (index == 0 ? string.Empty : " → ") + labels[cycle];
+            }
+
+            return text;
+        }
+
+        private void DrawStageSelectContent()
+        {
+            GUILayout.Label("스테이지 선택", titleStyle);
+            GUILayout.Label("현재 전투: 스테이지 " + state.stage + " (" + state.stageProgress + "/5)  |  최고 해금: " + state.stats.highestStage, labelStyle);
+            GUILayout.Space(8f);
+            stageSelectScroll = GUILayout.BeginScrollView(stageSelectScroll, GUILayout.ExpandHeight(true));
+            for (int stageNumber = 1; stageNumber <= state.stats.highestStage; stageNumber += 1)
+            {
+                EnemyState preview = IdleRpgBalance.CreateEnemy(stageNumber);
+                bool isCurrent = state.stage == stageNumber;
+                GUILayout.BeginHorizontal();
+                GUILayout.BeginVertical(GUILayout.Width(220f));
+                GUILayout.Label("Stage " + stageNumber + (isCurrent ? "  [전투 중]" : string.Empty), isCurrent ? titleStyle : labelStyle);
+                GUILayout.Label(preview.isBoss ? preview.name + " ★" : preview.name, smallStyle);
+                GUILayout.Label("HP " + preview.maxHp + " / 골드 " + preview.rewardGold + "G", smallStyle);
+                GUILayout.EndVertical();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button(isCurrent ? "선택됨" : "입장", buttonStyle, GUILayout.Width(88f), GUILayout.Height(40f)))
+                {
+                    if (!isCurrent)
+                    {
+                        SelectStage(stageNumber);
+                    }
+                }
+
+                GUILayout.EndHorizontal();
+                GUILayout.Space(6f);
+            }
+
+            GUILayout.EndScrollView();
         }
 
         private CompanionDefinition GetFeaturedCompanion()
@@ -2566,26 +2645,31 @@ namespace IdleRPG
 
         private float GetEffectiveRegen()
         {
+            return GetEffectiveRegen(state);
+        }
+
+        private float GetEffectiveRegen(IdleRpgState targetState)
+        {
             float bonus = 0f;
             for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
             {
                 RelicDefinition relic = IdleRpgBalance.Relics[index];
-                bonus += relic.RegenPerLevel * GetRelicLevel(state, relic.Id);
+                bonus += relic.RegenPerLevel * GetRelicLevel(targetState, relic.Id);
             }
 
             for (int index = 0; index < IdleRpgBalance.Companions.Length; index += 1)
             {
                 CompanionDefinition companion = IdleRpgBalance.Companions[index];
-                float multiplier = GetCompanionStatMultiplier(state, companion.Id);
+                float multiplier = GetCompanionStatMultiplier(targetState, companion.Id);
                 if (multiplier <= 0f)
                 {
                     continue;
                 }
 
-                bonus += IdleRpgBalance.GetCompanionRegenBonus(companion, GetCompanionLevel(state, companion.Id), multiplier);
+                bonus += IdleRpgBalance.GetCompanionRegenBonus(companion, GetCompanionLevel(targetState, companion.Id), multiplier);
             }
 
-            return state.hero.regen + bonus;
+            return targetState.hero.regen + bonus;
         }
 
         private void SyncHeroCritStatsFromUpgrades(IdleRpgState targetState)
@@ -2597,6 +2681,167 @@ namespace IdleRPG
 
             targetState.hero.critChance = IdleRpgBalance.GetHeroCritChanceFromUpgrades(targetState.upgrades.focus);
             targetState.hero.critMultiplier = IdleRpgBalance.GetHeroCritMultiplierFromUpgrades(targetState.upgrades.focus);
+        }
+
+        private void EnsureQuestState(IdleRpgState targetState)
+        {
+            if (targetState.quest == null)
+            {
+                targetState.quest = new QuestState();
+            }
+
+            if (targetState.quest.target <= 0)
+            {
+                InitializeQuest(targetState);
+            }
+        }
+
+        private void InitializeQuest(IdleRpgState targetState)
+        {
+            if (targetState.quest == null)
+            {
+                targetState.quest = new QuestState();
+            }
+
+            QuestType questType = IdleRpgBalance.GetQuestType(targetState.quest.cycleIndex);
+            targetState.quest.target = IdleRpgBalance.GetQuestTarget(questType, targetState.quest.tier);
+            targetState.quest.progress = 0;
+            targetState.quest.stageBaseline = targetState.stats.highestStage;
+            targetState.quest.relicPullBaseline = targetState.gacha != null ? targetState.gacha.totalPulls : 0;
+            targetState.quest.companionPullBaseline = targetState.companionGacha != null ? targetState.companionGacha.totalPulls : 0;
+            targetState.quest.combatPowerBaseline = GetCombatPower(targetState);
+        }
+
+        private void RefreshQuestProgress()
+        {
+            if (state == null || state.quest == null)
+            {
+                return;
+            }
+
+            QuestType questType = IdleRpgBalance.GetQuestType(state.quest.cycleIndex);
+            switch (questType)
+            {
+                case QuestType.PushStages:
+                    state.quest.progress = Mathf.Max(0, state.stats.highestStage - state.quest.stageBaseline);
+                    break;
+                case QuestType.RelicGacha:
+                    state.quest.progress = Mathf.Max(0, state.gacha.totalPulls - state.quest.relicPullBaseline);
+                    break;
+                case QuestType.CompanionGacha:
+                    state.quest.progress = Mathf.Max(0, state.companionGacha.totalPulls - state.quest.companionPullBaseline);
+                    break;
+                case QuestType.RaiseCombatPower:
+                    state.quest.progress = Mathf.Max(0, GetCombatPower(state) - state.quest.combatPowerBaseline);
+                    break;
+            }
+
+            if (state.quest.progress >= state.quest.target)
+            {
+                CompleteQuest(questType);
+            }
+        }
+
+        private void CompleteQuest(QuestType questType)
+        {
+            IdleRpgBalance.GetQuestRewards(questType, state.quest.tier, out int rewardGold, out int rewardGems);
+            state.hero.gold += rewardGold;
+            state.hero.gems += rewardGems;
+            state.stats.totalGold += rewardGold;
+            AddLog("퀘스트 완료: " + IdleRpgBalance.GetQuestTitle(questType) + "  +" + FormatNumber(rewardGold) + "G  +" + FormatNumber(rewardGems) + "♦");
+            AddFloatingText("퀘스트 완료!", new Vector2(0.50f, 0.72f), new Color(0.98f, 0.74f, 0.25f));
+
+            state.quest.cycleIndex = (state.quest.cycleIndex + 1) % 4;
+            state.quest.tier += 1;
+            InitializeQuest(state);
+            SaveState();
+        }
+
+        private void SelectStage(int stageNumber)
+        {
+            stageNumber = Mathf.Clamp(stageNumber, 1, state.stats.highestStage);
+            state.stage = stageNumber;
+            state.stageProgress = 0;
+            state.enemy = IdleRpgBalance.CreateEnemy(state.stage);
+            state.combat.heroAttack = 0f;
+            state.combat.enemyAttack = 0f;
+            state.hero.hp = Mathf.Min(GetEffectiveMaxHp(), state.hero.hp);
+            ResetStageCompanionDamage();
+            AddLog("스테이지 " + stageNumber + "에 입장했습니다.");
+            SaveState();
+        }
+
+        private int GetCombatPower()
+        {
+            return GetCombatPower(state);
+        }
+
+        private int GetCombatPower(IdleRpgState targetState)
+        {
+            if (targetState == null || targetState.hero == null)
+            {
+                return 0;
+            }
+
+            int relicLevelSum = 0;
+            for (int index = 0; index < IdleRpgBalance.Relics.Length; index += 1)
+            {
+                relicLevelSum += GetRelicLevel(targetState, IdleRpgBalance.Relics[index].Id);
+            }
+
+            int totalUpgradeLevels = 0;
+            if (targetState.upgrades != null)
+            {
+                totalUpgradeLevels = targetState.upgrades.blade
+                    + targetState.upgrades.armor
+                    + targetState.upgrades.regeneration
+                    + targetState.upgrades.focus;
+            }
+
+            return IdleRpgBalance.CalculateCombatPower(
+                GetEffectiveAttack(targetState),
+                GetEffectiveMaxHp(targetState),
+                GetEffectiveRegen(targetState),
+                GetEffectiveCritChance(targetState),
+                GetEffectiveCritMultiplier(targetState),
+                targetState.hero.level,
+                totalUpgradeLevels,
+                relicLevelSum,
+                GetFormationSkillDamageTotal(targetState));
+        }
+
+        private int GetFormationSkillDamageTotal(IdleRpgState targetState)
+        {
+            int total = 0;
+            for (int slotIndex = 0; slotIndex < FormationSlotCount; slotIndex += 1)
+            {
+                int companionId = GetFormationCompanionId(targetState, slotIndex);
+                if (companionId < 0)
+                {
+                    continue;
+                }
+
+                CompanionDefinition companion = IdleRpgBalance.GetCompanion(companionId);
+                int level = Mathf.Max(1, GetCompanionLevel(targetState, companionId));
+                total += IdleRpgBalance.GetCompanionSkillDamage(companion, level, targetState.hero.level);
+            }
+
+            return total;
+        }
+
+        private void UpdatePeakCombatPower()
+        {
+            UpdatePeakCombatPower(state);
+        }
+
+        private void UpdatePeakCombatPower(IdleRpgState targetState)
+        {
+            if (targetState == null || targetState.stats == null)
+            {
+                return;
+            }
+
+            targetState.stats.peakCombatPower = Mathf.Max(targetState.stats.peakCombatPower, GetCombatPower(targetState));
         }
 
         private float GetEffectiveCritChance()

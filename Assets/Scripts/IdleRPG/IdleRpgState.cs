@@ -9,6 +9,14 @@ namespace IdleRPG
         Manual
     }
 
+    public enum QuestType
+    {
+        PushStages,
+        RelicGacha,
+        CompanionGacha,
+        RaiseCombatPower
+    }
+
     [Serializable]
     public sealed class IdleRpgState
     {
@@ -23,6 +31,7 @@ namespace IdleRPG
         public GachaState gacha = new GachaState();
         public CompanionGachaState companionGacha = new CompanionGachaState();
         public CompanionDamageStats stageCompanionDamage = new CompanionDamageStats();
+        public QuestState quest = new QuestState();
         public CombatMode combatMode = CombatMode.Auto;
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
@@ -116,6 +125,20 @@ namespace IdleRPG
         public int totalGold;
         public int totalXp;
         public int highestStage = 1;
+        public int peakCombatPower;
+    }
+
+    [Serializable]
+    public sealed class QuestState
+    {
+        public int cycleIndex;
+        public int tier = 1;
+        public int progress;
+        public int target = 5;
+        public int stageBaseline = 1;
+        public int relicPullBaseline;
+        public int companionPullBaseline;
+        public int combatPowerBaseline;
     }
 
     [Serializable]

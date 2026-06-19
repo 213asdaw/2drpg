@@ -152,9 +152,14 @@ namespace IdleRPG
         public const int CompanionGachaTenPullGemCost = 1440;
         public const int CompanionRarePityPulls = 10;
         public const int StartingGems = 480;
-        public const int StageClearGemReward = 40;
-        public const int BossKillGemReward = 20;
-        public const int NormalKillGemReward = 3;
+        public const int StageClearGemReward = 10;
+        public const int BossKillGemReward = 6;
+        public const int NormalKillGemReward = 1;
+
+        public const int QuestPushStageTarget = 5;
+        public const int QuestBaseRelicPullTarget = 3;
+        public const int QuestBaseCompanionPullTarget = 2;
+        public const int QuestBaseCombatPowerTarget = 280;
 
         public const float BaseCritChance = 0.05f;
         public const float BaseCritMultiplier = 1.8f;
@@ -517,6 +522,128 @@ namespace IdleRPG
                 default:
                     return 1f;
             }
+        }
+
+        public static QuestType GetQuestType(int cycleIndex)
+        {
+            int normalized = ((cycleIndex % 4) + 4) % 4;
+            return (QuestType)normalized;
+        }
+
+        public static string GetQuestTitle(QuestType type)
+        {
+            switch (type)
+            {
+                case QuestType.PushStages:
+                    return "스테이지 밀기";
+                case QuestType.RelicGacha:
+                    return "유물 뽑기";
+                case QuestType.CompanionGacha:
+                    return "동료 소환";
+                case QuestType.RaiseCombatPower:
+                    return "전투력 올리기";
+                default:
+                    return "퀘스트";
+            }
+        }
+
+        public static string GetQuestDescription(QuestType type, int target)
+        {
+            switch (type)
+            {
+                case QuestType.PushStages:
+                    return "최고 스테이지를 " + target + "단계 올리세요.";
+                case QuestType.RelicGacha:
+                    return "유물 뽑기를 " + target + "회 진행하세요.";
+                case QuestType.CompanionGacha:
+                    return "동료 소환을 " + target + "회 진행하세요.";
+                case QuestType.RaiseCombatPower:
+                    return "전투력을 " + FormatNumber(target) + " 이상 올리세요.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static int GetQuestTarget(QuestType type, int tier)
+        {
+            int safeTier = Mathf.Max(1, tier);
+            switch (type)
+            {
+                case QuestType.PushStages:
+                    return QuestPushStageTarget;
+                case QuestType.RelicGacha:
+                    return QuestBaseRelicPullTarget + (safeTier - 1);
+                case QuestType.CompanionGacha:
+                    return QuestBaseCompanionPullTarget + (safeTier - 1) / 2;
+                case QuestType.RaiseCombatPower:
+                    return QuestBaseCombatPowerTarget + (safeTier - 1) * 90;
+                default:
+                    return 1;
+            }
+        }
+
+        public static void GetQuestRewards(QuestType type, int tier, out int gold, out int gems)
+        {
+            int safeTier = Mathf.Max(1, tier);
+            gold = 650 + safeTier * 140;
+            gems = 180 + safeTier * 45;
+
+            switch (type)
+            {
+                case QuestType.PushStages:
+                    gold += 250;
+                    gems += 70;
+                    break;
+                case QuestType.RelicGacha:
+                    gold += 320;
+                    gems += 40;
+                    break;
+                case QuestType.CompanionGacha:
+                    gold += 180;
+                    gems += 120;
+                    break;
+                case QuestType.RaiseCombatPower:
+                    gold += 280;
+                    gems += 90;
+                    break;
+            }
+        }
+
+        public static int CalculateCombatPower(
+            int attack,
+            int maxHp,
+            float regen,
+            float critChance,
+            float critMultiplier,
+            int heroLevel,
+            int totalUpgradeLevels,
+            int relicLevelSum,
+            int formationSkillDamage)
+        {
+            int critValue = Mathf.RoundToInt(critChance * 140f + (critMultiplier - 1f) * 95f);
+            return attack * 4
+                + maxHp / 4
+                + Mathf.RoundToInt(regen * 28f)
+                + critValue
+                + heroLevel * 10
+                + totalUpgradeLevels * 14
+                + relicLevelSum * 18
+                + formationSkillDamage * 3;
+        }
+
+        private static string FormatNumber(int value)
+        {
+            if (value >= 1000000)
+            {
+                return (value / 1000000f).ToString("0.#") + "M";
+            }
+
+            if (value >= 1000)
+            {
+                return (value / 1000f).ToString("0.#") + "K";
+            }
+
+            return value.ToString();
         }
     }
 }
