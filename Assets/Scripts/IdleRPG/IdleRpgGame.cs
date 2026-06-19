@@ -1750,34 +1750,30 @@ namespace IdleRPG
             const float tabWidth = 38f;
             float drawerY = Screen.height - 312f;
 
-            if (companionDamageDrawerOpen)
+            Rect tabRect = new Rect(12f, drawerY + (drawerHeight - 108f) * 0.5f, tabWidth, 108f);
+            DrawPanel(tabRect, new Color(0.08f, 0.12f, 0.22f, 0.94f));
+            string tabLabel = companionDamageDrawerOpen ? "딜량\n닫기" : "딜량\n열기";
+            if (GUI.Button(tabRect, tabLabel, buttonStyle))
             {
-                Rect panelRect = new Rect(12f, drawerY, drawerWidth, drawerHeight);
-                DrawPanel(panelRect, new Color(0.05f, 0.08f, 0.15f, 0.94f));
+                companionDamageDrawerOpen = !companionDamageDrawerOpen;
+            }
 
-                Rect headerRect = new Rect(panelRect.x + 10f, panelRect.y + 8f, panelRect.width - 20f, 30f);
-                GUI.Label(new Rect(headerRect.x, headerRect.y, headerRect.width - 44f, headerRect.height), "동료 딜량", titleStyle);
-                if (GUI.Button(new Rect(headerRect.xMax - 40f, headerRect.y, 40f, 28f), "닫기", buttonStyle))
-                {
-                    companionDamageDrawerOpen = false;
-                }
-
-                Rect contentRect = new Rect(panelRect.x + 10f, panelRect.y + 42f, panelRect.width - 20f, panelRect.height - 52f);
-                DrawPanel(contentRect, new Color(0.08f, 0.11f, 0.20f, 0.92f));
-                GUILayout.BeginArea(contentRect);
-                GUILayout.Space(8f);
-                GUILayout.Label("이번 스테이지 누적 피해량", smallStyle);
-                DrawCompanionDamageMeter();
-                GUILayout.EndArea();
+            if (!companionDamageDrawerOpen)
+            {
                 return;
             }
 
-            Rect tabRect = new Rect(12f, drawerY + (drawerHeight - tabWidth) * 0.5f, tabWidth, 108f);
-            DrawPanel(tabRect, new Color(0.08f, 0.12f, 0.22f, 0.94f));
-            if (GUI.Button(tabRect, "딜량\n열기", buttonStyle))
-            {
-                companionDamageDrawerOpen = true;
-            }
+            Rect panelRect = new Rect(tabRect.xMax + 4f, drawerY, drawerWidth, drawerHeight);
+            DrawPanel(panelRect, new Color(0.05f, 0.08f, 0.15f, 0.94f));
+
+            Rect contentRect = new Rect(panelRect.x + 10f, panelRect.y + 10f, panelRect.width - 20f, panelRect.height - 20f);
+            DrawPanel(contentRect, new Color(0.08f, 0.11f, 0.20f, 0.92f));
+            GUILayout.BeginArea(contentRect);
+            GUILayout.Space(8f);
+            GUILayout.Label("이번 스테이지 동료 딜량", titleStyle);
+            GUILayout.Label("편성 동료의 누적 피해량", smallStyle);
+            DrawCompanionDamageMeter();
+            GUILayout.EndArea();
         }
 
         private void DrawCompanionDamageMeter()
