@@ -11,7 +11,7 @@ namespace FightingGame
             NetworkVariableWritePermission.Server);
 
         private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(
-            FightConstants.MaxHealth,
+            FightConstants.BaseMaxHealth,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
@@ -25,6 +25,11 @@ namespace FightingGame
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+        private readonly NetworkVariable<bool> netDefenseBuff = new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
         private FighterController fighter;
         private NetworkFighterInput latestInput;
         private int slotIndex = -1;
@@ -33,7 +38,7 @@ namespace FightingGame
         public int SlotIndex => slotIndex;
         public bool HasSubmittedInput { get; private set; }
 
-        public void Configure(int index, string displayName, Color primary, Color accent, Vector3 startPosition)
+        public void Configure(int index, FighterArchetypeId archetype, Vector3 startPosition)
         {
             slotIndex = index;
             if (fighter == null)
@@ -41,7 +46,7 @@ namespace FightingGame
                 fighter = gameObject.AddComponent<FighterController>();
             }
 
-            fighter.Initialize(index, displayName, primary, accent, startPosition);
+            fighter.Initialize(index, archetype, startPosition);
             latestInput = default;
             HasSubmittedInput = false;
         }
@@ -53,6 +58,7 @@ namespace FightingGame
             netHealth.OnValueChanged += HandleNetHealthChanged;
             netState.OnValueChanged += HandleNetStateChanged;
             netFacing.OnValueChanged += HandleNetFacingChanged;
+            netDefenseBuff.OnValueChanged += HandleNetDefenseBuffChanged;
             ApplyAllNetworkValues();
         }
 
@@ -62,6 +68,7 @@ namespace FightingGame
             netHealth.OnValueChanged -= HandleNetHealthChanged;
             netState.OnValueChanged -= HandleNetStateChanged;
             netFacing.OnValueChanged -= HandleNetFacingChanged;
+            netDefenseBuff.OnValueChanged -= HandleNetDefenseBuffChanged;
             base.OnNetworkDespawn();
         }
 
@@ -136,6 +143,7 @@ namespace FightingGame
             netHealth.Value = fighter.Health;
             netState.Value = (int)fighter.State;
             netFacing.Value = fighter.Facing;
+            netDefenseBuff.Value = fighter.IsDefenseBuffActive;
         }
 
         private void ApplyAllNetworkValues()
@@ -149,12 +157,14 @@ namespace FightingGame
                 netPosition.Value,
                 netHealth.Value,
                 (FighterState)netState.Value,
-                netFacing.Value);
+                netFacing.Value,
+                netDefenseBuff.Value);
         }
 
         private void HandleNetPositionChanged(Vector3 previous, Vector3 current) => ApplyAllNetworkValues();
         private void HandleNetHealthChanged(float previous, float current) => ApplyAllNetworkValues();
         private void HandleNetStateChanged(int previous, int current) => ApplyAllNetworkValues();
         private void HandleNetFacingChanged(float previous, float current) => ApplyAllNetworkValues();
+        private void HandleNetDefenseBuffChanged(bool previous, bool current) => ApplyAllNetworkValues();
     }
 }

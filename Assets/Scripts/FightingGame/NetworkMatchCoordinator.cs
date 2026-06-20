@@ -138,16 +138,10 @@ namespace FightingGame
                 new Vector3(3.5f, FightConstants.GroundY, 0f)
             };
 
-            Color[] primaryColors =
+            FighterArchetypeId[] archetypes =
             {
-                new Color(0.28f, 0.62f, 0.95f),
-                new Color(0.95f, 0.38f, 0.32f)
-            };
-
-            Color[] accentColors =
-            {
-                new Color(0.12f, 0.22f, 0.42f),
-                new Color(0.42f, 0.12f, 0.12f)
+                FighterArchetypeId.FlameSwordsman,
+                FighterArchetypeId.Default
             };
 
             for (int i = 0; i < clientIds.Count && i < 2; i++)
@@ -156,12 +150,7 @@ namespace FightingGame
                 fighterObject.SetActive(true);
                 NetworkObject networkObject = fighterObject.GetComponent<NetworkObject>();
                 NetworkFighter networkFighter = fighterObject.GetComponent<NetworkFighter>();
-                networkFighter.Configure(
-                    i,
-                    "Player " + (i + 1),
-                    primaryColors[i],
-                    accentColors[i],
-                    spawnPositions[i]);
+                networkFighter.Configure(i, archetypes[i], spawnPositions[i]);
                 networkObject.SpawnWithOwnership(clientIds[i]);
                 fighters.Add(networkFighter);
             }

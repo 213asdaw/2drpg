@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FightingGame
@@ -38,55 +39,75 @@ namespace FightingGame
         }
 
         public float TotalDuration => Startup + Active + Recovery;
+
+        public AttackDefinition Scale(float attackSpeedMultiplier, float damageMultiplier)
+        {
+            return new AttackDefinition(
+                Type,
+                Startup * attackSpeedMultiplier,
+                Active * attackSpeedMultiplier,
+                Recovery * attackSpeedMultiplier,
+                Damage * damageMultiplier,
+                Knockback,
+                Hitstun * attackSpeedMultiplier,
+                HitboxSize,
+                HitboxOffset);
+        }
+    }
+
+    internal sealed class FlameProjectile
+    {
+        public Vector3 Position;
+        public float Facing;
+        public float Damage;
+        public float Speed;
+        public float Lifetime;
+        public bool HasHit;
+        public SpriteRenderer Renderer;
     }
 
     public sealed class FighterController : MonoBehaviour
     {
-        private static readonly AttackDefinition LightAttack = new AttackDefinition(
-            AttackType.Light,
-            0.08f,
-            0.1f,
-            0.18f,
-            8f,
-            1.2f,
-            0.25f,
-            new Vector2(0.9f, 0.8f),
-            new Vector2(0.75f, 1.1f));
+        private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
+            AttackType.Light, 0.08f, 0.1f, 0.18f, 8f, 1.2f, 0.25f,
+            new Vector2(0.9f, 0.8f), new Vector2(0.75f, 1.1f));
 
-        private static readonly AttackDefinition KickAttack = new AttackDefinition(
-            AttackType.Kick,
-            0.12f,
-            0.12f,
-            0.22f,
-            12f,
-            1.8f,
-            0.32f,
-            new Vector2(1.0f, 0.55f),
-            new Vector2(0.85f, 0.55f));
+        private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
+            AttackType.Kick, 0.12f, 0.12f, 0.22f, 12f, 1.8f, 0.32f,
+            new Vector2(1.0f, 0.55f), new Vector2(0.85f, 0.55f));
 
-        private static readonly AttackDefinition HeavyAttack = new AttackDefinition(
-            AttackType.Heavy,
-            0.22f,
-            0.14f,
-            0.34f,
-            20f,
-            2.8f,
-            0.45f,
-            new Vector2(1.1f, 1.0f),
-            new Vector2(0.95f, 1.0f));
+        private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
+            AttackType.Heavy, 0.22f, 0.14f, 0.34f, 20f, 2.8f, 0.45f,
+            new Vector2(1.1f, 1.0f), new Vector2(0.95f, 1.0f));
+
+        private AttackDefinition lightAttack;
+        private AttackDefinition kickAttack;
+        private AttackDefinition heavyAttack;
 
         private SpriteRenderer bodyRenderer;
+        private SpriteRenderer auraRenderer;
         private SpriteRenderer hitboxRenderer;
+        private Transform projectileRoot;
+        private readonly List<FlameProjectile> projectiles = new List<FlameProjectile>();
+
         private float velocityY;
         private float facing = 1f;
-        private float health = FightConstants.MaxHealth;
+        private float health;
+        private float maxHealth;
+        private float moveSpeed;
         private float stateTimer;
         private float invulnTimer;
         private float hitstunTimer;
+        private float skill1Cooldown;
+        private float skill2Cooldown;
+        private float defenseBuffTimer;
+        private bool defenseBuffVisual;
         private AttackDefinition currentAttack;
+        private SkillId castingSkill = SkillId.None;
         private bool grounded = true;
         private bool hasHitThisAttack;
         private int playerIndex;
+        private FighterArchetypeId archetypeId = FighterArchetypeId.Default;
         private Color primaryColor;
         private Color accentColor;
         private FighterController opponent;
@@ -94,72 +115,117 @@ namespace FightingGame
         private Sprite cachedBodySprite;
 
         public string DisplayName { get; private set; }
+        public FighterArchetypeId ArchetypeId => archetypeId;
         public FighterState State { get; private set; } = FighterState.Idle;
         public float Health => health;
-        public float HealthRatio => Mathf.Clamp01(health / FightConstants.MaxHealth);
+        public float MaxHealth => maxHealth;
+        public float HealthRatio => Mathf.Clamp01(health / maxHealth);
         public float Facing => facing;
         public bool IsAlive => health > 0f;
+        public bool IsDefenseBuffActive => defenseBuffTimer > 0f || defenseBuffVisual;
         public bool CanAct => IsAlive && State != FighterState.Victory && State != FighterState.Defeat;
 
         public event Action<FighterController, float> Damaged;
         public event Action<FighterController, FighterController, AttackType> LandedHit;
 
+        public void Initialize(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            FighterArchetypeDefinition definition = FighterArchetypes.Get(archetype);
+            playerIndex = index;
+            archetypeId = archetype;
+            DisplayName = definition.DisplayName;
+            maxHealth = definition.MaxHealth;
+            moveSpeed = definition.MoveSpeed;
+            primaryColor = archetype == FighterArchetypeId.FlameSwordsman
+                ? new Color(0.95f, 0.42f, 0.18f)
+                : index == 0 ? new Color(0.28f, 0.62f, 0.95f) : new Color(0.95f, 0.38f, 0.32f);
+            accentColor = archetype == FighterArchetypeId.FlameSwordsman
+                ? new Color(0.35f, 0.12f, 0.08f)
+                : index == 0 ? new Color(0.12f, 0.22f, 0.42f) : new Color(0.42f, 0.12f, 0.12f);
+
+            lightAttack = BaseLightAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
+            kickAttack = BaseKickAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
+            heavyAttack = BaseHeavyAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
+
+            transform.position = startPosition;
+            facing = index == 0 ? 1f : -1f;
+            health = maxHealth;
+            skill1Cooldown = 0f;
+            skill2Cooldown = 0f;
+            defenseBuffTimer = 0f;
+            defenseBuffVisual = false;
+            ClearProjectiles();
+
+            if (bodyRenderer == null)
+            {
+                BuildVisuals();
+            }
+
+            cachedBodySprite = null;
+            SetState(FighterState.Idle);
+            UpdateVisuals();
+        }
+
         public void Initialize(int index, string displayName, Color primary, Color accent, Vector3 startPosition)
         {
-            playerIndex = index;
+            Initialize(index, FighterArchetypeId.Default, startPosition);
             DisplayName = displayName;
             primaryColor = primary;
             accentColor = accent;
-            transform.position = startPosition;
-            facing = index == 0 ? 1f : -1f;
-            health = FightConstants.MaxHealth;
-            BuildVisuals();
-            SetState(FighterState.Idle);
+            cachedBodySprite = null;
+            UpdateVisuals();
         }
 
-        public void SetOpponent(FighterController other)
-        {
-            opponent = other;
-        }
+        public void SetOpponent(FighterController other) => opponent = other;
 
         public void ResetForRound(Vector3 startPosition)
         {
             transform.position = startPosition;
             velocityY = 0f;
             facing = playerIndex == 0 ? 1f : -1f;
-            health = FightConstants.MaxHealth;
+            health = maxHealth;
             invulnTimer = 0f;
             hitstunTimer = 0f;
+            skill1Cooldown = 0f;
+            skill2Cooldown = 0f;
+            defenseBuffTimer = 0f;
+            defenseBuffVisual = false;
             grounded = true;
             hasHitThisAttack = false;
             currentAttack = null;
+            castingSkill = SkillId.None;
+            ClearProjectiles();
             SetState(FighterState.Idle);
             UpdateFacingTowardOpponent();
             UpdateVisuals();
         }
 
-        public void SetMatchResult(bool won)
-        {
-            SetState(won ? FighterState.Victory : FighterState.Defeat);
-        }
+        public void SetMatchResult(bool won) => SetState(won ? FighterState.Victory : FighterState.Defeat);
 
-        public void ApplyNetworkDisplayState(Vector3 position, float healthValue, FighterState stateValue, float facingValue)
+        public void ApplyNetworkDisplayState(Vector3 position, float healthValue, FighterState stateValue, float facingValue, bool defenseBuffActive)
         {
             transform.position = position;
             health = healthValue;
             facing = facingValue;
             State = stateValue;
+            defenseBuffVisual = defenseBuffActive;
             UpdateVisuals();
         }
 
-        public void SetDisplayName(string displayName)
-        {
-            DisplayName = displayName;
-        }
+        public void SetDisplayName(string displayName) => DisplayName = displayName;
 
         public void Tick(float deltaTime, FighterInputSnapshot input, bool controlsEnabled)
         {
+            skill1Cooldown = Mathf.Max(0f, skill1Cooldown - deltaTime);
+            skill2Cooldown = Mathf.Max(0f, skill2Cooldown - deltaTime);
+            defenseBuffTimer = Mathf.Max(0f, defenseBuffTimer - deltaTime);
+            if (defenseBuffTimer <= 0f)
+            {
+                defenseBuffVisual = false;
+            }
+
             invulnTimer = Mathf.Max(0f, invulnTimer - deltaTime);
+            TickProjectiles(deltaTime);
 
             if (State == FighterState.Victory || State == FighterState.Defeat)
             {
@@ -178,6 +244,15 @@ namespace FightingGame
                     SetState(grounded ? FighterState.Idle : FighterState.Fall);
                 }
 
+                return;
+            }
+
+            if (IsSkillCastState(State))
+            {
+                TickSkillCast(deltaTime);
+                ApplyGravity(deltaTime);
+                ClampToArena();
+                UpdateVisuals();
                 return;
             }
 
@@ -204,17 +279,25 @@ namespace FightingGame
             {
                 SetState(FighterState.Block);
             }
+            else if (input.Skill2Pressed && CanUseSkill2())
+            {
+                BeginSkill2();
+            }
+            else if (input.Skill1Pressed && CanUseSkill1())
+            {
+                BeginSkill1();
+            }
             else if (input.HeavyPressed && CanStartAttack())
             {
-                BeginAttack(HeavyAttack);
+                BeginAttack(heavyAttack);
             }
             else if (input.KickPressed && CanStartAttack())
             {
-                BeginAttack(KickAttack);
+                BeginAttack(kickAttack);
             }
             else if (input.LightPressed && CanStartAttack())
             {
-                BeginAttack(LightAttack);
+                BeginAttack(lightAttack);
             }
             else if (input.JumpPressed && grounded)
             {
@@ -224,7 +307,7 @@ namespace FightingGame
             }
             else if (Mathf.Abs(input.Horizontal) > 0.01f && grounded)
             {
-                transform.position += new Vector3(input.Horizontal * FightConstants.MoveSpeed * deltaTime, 0f, 0f);
+                transform.position += new Vector3(input.Horizontal * moveSpeed * deltaTime, 0f, 0f);
                 facing = Mathf.Sign(input.Horizontal);
                 SetState(FighterState.Walk);
             }
@@ -251,41 +334,13 @@ namespace FightingGame
             }
 
             Bounds hitbox = attacker.GetActiveHitboxBounds();
-            Bounds hurtbox = GetHurtboxBounds();
-            if (!hitbox.Intersects(hurtbox))
+            if (!hitbox.Intersects(GetHurtboxBounds()))
             {
                 return;
             }
 
             attacker.hasHitThisAttack = true;
-            float damage = attack.Damage;
-            bool blocking = State == FighterState.Block && grounded;
-            if (blocking)
-            {
-                damage *= FightConstants.BlockDamageMultiplier;
-            }
-
-            health = Mathf.Max(0f, health - damage);
-            invulnTimer = FightConstants.HitInvulnTime;
-            hitstunTimer = blocking ? attack.Hitstun * 0.5f : attack.Hitstun;
-
-            float knockbackDirection = Mathf.Sign(transform.position.x - attacker.transform.position.x);
-            if (knockbackDirection == 0f)
-            {
-                knockbackDirection = attacker.facing;
-            }
-
-            transform.position += new Vector3(knockbackDirection * attack.Knockback * (blocking ? 0.35f : 1f), 0f, 0f);
-            ClampToArena();
-
-            SetState(FighterState.Hitstun);
-            Damaged?.Invoke(this, damage);
-            attacker.LandedHit?.Invoke(attacker, this, attack.Type);
-
-            if (health <= 0f)
-            {
-                SetState(FighterState.Defeat);
-            }
+            ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
         }
 
         public bool IsAttackActive()
@@ -295,9 +350,8 @@ namespace FightingGame
                 return false;
             }
 
-            float activeStart = currentAttack.Startup;
-            float activeEnd = activeStart + currentAttack.Active;
-            return stateTimer >= activeStart && stateTimer <= activeEnd;
+            float activeEnd = currentAttack.Startup + currentAttack.Active;
+            return stateTimer >= currentAttack.Startup && stateTimer <= activeEnd;
         }
 
         public Bounds GetActiveHitboxBounds()
@@ -308,11 +362,167 @@ namespace FightingGame
             }
 
             Vector3 center = transform.position + new Vector3(facing * currentAttack.HitboxOffset.x, currentAttack.HitboxOffset.y, 0f);
-            Vector3 size = new Vector3(currentAttack.HitboxSize.x, currentAttack.HitboxSize.y, 0.1f);
-            return new Bounds(center, size);
+            return new Bounds(center, new Vector3(currentAttack.HitboxSize.x, currentAttack.HitboxSize.y, 0.1f));
         }
 
-        private Bounds GetHurtboxBounds()
+        private bool CanUseSkill1()
+        {
+            FighterArchetypeDefinition def = FighterArchetypes.Get(archetypeId);
+            return def.HasFlameSlash && grounded && skill1Cooldown <= 0f && CanStartAttack();
+        }
+
+        private bool CanUseSkill2()
+        {
+            FighterArchetypeDefinition def = FighterArchetypes.Get(archetypeId);
+            return def.HasMoltenGuard && grounded && skill2Cooldown <= 0f && CanStartAttack();
+        }
+
+        private void BeginSkill1()
+        {
+            castingSkill = SkillId.FlameSlashWave;
+            stateTimer = 0f;
+            SetState(FighterState.Skill1Cast);
+        }
+
+        private void BeginSkill2()
+        {
+            castingSkill = SkillId.MoltenGuard;
+            stateTimer = 0f;
+            SetState(FighterState.Skill2Cast);
+        }
+
+        private void TickSkillCast(float deltaTime)
+        {
+            stateTimer += deltaTime;
+            if (castingSkill == SkillId.FlameSlashWave)
+            {
+                if (stateTimer >= FlameSwordsmanSkills.FlameSlashStartup)
+                {
+                    if (stateTimer - deltaTime < FlameSwordsmanSkills.FlameSlashStartup)
+                    {
+                        SpawnFlameSlashProjectile();
+                        skill1Cooldown = FlameSwordsmanSkills.FlameSlashCooldown;
+                    }
+
+                    if (stateTimer >= FlameSwordsmanSkills.FlameSlashStartup + FlameSwordsmanSkills.FlameSlashRecovery)
+                    {
+                        castingSkill = SkillId.None;
+                        SetState(grounded ? FighterState.Idle : FighterState.Fall);
+                    }
+                }
+            }
+            else if (castingSkill == SkillId.MoltenGuard)
+            {
+                if (stateTimer >= FlameSwordsmanSkills.MoltenGuardStartup)
+                {
+                    if (stateTimer - deltaTime < FlameSwordsmanSkills.MoltenGuardStartup)
+                    {
+                        defenseBuffTimer = FlameSwordsmanSkills.MoltenGuardDuration;
+                        skill2Cooldown = FlameSwordsmanSkills.MoltenGuardCooldown;
+                        LandedHit?.Invoke(this, opponent, AttackType.MoltenGuard);
+                    }
+
+                    if (stateTimer >= FlameSwordsmanSkills.MoltenGuardStartup + 0.12f)
+                    {
+                        castingSkill = SkillId.None;
+                        SetState(grounded ? FighterState.Idle : FighterState.Fall);
+                    }
+                }
+            }
+        }
+
+        private void SpawnFlameSlashProjectile()
+        {
+            GameObject projectileObject = new GameObject("FlameSlash");
+            projectileObject.transform.SetParent(projectileRoot, false);
+            SpriteRenderer renderer = projectileObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralArt.CreateFlameSlashProjectileSprite();
+            renderer.sortingOrder = 20 + playerIndex;
+
+            Vector3 spawnPosition = transform.position + new Vector3(facing * 1.1f, 1.05f, 0f);
+            projectiles.Add(new FlameProjectile
+            {
+                Position = spawnPosition,
+                Facing = facing,
+                Damage = FlameSwordsmanSkills.FlameSlashProjectileDamage,
+                Speed = FlameSwordsmanSkills.FlameSlashProjectileSpeed,
+                Lifetime = FlameSwordsmanSkills.FlameSlashProjectileLifetime,
+                Renderer = renderer
+            });
+        }
+
+        private void TickProjectiles(float deltaTime)
+        {
+            for (int i = projectiles.Count - 1; i >= 0; i--)
+            {
+                FlameProjectile projectile = projectiles[i];
+                projectile.Position += new Vector3(projectile.Facing * projectile.Speed * deltaTime, 0f, 0f);
+                projectile.Lifetime -= deltaTime;
+
+                if (projectile.Renderer != null)
+                {
+                    projectile.Renderer.transform.position = projectile.Position;
+                    projectile.Renderer.flipX = projectile.Facing < 0f;
+                }
+
+                if (!projectile.HasHit && opponent != null && opponent.IsAlive)
+                {
+                    Bounds projectileBounds = new Bounds(projectile.Position, new Vector3(1.1f, 0.55f, 0.1f));
+                    if (projectileBounds.Intersects(opponent.GetHurtboxBounds()))
+                    {
+                        projectile.HasHit = true;
+                        opponent.ApplyDamage(this, projectile.Damage, 2.2f, 0.35f, AttackType.FlameSlash);
+                    }
+                }
+
+                projectiles[i] = projectile;
+                if (projectile.Lifetime <= 0f || Mathf.Abs(projectile.Position.x) > FightConstants.ArenaHalfWidth + 1f)
+                {
+                    if (projectile.Renderer != null)
+                    {
+                        Destroy(projectile.Renderer.gameObject);
+                    }
+
+                    projectiles.RemoveAt(i);
+                }
+            }
+        }
+
+        private void ApplyDamage(FighterController attacker, float damage, float knockback, float hitstun, AttackType attackType)
+        {
+            bool blocking = State == FighterState.Block && grounded;
+            if (blocking)
+            {
+                damage *= FightConstants.BlockDamageMultiplier;
+            }
+            else if (IsDefenseBuffActive)
+            {
+                damage *= FlameSwordsmanSkills.MoltenGuardDamageMultiplier;
+            }
+
+            health = Mathf.Max(0f, health - damage);
+            invulnTimer = FightConstants.HitInvulnTime;
+            hitstunTimer = blocking ? hitstun * 0.5f : hitstun;
+
+            float knockbackDirection = Mathf.Sign(transform.position.x - attacker.transform.position.x);
+            if (knockbackDirection == 0f)
+            {
+                knockbackDirection = attacker.facing;
+            }
+
+            transform.position += new Vector3(knockbackDirection * knockback * (blocking ? 0.35f : 1f), 0f, 0f);
+            ClampToArena();
+            SetState(FighterState.Hitstun);
+            Damaged?.Invoke(this, damage);
+            attacker.LandedHit?.Invoke(attacker, this, attackType);
+
+            if (health <= 0f)
+            {
+                SetState(FighterState.Defeat);
+            }
+        }
+
+        public Bounds GetHurtboxBounds()
         {
             return new Bounds(transform.position + new Vector3(0f, 0.75f, 0f), new Vector3(0.7f, 1.5f, 0.1f));
         }
@@ -321,6 +531,17 @@ namespace FightingGame
         {
             bodyRenderer = gameObject.AddComponent<SpriteRenderer>();
             bodyRenderer.sortingOrder = 10 + playerIndex;
+
+            GameObject auraObject = new GameObject("DefenseAura");
+            auraObject.transform.SetParent(transform, false);
+            auraRenderer = auraObject.AddComponent<SpriteRenderer>();
+            auraRenderer.sprite = ProceduralArt.CreateRectSprite(24, 24, new Color(1f, 0.55f, 0.12f, 0.35f), "DefenseAura");
+            auraRenderer.sortingOrder = 8 + playerIndex;
+            auraRenderer.enabled = false;
+
+            GameObject projectileContainer = new GameObject("Projectiles");
+            projectileContainer.transform.SetParent(transform, false);
+            projectileRoot = projectileContainer.transform;
 
             GameObject hitboxVisual = new GameObject("HitboxDebug");
             hitboxVisual.transform.SetParent(transform, false);
@@ -362,7 +583,7 @@ namespace FightingGame
 
         private bool CanStartAttack()
         {
-            return grounded && State != FighterState.Block && !IsAttackState(State);
+            return grounded && State != FighterState.Block && !IsAttackState(State) && !IsSkillCastState(State);
         }
 
         private void ApplyGravity(float deltaTime)
@@ -401,7 +622,7 @@ namespace FightingGame
 
         private void UpdateFacingTowardOpponent()
         {
-            if (opponent == null || IsAttackState(State) || State == FighterState.Hitstun)
+            if (opponent == null || IsAttackState(State) || IsSkillCastState(State) || State == FighterState.Hitstun)
             {
                 return;
             }
@@ -429,32 +650,50 @@ namespace FightingGame
             bool faceRight = facing >= 0f;
             if (cachedBodySprite == null || faceRight != lastVisualFacingRight)
             {
-                cachedBodySprite = ProceduralArt.CreateFighterBody(primaryColor, accentColor, faceRight);
+                cachedBodySprite = archetypeId == FighterArchetypeId.FlameSwordsman
+                    ? ProceduralArt.CreateFlameSwordsmanBody(faceRight)
+                    : ProceduralArt.CreateFighterBody(primaryColor, accentColor, faceRight);
                 lastVisualFacingRight = faceRight;
             }
 
             bodyRenderer.sprite = cachedBodySprite;
-            bodyRenderer.flipX = false;
 
             float bob = State == FighterState.Walk ? Mathf.Sin(Time.time * 12f) * 0.04f : 0f;
             float squash = State == FighterState.Block ? -0.08f : 0f;
             transform.localScale = new Vector3(1f, 1f + squash, 1f);
             bodyRenderer.transform.localPosition = new Vector3(0f, bob, 0f);
 
-            if (State == FighterState.Block)
+            if (IsDefenseBuffActive)
             {
+                auraRenderer.enabled = true;
+                auraRenderer.transform.localPosition = new Vector3(0f, 0.95f + bob, 0f);
+                float pulse = 0.9f + Mathf.Sin(Time.time * 10f) * 0.12f;
+                auraRenderer.transform.localScale = new Vector3(pulse * 1.5f, pulse * 1.8f, 1f);
+                bodyRenderer.color = new Color(1f, 0.82f, 0.55f, 1f);
+            }
+            else if (State == FighterState.Block)
+            {
+                auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(0.85f, 0.95f, 1f, 1f);
             }
             else if (State == FighterState.Hitstun)
             {
+                auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(1f, 0.65f, 0.65f, 1f);
+            }
+            else if (State == FighterState.Skill1Cast)
+            {
+                auraRenderer.enabled = false;
+                bodyRenderer.color = new Color(1f, 0.72f, 0.42f, 1f);
             }
             else if (invulnTimer > 0f)
             {
+                auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(1f, 1f, 1f, 0.75f);
             }
             else
             {
+                auraRenderer.enabled = false;
                 bodyRenderer.color = Color.white;
             }
 
@@ -474,6 +713,19 @@ namespace FightingGame
             }
         }
 
+        private void ClearProjectiles()
+        {
+            foreach (FlameProjectile projectile in projectiles)
+            {
+                if (projectile.Renderer != null)
+                {
+                    Destroy(projectile.Renderer.gameObject);
+                }
+            }
+
+            projectiles.Clear();
+        }
+
         private static bool IsAttackState(FighterState state)
         {
             return state == FighterState.LightAttack
@@ -481,19 +733,22 @@ namespace FightingGame
                 || state == FighterState.HeavyAttack;
         }
 
+        private static bool IsSkillCastState(FighterState state)
+        {
+            return state == FighterState.Skill1Cast || state == FighterState.Skill2Cast;
+        }
+
         private static FighterState AttackTypeToState(AttackType type)
         {
             switch (type)
             {
-                case AttackType.Light:
-                    return FighterState.LightAttack;
-                case AttackType.Kick:
-                    return FighterState.KickAttack;
-                case AttackType.Heavy:
-                    return FighterState.HeavyAttack;
-                default:
-                    return FighterState.Idle;
+                case AttackType.Light: return FighterState.LightAttack;
+                case AttackType.Kick: return FighterState.KickAttack;
+                case AttackType.Heavy: return FighterState.HeavyAttack;
+                default: return FighterState.Idle;
             }
         }
+
+        private void OnDestroy() => ClearProjectiles();
     }
 }

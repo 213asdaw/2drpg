@@ -10,6 +10,8 @@ namespace FightingGame
         public readonly bool LightPressed;
         public readonly bool KickPressed;
         public readonly bool HeavyPressed;
+        public readonly bool Skill1Pressed;
+        public readonly bool Skill2Pressed;
 
         public FighterInputSnapshot(
             float horizontal,
@@ -17,7 +19,9 @@ namespace FightingGame
             bool blockHeld,
             bool lightPressed,
             bool kickPressed,
-            bool heavyPressed)
+            bool heavyPressed,
+            bool skill1Pressed,
+            bool skill2Pressed)
         {
             Horizontal = horizontal;
             JumpPressed = jumpPressed;
@@ -25,9 +29,11 @@ namespace FightingGame
             LightPressed = lightPressed;
             KickPressed = kickPressed;
             HeavyPressed = heavyPressed;
+            Skill1Pressed = skill1Pressed;
+            Skill2Pressed = skill2Pressed;
         }
 
-        public static FighterInputSnapshot Empty => new FighterInputSnapshot(0f, false, false, false, false, false);
+        public static FighterInputSnapshot Empty => new FighterInputSnapshot(0f, false, false, false, false, false, false, false);
     }
 
     public static class FighterInputReader
@@ -51,7 +57,9 @@ namespace FightingGame
                 Input.GetKey(KeyCode.S),
                 Input.GetKeyDown(KeyCode.J),
                 Input.GetKeyDown(KeyCode.K),
-                Input.GetKeyDown(KeyCode.L));
+                Input.GetKeyDown(KeyCode.L),
+                Input.GetKeyDown(KeyCode.U),
+                Input.GetKeyDown(KeyCode.I));
         }
 
         public static FighterInputSnapshot ReadPlayerTwo()
@@ -73,7 +81,9 @@ namespace FightingGame
                 Input.GetKey(KeyCode.DownArrow),
                 Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1),
                 Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2),
-                Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3));
+                Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3),
+                Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4),
+                Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5));
         }
     }
 }

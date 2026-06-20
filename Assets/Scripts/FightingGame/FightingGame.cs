@@ -58,8 +58,8 @@ namespace FightingGame
 
         private void CreateFighters()
         {
-            playerOne = FightSceneBuilder.CreateFighter("Player 1", 0, new Color(0.28f, 0.62f, 0.95f), new Color(0.12f, 0.22f, 0.42f), new Vector3(-3.5f, FightConstants.GroundY, 0f));
-            playerTwo = FightSceneBuilder.CreateFighter("Player 2", 1, new Color(0.95f, 0.38f, 0.32f), new Color(0.42f, 0.12f, 0.12f), new Vector3(3.5f, FightConstants.GroundY, 0f));
+            playerOne = FightSceneBuilder.CreateFighter(0, new Vector3(-3.5f, FightConstants.GroundY, 0f), FighterArchetypeId.FlameSwordsman);
+            playerTwo = FightSceneBuilder.CreateFighter(1, new Vector3(3.5f, FightConstants.GroundY, 0f), FighterArchetypeId.Default);
             playerOne.SetOpponent(playerTwo);
             playerTwo.SetOpponent(playerOne);
             playerOne.Damaged += (_, damage) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
@@ -181,11 +181,11 @@ namespace FightingGame
         private void DrawControlsHelp()
         {
             const float y = 78f;
-            GUI.Label(new Rect(24f, y, 420f, 120f),
-                "P1: A/D 이동 | W 점프 | S 가드 | J 약공 | K 킥 | L 강공",
+            GUI.Label(new Rect(24f, y, 520f, 80f),
+                "P1 불꽃의 검사: A/D W S J K L | U 불꽃검기 | I 용암방어",
                 labelStyle);
-            GUI.Label(new Rect(Screen.width - 444f, y, 420f, 120f),
-                "P2: ←/→ 이동 | ↑ 점프 | ↓ 가드 | 1 약공 | 2 킥 | 3 강공",
+            GUI.Label(new Rect(Screen.width - 544f, y, 520f, 80f),
+                "P2: ←/→ ↑ ↓ 1 2 3 (기본 격투사)",
                 labelStyle);
 
             if (matchManager.Phase == MatchPhase.MatchEnd)

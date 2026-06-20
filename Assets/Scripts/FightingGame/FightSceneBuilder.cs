@@ -46,6 +46,15 @@ namespace FightingGame
             Screen.autorotateToPortraitUpsideDown = false;
         }
 
+        public static FighterController CreateFighter(int index, Vector3 position, FighterArchetypeId archetype)
+        {
+            FighterArchetypeDefinition definition = FighterArchetypes.Get(archetype);
+            GameObject fighterObject = new GameObject(definition.DisplayName);
+            FighterController fighter = fighterObject.AddComponent<FighterController>();
+            fighter.Initialize(index, archetype, position);
+            return fighter;
+        }
+
         public static FighterController CreateFighter(string name, int index, Color primary, Color accent, Vector3 position)
         {
             GameObject fighterObject = new GameObject(name);

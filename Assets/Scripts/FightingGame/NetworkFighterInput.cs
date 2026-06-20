@@ -11,6 +11,8 @@ namespace FightingGame
         public bool LightPressed;
         public bool KickPressed;
         public bool HeavyPressed;
+        public bool Skill1Pressed;
+        public bool Skill2Pressed;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -20,6 +22,8 @@ namespace FightingGame
             serializer.SerializeValue(ref LightPressed);
             serializer.SerializeValue(ref KickPressed);
             serializer.SerializeValue(ref HeavyPressed);
+            serializer.SerializeValue(ref Skill1Pressed);
+            serializer.SerializeValue(ref Skill2Pressed);
         }
 
         public FighterInputSnapshot ToSnapshot()
@@ -30,7 +34,9 @@ namespace FightingGame
                 BlockHeld,
                 LightPressed,
                 KickPressed,
-                HeavyPressed);
+                HeavyPressed,
+                Skill1Pressed,
+                Skill2Pressed);
         }
 
         public static NetworkFighterInput FromSnapshot(FighterInputSnapshot snapshot)
@@ -42,7 +48,9 @@ namespace FightingGame
                 JumpPressed = snapshot.JumpPressed,
                 LightPressed = snapshot.LightPressed,
                 KickPressed = snapshot.KickPressed,
-                HeavyPressed = snapshot.HeavyPressed
+                HeavyPressed = snapshot.HeavyPressed,
+                Skill1Pressed = snapshot.Skill1Pressed,
+                Skill2Pressed = snapshot.Skill2Pressed
             };
         }
 

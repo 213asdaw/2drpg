@@ -7,8 +7,10 @@ namespace FightingGame
         public const float GroundY = -2.5f;
         public const float Gravity = -28f;
         public const float JumpVelocity = 9.5f;
-        public const float MoveSpeed = 5.5f;
-        public const float MaxHealth = 100f;
+        public const float BaseMoveSpeed = 5.5f;
+        public const float BaseMaxHealth = 100f;
+        public const float MaxHealth = BaseMaxHealth;
+        public const float MoveSpeed = BaseMoveSpeed;
         public const float RoundDuration = 99f;
         public const int RoundsToWin = 2;
         public const float BlockDamageMultiplier = 0.25f;
@@ -27,6 +29,8 @@ namespace FightingGame
         KickAttack,
         HeavyAttack,
         Block,
+        Skill1Cast,
+        Skill2Cast,
         Hitstun,
         Victory,
         Defeat
@@ -37,7 +41,9 @@ namespace FightingGame
         None,
         Light,
         Kick,
-        Heavy
+        Heavy,
+        FlameSlash,
+        MoltenGuard
     }
 
     public enum MatchPhase
