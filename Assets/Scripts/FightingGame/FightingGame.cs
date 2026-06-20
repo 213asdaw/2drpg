@@ -14,23 +14,10 @@ namespace FightingGame
         private GUIStyle bannerStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void Bootstrap()
-        {
-            if (FindObjectOfType<FightingGame>() != null)
-            {
-                return;
-            }
-
-            GameObject game = new GameObject("Fighting Game");
-            game.AddComponent<FightingGame>();
-            DontDestroyOnLoad(game);
-        }
-
         private void Awake()
         {
-            ConfigureDisplay();
-            BuildStage();
+            FightSceneBuilder.ConfigureDisplay();
+            mainCamera = FightSceneBuilder.BuildStage();
             CreateFighters();
             matchManager = new MatchManager();
             matchManager.RoundStarted += HandleRoundStarted;
@@ -69,64 +56,16 @@ namespace FightingGame
             DrawFloatingTexts();
         }
 
-        private void ConfigureDisplay()
-        {
-            Screen.orientation = ScreenOrientation.LandscapeLeft;
-            Screen.autorotateToLandscapeLeft = true;
-            Screen.autorotateToLandscapeRight = true;
-            Screen.autorotateToPortrait = false;
-            Screen.autorotateToPortraitUpsideDown = false;
-        }
-
-        private void BuildStage()
-        {
-            mainCamera = Camera.main;
-            if (mainCamera == null)
-            {
-                GameObject cameraObject = new GameObject("Main Camera");
-                mainCamera = cameraObject.AddComponent<Camera>();
-                cameraObject.tag = "MainCamera";
-                cameraObject.AddComponent<AudioListener>();
-            }
-
-            mainCamera.orthographic = true;
-            mainCamera.orthographicSize = 4.5f;
-            mainCamera.transform.position = new Vector3(0f, 0.5f, -10f);
-            mainCamera.backgroundColor = new Color(0.08f, 0.09f, 0.14f);
-
-            GameObject background = new GameObject("Background");
-            SpriteRenderer backgroundRenderer = background.AddComponent<SpriteRenderer>();
-            backgroundRenderer.sprite = ProceduralArt.CreateStageBackground();
-            backgroundRenderer.sortingOrder = -20;
-            background.transform.localScale = new Vector3(1.35f, 1.35f, 1f);
-            background.transform.position = new Vector3(0f, 0.4f, 1f);
-
-            GameObject floor = new GameObject("Floor");
-            SpriteRenderer floorRenderer = floor.AddComponent<SpriteRenderer>();
-            floorRenderer.sprite = ProceduralArt.CreateRectSprite(256, 16, new Color(0.42f, 0.34f, 0.48f), "Floor");
-            floorRenderer.sortingOrder = -10;
-            floor.transform.position = new Vector3(0f, FightConstants.GroundY - 0.15f, 0f);
-            floor.transform.localScale = new Vector3(FightConstants.ArenaHalfWidth * 2.2f, 0.35f, 1f);
-        }
-
         private void CreateFighters()
         {
-            playerOne = CreateFighter("Player 1", 0, new Color(0.28f, 0.62f, 0.95f), new Color(0.12f, 0.22f, 0.42f), new Vector3(-3.5f, FightConstants.GroundY, 0f));
-            playerTwo = CreateFighter("Player 2", 1, new Color(0.95f, 0.38f, 0.32f), new Color(0.42f, 0.12f, 0.12f), new Vector3(3.5f, FightConstants.GroundY, 0f));
+            playerOne = FightSceneBuilder.CreateFighter("Player 1", 0, new Color(0.28f, 0.62f, 0.95f), new Color(0.12f, 0.22f, 0.42f), new Vector3(-3.5f, FightConstants.GroundY, 0f));
+            playerTwo = FightSceneBuilder.CreateFighter("Player 2", 1, new Color(0.95f, 0.38f, 0.32f), new Color(0.42f, 0.12f, 0.12f), new Vector3(3.5f, FightConstants.GroundY, 0f));
             playerOne.SetOpponent(playerTwo);
             playerTwo.SetOpponent(playerOne);
             playerOne.Damaged += (_, damage) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
             playerTwo.Damaged += (_, damage) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
             playerOne.LandedHit += (_, __, type) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
             playerTwo.LandedHit += (_, __, type) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
-        }
-
-        private static FighterController CreateFighter(string name, int index, Color primary, Color accent, Vector3 position)
-        {
-            GameObject fighterObject = new GameObject(name);
-            FighterController fighter = fighterObject.AddComponent<FighterController>();
-            fighter.Initialize(index, name, primary, accent, position);
-            return fighter;
         }
 
         private void HandleRoundStarted()

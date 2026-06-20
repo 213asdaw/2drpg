@@ -143,6 +143,20 @@ namespace FightingGame
             SetState(won ? FighterState.Victory : FighterState.Defeat);
         }
 
+        public void ApplyNetworkDisplayState(Vector3 position, float healthValue, FighterState stateValue, float facingValue)
+        {
+            transform.position = position;
+            health = healthValue;
+            facing = facingValue;
+            State = stateValue;
+            UpdateVisuals();
+        }
+
+        public void SetDisplayName(string displayName)
+        {
+            DisplayName = displayName;
+        }
+
         public void Tick(float deltaTime, FighterInputSnapshot input, bool controlsEnabled)
         {
             invulnTimer = Mathf.Max(0f, invulnTimer - deltaTime);

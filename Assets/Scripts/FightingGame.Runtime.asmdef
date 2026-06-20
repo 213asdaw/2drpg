@@ -3,7 +3,9 @@
     "rootNamespace": "",
     "references": [
         "UnityEngine.IMGUIModule",
-        "UnityEngine.UIModule"
+        "UnityEngine.UIModule",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
