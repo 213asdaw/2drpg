@@ -1,0 +1,17 @@
+{
+    "name": "FightingGame.Runtime",
+    "rootNamespace": "",
+    "references": [
+        "UnityEngine.IMGUIModule",
+        "UnityEngine.UIModule"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
