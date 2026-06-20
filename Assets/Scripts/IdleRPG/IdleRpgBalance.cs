@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace IdleRPG
@@ -165,8 +166,8 @@ namespace IdleRPG
 
         public const float BaseCritChance = 0.05f;
         public const float BaseCritMultiplier = 1.8f;
-        public const float FocusCritChancePerLevel = 0.03f;
-        public const float FocusCritDamagePerLevel = 0.10f;
+        public const float FocusCritChancePerLevel = 0.02f;
+        public const float FocusCritDamagePerLevel = 0.06f;
         public const float MaxCritChance = 0.65f;
         public const float MaxCritMultiplier = 3.2f;
 
@@ -418,6 +419,32 @@ namespace IdleRPG
             }
 
             return Relics[0];
+        }
+
+        public static string FormatRelicStatBonusPerLevel(RelicDefinition relic)
+        {
+            List<string> parts = new List<string>();
+            if (relic.AttackPerLevel > 0)
+            {
+                parts.Add("공격 +" + relic.AttackPerLevel + "/Lv");
+            }
+
+            if (relic.MaxHpPerLevel > 0)
+            {
+                parts.Add("HP +" + relic.MaxHpPerLevel + "/Lv");
+            }
+
+            if (relic.RegenPerLevel > 0f)
+            {
+                parts.Add("회복 +" + relic.RegenPerLevel.ToString("0.0") + "/Lv");
+            }
+
+            if (relic.CritChancePerLevel > 0f)
+            {
+                parts.Add("치명 +" + Mathf.RoundToInt(relic.CritChancePerLevel * 100f) + "%/Lv");
+            }
+
+            return parts.Count > 0 ? string.Join(", ", parts) : "능력치 없음";
         }
 
         public static CompanionDefinition RollCompanion(float roll, bool forceRareOrBetter)

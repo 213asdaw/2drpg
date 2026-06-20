@@ -234,7 +234,7 @@ namespace IdleRPG
         {
             EnsureStyles();
 
-            if (!isAuthenticated)
+            if (!isAuthenticated || !TryEnsurePlayState())
             {
                 DrawLoginScreen();
                 return;
@@ -1993,8 +1993,33 @@ namespace IdleRPG
             }
         }
 
+        private bool TryEnsurePlayState()
+        {
+            if (state == null || state.hero == null)
+            {
+                if (isAuthenticated)
+                {
+                    ShowLoginScreen();
+                }
+
+                return false;
+            }
+
+            if (state.upgrades == null)
+            {
+                state.upgrades = new UpgradeLevels();
+            }
+
+            return true;
+        }
+
         private void DrawBattleStatsPanel(Rect rect)
         {
+            if (!TryEnsurePlayState())
+            {
+                return;
+            }
+
             DrawPanel(rect, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(rect);
             GUILayout.Space(10f);
@@ -2004,28 +2029,9 @@ namespace IdleRPG
             DrawStat("스테이지", state.stage + " (" + state.stageProgress + "/5)");
             DrawStat("레벨", state.hero.level.ToString());
             DrawStat("경험치", FormatNumber(state.hero.xp) + " / " + FormatNumber(state.hero.xpToNext));
-            int heroAttack = state.hero.attack;
-            int bonusAttack = GetRelicBonusAttack(state) + GetCompanionBonusAttack(state);
-            DrawStat("용사 공격", FormatNumber(heroAttack));
-            if (bonusAttack > 0)
-            {
-                DrawStat("유물·동료", "+" + FormatNumber(bonusAttack));
-            }
-
-            DrawStat("합계 공격력", FormatNumber(GetEffectiveAttack()));
-            int heroMaxHp = state.hero.maxHp;
-            int bonusMaxHp = GetRelicBonusMaxHp(state) + GetCompanionBonusMaxHp(state);
-            DrawStat("용사 HP", FormatNumber(heroMaxHp));
-            if (bonusMaxHp > 0)
-            {
-                DrawStat("유물·동료 HP", "+" + FormatNumber(bonusMaxHp));
-            }
-
-            DrawStat("합계 HP", FormatNumber(GetEffectiveMaxHp()));
             DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
-            DrawStat("집중 수련", "Lv." + state.upgrades.focus);
             DrawStat("전투력", FormatNumber(GetCombatPower()));
             DrawStat("처치 수", FormatNumber(state.stats.kills));
             GUILayout.Space(8f);
@@ -2065,6 +2071,11 @@ namespace IdleRPG
 
         private void DrawLobbyStatsPanel(Rect rect)
         {
+            if (!TryEnsurePlayState())
+            {
+                return;
+            }
+
             DrawPanel(rect, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(rect);
             GUILayout.Space(14f);
@@ -2079,7 +2090,6 @@ namespace IdleRPG
             DrawStat("전투력", FormatNumber(GetCombatPower()));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
-            DrawStat("집중 수련", "Lv." + state.upgrades.focus);
             GUILayout.Space(8f);
             GUILayout.Label("골드: 강화 / 유물 뽑기", smallStyle);
             GUILayout.Label("보석: 동료 소환", smallStyle);
@@ -2109,14 +2119,19 @@ namespace IdleRPG
 
         private void DrawUpgradePanel(Rect rect)
         {
+            if (!TryEnsurePlayState())
+            {
+                return;
+            }
+
             DrawPanel(rect, new Color(0.05f, 0.08f, 0.15f, 0.88f));
             GUILayout.BeginArea(rect);
             GUILayout.Space(14f);
             GUILayout.Label("강화", titleStyle);
             GUILayout.Space(4f);
-            DrawStat("용사 공격", FormatNumber(state.hero.attack));
-            DrawStat("용사 HP", FormatNumber(state.hero.maxHp));
-            DrawStat("용사 회복", state.hero.regen.ToString("0.0"));
+            DrawStat("공격력", FormatNumber(GetEffectiveAttack()));
+            DrawStat("HP", FormatNumber(GetEffectiveMaxHp()));
+            DrawStat("초당 회복", GetEffectiveRegen().ToString("0.0"));
             DrawStat("치명타", Mathf.RoundToInt(GetEffectiveCritChance() * 100f) + "%");
             DrawStat("치명타 피해", Mathf.RoundToInt(GetEffectiveCritMultiplier() * 100f) + "%");
             GUILayout.Label("골드 강화는 용사 기본 능력치만 올립니다. 동료는 편성 시 추가 보너스.", smallStyle);
@@ -2629,11 +2644,17 @@ namespace IdleRPG
 
         private void DrawRelicRow(RelicDefinition relic)
         {
+            if (!TryEnsurePlayState() || state.gacha == null || state.gacha.relics == null)
+            {
+                return;
+            }
+
             int level = state.gacha.relics.Get(relic.Id);
             Color previous = GUI.color;
             GUI.color = IdleRpgBalance.GetRarityColor(relic.Rarity);
             GUILayout.Label("Lv." + level + " " + relic.Name + " - " + relic.Description, smallStyle);
             GUI.color = previous;
+            GUILayout.Label(IdleRpgBalance.FormatRelicStatBonusPerLevel(relic), smallStyle);
         }
 
         private void DrawRelicProbabilityScreen()
