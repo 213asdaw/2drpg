@@ -88,6 +88,8 @@ namespace IdleRPG
         private string loginPasswordInput = string.Empty;
         private string loginPasswordConfirmInput = string.Empty;
         private string loginErrorMessage = string.Empty;
+        private bool storyIntroOpen;
+        private Vector2 storyIntroScroll;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -120,6 +122,7 @@ namespace IdleRPG
             if (state != null)
             {
                 state.playerName = session.username;
+                storyIntroOpen = !state.storyIntroSeen;
             }
 
             if (!sceneBuilt)
@@ -183,7 +186,7 @@ namespace IdleRPG
 
         private void Update()
         {
-            if (!isAuthenticated || state == null)
+            if (!isAuthenticated || state == null || storyIntroOpen)
             {
                 return;
             }
@@ -237,6 +240,12 @@ namespace IdleRPG
             if (!isAuthenticated || !TryEnsurePlayState())
             {
                 DrawLoginScreen();
+                return;
+            }
+
+            if (storyIntroOpen)
+            {
+                DrawStoryIntroScreen();
                 return;
             }
 
@@ -1488,7 +1497,8 @@ namespace IdleRPG
             SyncHeroStatsFromUpgrades(newState);
             newState.lastSavedUnixSeconds = NowUnixSeconds();
             newState.playerName = activeSession != null ? activeSession.username : string.Empty;
-            newState.battleLog.Add("모험을 시작했습니다. 용사가 자동으로 전투합니다.");
+            newState.storyIntroSeen = false;
+            newState.battleLog.Add("마왕성의 저주로 힘이 사라졌다. 처음부터 다시 키워야 한다.");
             return newState;
         }
 
@@ -1750,6 +1760,58 @@ namespace IdleRPG
             loaded.hero.maxHp = Mathf.Max(1, loaded.hero.maxHp);
             loaded.hero.hp = Mathf.Clamp(loaded.hero.hp, 1f, GetEffectiveMaxHp(loaded));
             loaded.stats.highestStage = Mathf.Max(loaded.stats.highestStage, loaded.stage);
+
+            if (!loaded.storyIntroSeen && loaded.stats.kills > 0)
+            {
+                loaded.storyIntroSeen = true;
+            }
+        }
+
+        private void DrawStoryIntroScreen()
+        {
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            DrawPanel(overlay, new Color(0.02f, 0.03f, 0.08f, 0.98f));
+
+            float width = Mathf.Min(920f, Screen.width - 80f);
+            float height = Mathf.Min(620f, Screen.height - 80f);
+            Rect panel = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            DrawPanel(panel, new Color(0.06f, 0.08f, 0.16f, 0.98f));
+
+            GUILayout.BeginArea(new Rect(panel.x + 32f, panel.y + 24f, panel.width - 64f, panel.height - 48f));
+            GUILayout.Label("프롤로그", titleStyle);
+            GUILayout.Label("마왕성, 최후의 밤", labelStyle);
+            GUILayout.Space(12f);
+
+            storyIntroScroll = GUILayout.BeginScrollView(storyIntroScroll, GUILayout.ExpandHeight(true));
+            for (int index = 0; index < IdleRpgBalance.StoryIntroParagraphs.Length; index += 1)
+            {
+                GUILayout.Label(IdleRpgBalance.StoryIntroParagraphs[index], labelStyle);
+                GUILayout.Space(10f);
+            }
+
+            GUILayout.EndScrollView();
+            GUILayout.Space(12f);
+
+            if (GUILayout.Button("모험 시작", buttonStyle, GUILayout.Height(48f)))
+            {
+                CompleteStoryIntro();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private void CompleteStoryIntro()
+        {
+            if (state == null)
+            {
+                storyIntroOpen = false;
+                return;
+            }
+
+            state.storyIntroSeen = true;
+            storyIntroOpen = false;
+            AddLog("저주를 견디고, 다시 모험을 시작했다.");
+            SaveState();
         }
 
         private void ApplyOfflineProgress(IdleRpgState targetState, long elapsedSeconds)

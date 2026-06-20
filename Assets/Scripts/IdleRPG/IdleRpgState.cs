@@ -36,6 +36,7 @@ namespace IdleRPG
         public List<string> battleLog = new List<string>();
         public long lastSavedUnixSeconds;
         public string playerName = string.Empty;
+        public bool storyIntroSeen;
     }
 
     [Serializable]

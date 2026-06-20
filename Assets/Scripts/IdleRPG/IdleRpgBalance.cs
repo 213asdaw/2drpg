@@ -181,6 +181,16 @@ namespace IdleRPG
         public const int HeroAttackPerLevel = 2;
         public const int HeroMaxHpPerLevel = 12;
 
+        public static readonly string[] StoryIntroParagraphs =
+        {
+            "용사는 마왕성 최심부에 섰다. 수천 번의 전투를 이겨낸 검은, 드디어 마왕의 심장 앞까지 닿았다.",
+            "마왕은 쓰러지기 직전, 마지막 저주를 외쳤다. \"네 힘, 네 이름, 네 영광… 모두 이 성에 묻어두고 돌아가거라!\"",
+            "검은 빛으로 갈라지고, 쌓아 올린 힘이 한순간에 사라졌다. 레벨도, 강화도, 동료와 유물의 힘도 초기화되었다.",
+            "저주는 용사의 모습마저 바꿔 놓았다. 거울 속에는 낯선 작은 실루엣만 남았고, 마왕은 웃으며 어둠 속으로 사라졌다.",
+            "하지만 용사는 살아 있다. 힘이 사라진 몸으로, 다시 숲 가장자리에서 작은 적과 마주 선다.",
+            "저주를 풀고 마왕을 반드시 끝내기 위해… 지금부터 모든 것을 처음부터 쌓아 올려야 한다."
+        };
+
         public static int GetHeroAttackFromProgress(int heroLevel, int bladeLevel)
         {
             return HeroBaseAttack
