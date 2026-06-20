@@ -24,6 +24,7 @@ namespace FightingGame
         private string statusMessage = string.Empty;
         private bool isConnecting;
         private bool showAdvancedLan;
+        private bool showFriendHelp;
         private OnlineFightingGame onlineSession;
         private GUIStyle titleStyle;
         private GUIStyle labelStyle;
@@ -67,7 +68,7 @@ namespace FightingGame
         private void DrawMainMenu()
         {
             float panelWidth = 540f;
-            float panelHeight = showAdvancedLan ? 560f : 500f;
+            float panelHeight = showAdvancedLan ? 560f : showFriendHelp ? 620f : 500f;
             Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
 
             GUI.Box(panel, GUIContent.none);
@@ -102,6 +103,24 @@ namespace FightingGame
             }
 
             y += 52f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, 180f, 28f), showFriendHelp ? "친구 초대 안내 닫기" : "친구는 게임을 어떻게 켜?", smallButtonStyle))
+            {
+                showFriendHelp = !showFriendHelp;
+            }
+
+            if (showFriendHelp)
+            {
+                y += 34f;
+                GUI.Label(
+                    new Rect(panel.x + 28f, y, panel.width - 56f, 108f),
+                    "① 방장: Unity에서 빌드(File>Build) 후 exe/zip을 친구에게 전송\n"
+                    + "   (카톡·디스코드·구글드라이브 등)\n"
+                    + "② 친구: 받은 파일 압축 해제 → 게임 실행 파일 더블클릭\n"
+                    + "③ 친구: 메뉴에서 로비 코드 입력 → [코드로 참가]",
+                    labelStyle);
+            }
+
+            y += showFriendHelp ? 112f : 0f;
             if (GUI.Button(new Rect(panel.x + 40f, y, 160f, 28f), showAdvancedLan ? "고급 LAN 숨기기" : "고급 LAN 접속", smallButtonStyle))
             {
                 showAdvancedLan = !showAdvancedLan;
@@ -121,8 +140,8 @@ namespace FightingGame
 
             GUI.Label(
                 new Rect(panel.x + 24f, panel.y + panel.height - 72f, panel.width - 48f, 56f),
-                "온라인 매칭: Unity Relay + Lobby (IP/port 불필요)\n"
-                + "방 만들기 → 로비 코드 공유 → 상대가 코드로 참가",
+                "친구는 같은 빌드(exe)만 받으면 됩니다 — Unity 설치 불필요\n"
+                + "방 만들기 → 로비 코드 카톡/디스코드로 공유 → 친구가 코드로 참가",
                 labelStyle);
         }
 
