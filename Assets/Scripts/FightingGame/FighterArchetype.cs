@@ -59,7 +59,7 @@ namespace FightingGame
 
         public static readonly FighterArchetypeDefinition FlameSwordsman = new FighterArchetypeDefinition(
             FighterArchetypeId.FlameSwordsman,
-            "불꽃의 검사",
+            "카론",
             118f,
             5.1f,
             1.18f,

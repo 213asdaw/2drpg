@@ -36,24 +36,30 @@ namespace FightingGame
 
         public static Sprite CreateFlameSwordsmanBody(bool facingRight)
         {
-            return CreateFlameSwordsmanSprite(facingRight);
+            return CreateKaronSprite(facingRight);
+        }
+
+        public static Sprite CreateKaronSprite(bool facingRight)
+        {
+            return CreateKaronSpriteInternal(facingRight);
         }
 
         public static Sprite CreateFlameSlashProjectileSprite()
         {
-            const int width = 40;
-            const int height = 16;
+            const int width = 48;
+            const int height = 20;
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
-                name = "FlameSlash_Tex"
+                name = "KaronFlameSlash_Tex"
             };
 
             Color clear = new Color(0f, 0f, 0f, 0f);
-            Color core = new Color(1f, 0.95f, 0.55f, 1f);
-            Color mid = new Color(1f, 0.45f, 0.08f, 0.95f);
-            Color edge = new Color(0.85f, 0.12f, 0.02f, 0.75f);
+            Color core = new Color(1f, 0.96f, 0.65f, 1f);
+            Color mid = new Color(1f, 0.48f, 0.1f, 0.95f);
+            Color edge = new Color(0.75f, 0.08f, 0.02f, 0.8f);
+            Color trail = new Color(1f, 0.25f, 0.05f, 0.45f);
 
             for (int y = 0; y < height; y++)
             {
@@ -61,13 +67,13 @@ namespace FightingGame
                 {
                     float nx = x / (float)(width - 1);
                     float ny = Mathf.Abs(y - (height * 0.5f)) / (height * 0.5f);
-                    float taper = Mathf.Lerp(1f, 0.15f, nx);
-                    if (ny <= taper)
+                    float crescent = Mathf.Sin(nx * Mathf.PI) * (1f - ny * 0.85f);
+                    if (ny <= crescent)
                     {
-                        Color pixel = nx > 0.72f ? core : nx > 0.35f ? mid : edge;
-                        if (ny > taper * 0.55f)
+                        Color pixel = nx > 0.78f ? core : nx > 0.42f ? mid : edge;
+                        if (ny > crescent * 0.5f)
                         {
-                            pixel.a *= 0.55f;
+                            pixel = Color.Lerp(pixel, trail, 0.35f);
                         }
 
                         texture.SetPixel(x, y, pixel);
@@ -127,15 +133,15 @@ namespace FightingGame
                 FightConstants.PixelsPerUnit);
         }
 
-        private static Sprite CreateFlameSwordsmanSprite(bool facingRight)
+        private static Sprite CreateKaronSpriteInternal(bool facingRight)
         {
-            const int width = 40;
-            const int height = 64;
+            const int width = 56;
+            const int height = 80;
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
-                name = "FlameSwordsman_Tex"
+                name = "Karon_Tex"
             };
 
             Color clear = new Color(0f, 0f, 0f, 0f);
@@ -145,31 +151,84 @@ namespace FightingGame
                 pixels[i] = clear;
             }
 
-            Color armor = new Color(0.22f, 0.12f, 0.1f);
-            Color armorLight = new Color(0.42f, 0.22f, 0.16f);
-            Color skin = new Color(0.92f, 0.62f, 0.42f);
-            Color cape = new Color(0.55f, 0.1f, 0.06f);
-            Color blade = new Color(0.78f, 0.8f, 0.86f);
-            Color flame = new Color(1f, 0.42f, 0.08f);
-            Color flameCore = new Color(1f, 0.86f, 0.28f);
+            Color hairWhite = new Color(0.96f, 0.95f, 0.92f);
+            Color hairBright = new Color(1f, 1f, 0.98f);
+            Color hairShadow = new Color(0.72f, 0.7f, 0.68f);
+            Color eyeRed = new Color(0.92f, 0.1f, 0.12f);
+            Color eyeGlow = new Color(1f, 0.28f, 0.22f);
+            Color skin = new Color(0.86f, 0.74f, 0.66f);
+            Color skinShadow = new Color(0.62f, 0.5f, 0.44f);
+            Color coatDark = new Color(0.1f, 0.08f, 0.12f);
+            Color coatCrimson = new Color(0.52f, 0.08f, 0.1f);
+            Color armorPlate = new Color(0.28f, 0.24f, 0.3f);
+            Color armorEdge = new Color(0.78f, 0.58f, 0.22f);
+            Color bladeSteel = new Color(0.82f, 0.84f, 0.9f);
+            Color bladeDark = new Color(0.48f, 0.5f, 0.58f);
+            Color flameOuter = new Color(1f, 0.38f, 0.05f, 0.95f);
+            Color flameCore = new Color(1f, 0.92f, 0.42f);
+            Color boot = new Color(0.14f, 0.1f, 0.12f);
 
-            FillRect(pixels, width, height, 14, 18, 12, 28, armor);
-            FillRect(pixels, width, height, 15, 28, 10, 8, armorLight);
-            FillRect(pixels, width, height, 16, 46, 8, 10, armor);
-            FillRect(pixels, width, height, 10, 56, 7, 8, armorLight);
-            FillRect(pixels, width, height, 22, 56, 7, 8, armorLight);
-            FillRect(pixels, width, height, 16, 8, 8, 10, skin);
-            FillRect(pixels, width, height, 17, 0, 6, 8, skin);
-            FillRect(pixels, width, height, 6, 22, 6, 20, cape);
-            FillRect(pixels, width, height, 24, 24, 5, 30, blade);
-            FillRect(pixels, width, height, 23, 52, 7, 6, new Color(0.35f, 0.22f, 0.12f));
-            FillRect(pixels, width, height, 25, 20, 3, 34, flame);
-            FillRect(pixels, width, height, 26, 26, 1, 22, flameCore);
-            SetPixelSafe(pixels, width, height, 27, 32, flameCore);
-            SetPixelSafe(pixels, width, height, 27, 38, flameCore);
-            SetPixelSafe(pixels, width, height, 28, 44, flame);
-            SetPixelSafe(pixels, width, height, 24, 30, flame);
-            SetPixelSafe(pixels, width, height, 24, 36, flameCore);
+            FillRect(pixels, width, height, 18, 8, 10, 11, skin);
+            FillRect(pixels, width, height, 19, 6, 8, 3, skinShadow);
+            FillRect(pixels, width, height, 20, 18, 6, 2, skinShadow);
+
+            FillRect(pixels, width, height, 17, 0, 12, 8, hairWhite);
+            FillRect(pixels, width, height, 15, 6, 4, 10, hairBright);
+            FillRect(pixels, width, height, 25, 6, 4, 12, hairWhite);
+            FillRect(pixels, width, height, 16, 0, 3, 6, hairBright);
+            FillRect(pixels, width, height, 27, 0, 3, 7, hairBright);
+            FillRect(pixels, width, height, 14, 2, 2, 8, hairShadow);
+            FillRect(pixels, width, height, 29, 1, 2, 9, hairShadow);
+            SetPixelSafe(pixels, width, height, 13, 10, hairBright);
+            SetPixelSafe(pixels, width, height, 30, 11, hairWhite);
+            SetPixelSafe(pixels, width, height, 31, 8, hairBright);
+
+            SetPixelSafe(pixels, width, height, 20, 12, eyeRed);
+            SetPixelSafe(pixels, width, height, 21, 12, eyeGlow);
+            SetPixelSafe(pixels, width, height, 24, 12, eyeRed);
+            SetPixelSafe(pixels, width, height, 25, 12, eyeGlow);
+            SetPixelSafe(pixels, width, height, 21, 13, eyeGlow);
+            SetPixelSafe(pixels, width, height, 25, 13, eyeGlow);
+
+            FillRect(pixels, width, height, 16, 20, 14, 30, coatDark);
+            FillRect(pixels, width, height, 14, 24, 3, 22, coatCrimson);
+            FillRect(pixels, width, height, 29, 26, 3, 20, coatCrimson);
+            FillRect(pixels, width, height, 17, 22, 12, 4, coatCrimson);
+            FillRect(pixels, width, height, 18, 30, 10, 2, armorEdge);
+
+            FillRect(pixels, width, height, 17, 24, 12, 14, armorPlate);
+            FillRect(pixels, width, height, 16, 26, 2, 10, armorEdge);
+            FillRect(pixels, width, height, 28, 26, 2, 10, armorEdge);
+            FillRect(pixels, width, height, 20, 28, 6, 6, new Color(0.18f, 0.14f, 0.18f));
+            SetPixelSafe(pixels, width, height, 22, 30, flameCore);
+            SetPixelSafe(pixels, width, height, 23, 31, flameOuter);
+
+            FillRect(pixels, width, height, 8, 28, 5, 18, coatDark);
+            FillRect(pixels, width, height, 7, 32, 2, 12, coatCrimson);
+
+            FillRect(pixels, width, height, 17, 50, 5, 12, coatDark);
+            FillRect(pixels, width, height, 24, 50, 5, 12, coatDark);
+            FillRect(pixels, width, height, 16, 60, 7, 10, boot);
+            FillRect(pixels, width, height, 25, 60, 7, 10, boot);
+            FillRect(pixels, width, height, 17, 62, 5, 2, armorEdge);
+            FillRect(pixels, width, height, 26, 62, 5, 2, armorEdge);
+
+            FillRect(pixels, width, height, 32, 18, 6, 38, bladeSteel);
+            FillRect(pixels, width, height, 33, 20, 4, 34, bladeDark);
+            FillRect(pixels, width, height, 31, 52, 8, 8, new Color(0.32f, 0.2f, 0.1f));
+            FillRect(pixels, width, height, 32, 54, 6, 4, armorEdge);
+
+            FillRect(pixels, width, height, 34, 16, 4, 40, flameOuter);
+            FillRect(pixels, width, height, 35, 22, 2, 28, flameCore);
+            SetPixelSafe(pixels, width, height, 36, 28, flameCore);
+            SetPixelSafe(pixels, width, height, 36, 36, flameCore);
+            SetPixelSafe(pixels, width, height, 36, 44, flameOuter);
+            SetPixelSafe(pixels, width, height, 33, 24, flameOuter);
+            SetPixelSafe(pixels, width, height, 33, 40, flameCore);
+            SetPixelSafe(pixels, width, height, 37, 32, hairBright);
+
+            FillRect(pixels, width, height, 30, 14, 3, 6, skin);
+            FillRect(pixels, width, height, 29, 16, 2, 4, skinShadow);
 
             if (!facingRight)
             {

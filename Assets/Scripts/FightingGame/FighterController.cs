@@ -663,7 +663,26 @@ namespace FightingGame
             transform.localScale = new Vector3(1f, 1f + squash, 1f);
             bodyRenderer.transform.localPosition = new Vector3(0f, bob, 0f);
 
-            if (IsDefenseBuffActive)
+            if (archetypeId == FighterArchetypeId.FlameSwordsman && IsDefenseBuffActive)
+            {
+                auraRenderer.enabled = true;
+                auraRenderer.transform.localPosition = new Vector3(0f, 1.05f + bob, 0f);
+                float pulse = 0.85f + Mathf.Sin(Time.time * 12f) * 0.15f;
+                auraRenderer.transform.localScale = new Vector3(pulse * 1.6f, pulse * 1.9f, 1f);
+                bodyRenderer.color = new Color(1f, 0.55f + pulse * 0.2f, 0.35f, 1f);
+            }
+            else if (archetypeId == FighterArchetypeId.FlameSwordsman && State == FighterState.Skill1Cast)
+            {
+                auraRenderer.enabled = false;
+                bodyRenderer.color = new Color(1f, 0.78f, 0.52f, 1f);
+            }
+            else if (archetypeId == FighterArchetypeId.FlameSwordsman && (State == FighterState.Idle || State == FighterState.Walk))
+            {
+                auraRenderer.enabled = false;
+                float pulse = 0.97f + Mathf.Sin(Time.time * 3.5f) * 0.03f;
+                bodyRenderer.color = new Color(pulse, pulse * 0.98f, pulse * 0.97f, 1f);
+            }
+            else if (IsDefenseBuffActive)
             {
                 auraRenderer.enabled = true;
                 auraRenderer.transform.localPosition = new Vector3(0f, 0.95f + bob, 0f);
@@ -680,11 +699,6 @@ namespace FightingGame
             {
                 auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(1f, 0.65f, 0.65f, 1f);
-            }
-            else if (State == FighterState.Skill1Cast)
-            {
-                auraRenderer.enabled = false;
-                bodyRenderer.color = new Color(1f, 0.72f, 0.42f, 1f);
             }
             else if (invulnTimer > 0f)
             {

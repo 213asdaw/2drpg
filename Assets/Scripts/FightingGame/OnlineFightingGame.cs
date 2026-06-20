@@ -227,7 +227,7 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 560f, 80f),
-                "불꽃의 검사: A/D W S J K L | U 불꽃검기 | I 용암방어",
+                "카론: A/D W S J K L | U 불꽃검기 | I 용암방어",
                 labelStyle);
 
             if (coordinator.Phase == MatchPhase.MatchEnd && networkManager != null && networkManager.IsServer)

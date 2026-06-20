@@ -182,7 +182,7 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 520f, 80f),
-                "P1 불꽃의 검사: A/D W S J K L | U 불꽃검기 | I 용암방어",
+                "P1 카론: A/D W S J K L | U 불꽃검기 | I 용암방어",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 80f),
                 "P2: ←/→ ↑ ↓ 1 2 3 (기본 격투사)",
