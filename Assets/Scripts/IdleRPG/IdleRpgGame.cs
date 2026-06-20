@@ -1581,13 +1581,13 @@ namespace IdleRPG
             loginUsernameInput = GUILayout.TextField(loginUsernameInput, 16, GUILayout.Height(34f));
             GUILayout.Space(8f);
             GUILayout.Label("비밀번호", labelStyle);
-            loginPasswordInput = GUILayout.PasswordField(loginPasswordInput, 24, GUILayout.Height(34f));
+            loginPasswordInput = DrawPasswordField(loginPasswordInput, IdleRpgAccountService.MaxPasswordLength, GUILayout.Height(34f));
 
             if (loginPanelMode == LoginPanelMode.Register)
             {
                 GUILayout.Space(8f);
                 GUILayout.Label("비밀번호 확인", labelStyle);
-                loginPasswordConfirmInput = GUILayout.PasswordField(loginPasswordConfirmInput, 24, GUILayout.Height(34f));
+                loginPasswordConfirmInput = DrawPasswordField(loginPasswordConfirmInput, IdleRpgAccountService.MaxPasswordLength, GUILayout.Height(34f));
             }
 
             GUILayout.Space(12f);
@@ -1622,6 +1622,17 @@ namespace IdleRPG
             GUILayout.Label("게스트 / 회원가입 계정마다 저장 데이터가 분리됩니다.", smallStyle);
             GUILayout.Label("현재는 기기 안에만 저장되는 로컬 로그인입니다.", smallStyle);
             GUILayout.EndArea();
+        }
+
+        private string DrawPasswordField(string value, int maxLength, params GUILayoutOption[] options)
+        {
+            string input = GUILayout.PasswordField(value, '*', options);
+            if (input != null && input.Length > maxLength)
+            {
+                input = input.Substring(0, maxLength);
+            }
+
+            return input ?? string.Empty;
         }
 
         private void AttemptLogin()
