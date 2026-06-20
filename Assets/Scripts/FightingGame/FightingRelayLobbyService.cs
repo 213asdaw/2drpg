@@ -52,7 +52,7 @@ namespace FightingGame
 
             Allocation allocation = await RelayService.Instance.CreateAllocationAsync(MaxPlayers - 1);
             string relayJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-            ConfigureRelayTransport(networkManager, new RelayServerData(allocation, ConnectionType));
+            ConfigureRelayTransport(networkManager, AllocationUtils.ToRelayServerData(allocation, ConnectionType));
 
             CreateLobbyOptions options = new CreateLobbyOptions
             {
@@ -175,7 +175,7 @@ namespace FightingGame
 
             string relayJoinCode = lobby.Data[RelayJoinCodeKey].Value;
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(relayJoinCode);
-            ConfigureRelayTransport(networkManager, new RelayServerData(joinAllocation, ConnectionType));
+            ConfigureRelayTransport(networkManager, AllocationUtils.ToRelayServerData(joinAllocation, ConnectionType));
 
             currentSession = new RelayLobbySession
             {

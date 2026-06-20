@@ -1,6 +1,6 @@
 # 2D Fighting Game
 
-Unity **2022.3.62f1 (LTS)** 로 만든 **2D 격투 게임** 프로토타입입니다.
+Unity **6000.4.11f1** 로 만든 **2D 격투 게임** 프로토타입입니다.
 
 빈 씬에서 **Play** 를 누르면 메인 메뉴가 뜨고, **오프라인(로컬 2P)** 또는 **온라인 대전**을 선택할 수 있습니다.
 
@@ -89,8 +89,7 @@ IP/포트 포워딩 없이 **인터넷 상대**도 Relay 경유로 접속 가능
 
 ## 온라인 아키텍처
 
-- **Unity Lobby** — 로비 코드로 방 찾기
-- **Unity Relay** — NAT 우회, P2P 대신 Relay 터널
+- **Unity Lobby + Relay** (via `com.unity.services.multiplayer`) — 로비 코드로 방 찾기, Relay NAT 우회
 - **Netcode for GameObjects** — 호스트 권한 전투 판정
 - 최대 **2명** 접속
 
@@ -109,7 +108,7 @@ Assets/Scripts/FightingGame/
 
 ## Unity 에서 실행
 
-1. Unity Hub **2022.3.62f1** 로 프로젝트 열기
+1. Unity Hub **6000.4.11f1** 로 프로젝트 열기
 2. Services 프로젝트 연결 (위 설정 참고)
 3. 빈 씬 **Play**
 

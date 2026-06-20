@@ -35,7 +35,7 @@ namespace FightingGame
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
-            if (FindObjectOfType<GameLauncher>() != null || FindObjectOfType<FightingGame>() != null)
+            if (FindFirstObjectByType<GameLauncher>() != null || FindFirstObjectByType<FightingGame>() != null)
             {
                 return;
             }
