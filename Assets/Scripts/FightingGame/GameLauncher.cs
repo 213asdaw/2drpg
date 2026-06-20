@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -8,19 +10,26 @@ namespace FightingGame
         MainMenu,
         Offline,
         OnlineHost,
-        OnlineClient
+        OnlineClient,
+        RelayHost,
+        RelayJoin,
+        QuickMatch
     }
 
     public sealed class GameLauncher : MonoBehaviour
     {
         private GameLaunchMode mode = GameLaunchMode.MainMenu;
         private string joinAddress = "127.0.0.1";
+        private string lobbyCode = string.Empty;
         private string statusMessage = string.Empty;
+        private bool isConnecting;
+        private bool showAdvancedLan;
         private OnlineFightingGame onlineSession;
         private GUIStyle titleStyle;
         private GUIStyle labelStyle;
         private GUIStyle buttonStyle;
         private GUIStyle textFieldStyle;
+        private GUIStyle smallButtonStyle;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -47,47 +56,85 @@ namespace FightingGame
             if (mode == GameLaunchMode.MainMenu)
             {
                 DrawMainMenu();
-                return;
             }
 
-            if (!string.IsNullOrEmpty(statusMessage))
+            if (isConnecting)
             {
-                GUI.Label(new Rect(24f, 16f, Screen.width - 48f, 30f), statusMessage, labelStyle);
+                DrawConnectingOverlay();
             }
         }
 
         private void DrawMainMenu()
         {
-            float panelWidth = 520f;
-            float panelHeight = 420f;
+            float panelWidth = 540f;
+            float panelHeight = showAdvancedLan ? 560f : 500f;
             Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
 
             GUI.Box(panel, GUIContent.none);
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 20f, panel.width - 48f, 40f), "2D Fighting Game", titleStyle);
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 64f, panel.width - 48f, 24f), "플레이 방식을 선택하세요", labelStyle);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 16f, panel.width - 48f, 40f), "2D Fighting Game", titleStyle);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 56f, panel.width - 48f, 24f), "플레이 방식을 선택하세요", labelStyle);
 
-            if (GUI.Button(new Rect(panel.x + 40f, panel.y + 110f, panel.width - 80f, 44f), "오프라인 (로컬 2P)", buttonStyle))
+            float y = panel.y + 96f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "오프라인 (로컬 2P)", buttonStyle))
             {
                 StartOffline();
             }
 
-            if (GUI.Button(new Rect(panel.x + 40f, panel.y + 170f, panel.width - 80f, 44f), "온라인 — 호스트 만들기", buttonStyle))
+            y += 52f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 방 만들기 (로비 코드)", buttonStyle) && !isConnecting)
             {
-                StartOnlineHost();
+                BeginRelayHost();
             }
 
-            GUI.Label(new Rect(panel.x + 40f, panel.y + 232f, 120f, 24f), "접속 IP", labelStyle);
-            joinAddress = GUI.TextField(new Rect(panel.x + 120f, panel.y + 228f, panel.width - 160f, 28f), joinAddress, textFieldStyle);
-
-            if (GUI.Button(new Rect(panel.x + 40f, panel.y + 280f, panel.width - 80f, 44f), "온라인 — IP로 접속", buttonStyle))
+            y += 52f;
+            GUI.Label(new Rect(panel.x + 40f, y + 8f, 110f, 24f), "로비 코드", labelStyle);
+            lobbyCode = GUI.TextField(new Rect(panel.x + 130f, y + 4f, panel.width - 170f, 28f), lobbyCode, textFieldStyle);
+            y += 40f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 코드로 참가", buttonStyle) && !isConnecting)
             {
-                StartOnlineClient();
+                BeginRelayJoin();
+            }
+
+            y += 52f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
+            {
+                BeginQuickMatch();
+            }
+
+            y += 52f;
+            if (GUI.Button(new Rect(panel.x + 40f, y, 160f, 28f), showAdvancedLan ? "고급 LAN 숨기기" : "고급 LAN 접속", smallButtonStyle))
+            {
+                showAdvancedLan = !showAdvancedLan;
+            }
+
+            if (showAdvancedLan)
+            {
+                y += 36f;
+                GUI.Label(new Rect(panel.x + 40f, y + 4f, 90f, 24f), "접속 IP", labelStyle);
+                joinAddress = GUI.TextField(new Rect(panel.x + 120f, y, panel.width - 160f, 28f), joinAddress, textFieldStyle);
+                y += 36f;
+                if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 36f), "LAN — IP 직접 접속", buttonStyle) && !isConnecting)
+                {
+                    StartOnlineClient();
+                }
             }
 
             GUI.Label(
-                new Rect(panel.x + 24f, panel.y + 340f, panel.width - 48f, 60f),
-                "온라인: 한쪽은 호스트, 다른 쪽은 IP 입력 후 접속\n포트: " + FightingNetworkBootstrap.DefaultPort + "  |  같은 Wi‑Fi/LAN 권장",
+                new Rect(panel.x + 24f, panel.y + panel.height - 72f, panel.width - 48f, 56f),
+                "온라인 매칭: Unity Relay + Lobby (IP/port 불필요)\n"
+                + "방 만들기 → 로비 코드 공유 → 상대가 코드로 참가",
                 labelStyle);
+        }
+
+        private void DrawConnectingOverlay()
+        {
+            Color previous = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.55f);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = previous;
+
+            GUI.Box(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.5f - 60f, 440f, 120f), GUIContent.none);
+            GUI.Label(new Rect(Screen.width * 0.5f - 200f, Screen.height * 0.5f - 36f, 400f, 72f), statusMessage, labelStyle);
         }
 
         private void StartOffline()
@@ -97,42 +144,142 @@ namespace FightingGame
             enabled = false;
         }
 
-        private void StartOnlineHost()
+        private void BeginRelayHost()
         {
-            mode = GameLaunchMode.OnlineHost;
-            NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
-            FightingNetworkBootstrap.ConfigureClientAddress("0.0.0.0");
+            mode = GameLaunchMode.RelayHost;
+            isConnecting = true;
+            statusMessage = "Unity Services 연결 중...";
+            _ = StartRelayHostAsync();
+        }
 
-            if (!networkManager.StartHost())
+        private void BeginRelayJoin()
+        {
+            if (string.IsNullOrWhiteSpace(lobbyCode))
             {
-                statusMessage = "호스트 시작 실패";
-                mode = GameLaunchMode.MainMenu;
+                statusMessage = "로비 코드를 입력하세요.";
                 return;
             }
 
-            onlineSession = gameObject.AddComponent<OnlineFightingGame>();
-            onlineSession.Begin(networkManager);
-            statusMessage = "호스트 실행 중 — 상대 접속 대기";
-            enabled = false;
+            mode = GameLaunchMode.RelayJoin;
+            isConnecting = true;
+            statusMessage = "로비 참가 중...";
+            _ = StartRelayJoinAsync();
+        }
+
+        private void BeginQuickMatch()
+        {
+            mode = GameLaunchMode.QuickMatch;
+            isConnecting = true;
+            statusMessage = "빠른 매칭 중...";
+            _ = StartQuickMatchAsync();
+        }
+
+        private async Task StartRelayHostAsync()
+        {
+            try
+            {
+                NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
+                statusMessage = "Relay/Lobby 생성 중...";
+                RelayLobbySession session = await FightingRelayLobbyService.HostLobbyAsync(networkManager);
+
+                if (!networkManager.StartHost())
+                {
+                    throw new InvalidOperationException("호스트 시작 실패");
+                }
+
+                BeginOnlineSession(networkManager, session, true);
+            }
+            catch (Exception exception)
+            {
+                HandleConnectionFailure(FightingRelayLobbyService.BuildSetupHint(exception));
+            }
+        }
+
+        private async Task StartRelayJoinAsync()
+        {
+            try
+            {
+                NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
+                RelayLobbySession session = await FightingRelayLobbyService.JoinLobbyByCodeAsync(networkManager, lobbyCode);
+
+                if (!networkManager.StartClient())
+                {
+                    throw new InvalidOperationException("클라이언트 시작 실패");
+                }
+
+                BeginOnlineSession(networkManager, session, false);
+            }
+            catch (Exception exception)
+            {
+                HandleConnectionFailure(FightingRelayLobbyService.BuildSetupHint(exception));
+            }
+        }
+
+        private async Task StartQuickMatchAsync()
+        {
+            try
+            {
+                NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
+                statusMessage = "열린 방 검색 중...";
+                RelayLobbySession session = await FightingRelayLobbyService.QuickMatchAsync(networkManager);
+
+                if (session.IsHost)
+                {
+                    if (!networkManager.StartHost())
+                    {
+                        throw new InvalidOperationException("호스트 시작 실패");
+                    }
+                }
+                else if (!networkManager.StartClient())
+                {
+                    throw new InvalidOperationException("클라이언트 시작 실패");
+                }
+
+                BeginOnlineSession(networkManager, session, session.IsHost);
+            }
+            catch (Exception exception)
+            {
+                HandleConnectionFailure(FightingRelayLobbyService.BuildSetupHint(exception));
+            }
         }
 
         private void StartOnlineClient()
         {
             mode = GameLaunchMode.OnlineClient;
+            isConnecting = true;
+            statusMessage = "LAN 접속 중...";
+
             NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
             FightingNetworkBootstrap.ConfigureClientAddress(joinAddress);
 
             if (!networkManager.StartClient())
             {
-                statusMessage = "서버 접속 실패: " + joinAddress;
-                mode = GameLaunchMode.MainMenu;
+                HandleConnectionFailure("서버 접속 실패: " + joinAddress);
                 return;
             }
 
+            BeginOnlineSession(networkManager, null, false);
+        }
+
+        private void BeginOnlineSession(NetworkManager networkManager, RelayLobbySession relaySession, bool isHost)
+        {
             onlineSession = gameObject.AddComponent<OnlineFightingGame>();
-            onlineSession.Begin(networkManager);
-            statusMessage = "접속 중: " + joinAddress;
+            onlineSession.Begin(networkManager, relaySession);
+
+            if (isHost && relaySession != null)
+            {
+                gameObject.AddComponent<LobbyHeartbeatRunner>();
+            }
+
+            isConnecting = false;
             enabled = false;
+        }
+
+        private void HandleConnectionFailure(string message)
+        {
+            statusMessage = message;
+            isConnecting = false;
+            mode = GameLaunchMode.MainMenu;
         }
 
         private void EnsureStyles()
@@ -158,8 +305,13 @@ namespace FightingGame
 
             buttonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 17,
+                fontSize = 16,
                 fontStyle = FontStyle.Bold
+            };
+
+            smallButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 13
             };
 
             textFieldStyle = new GUIStyle(GUI.skin.textField)

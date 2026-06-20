@@ -6,6 +6,7 @@ namespace FightingGame
     public sealed class OnlineFightingGame : MonoBehaviour
     {
         private NetworkManager networkManager;
+        private RelayLobbySession relaySession;
         private Camera mainCamera;
         private bool coordinatorSpawned;
         private string statusText = "상대 접속 대기 중...";
@@ -14,9 +15,10 @@ namespace FightingGame
         private GUIStyle bannerStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
 
-        public void Begin(NetworkManager manager)
+        public void Begin(NetworkManager manager, RelayLobbySession relayLobbySession = null)
         {
             networkManager = manager;
+            relaySession = relayLobbySession;
             FightSceneBuilder.ConfigureDisplay();
             mainCamera = FightSceneBuilder.BuildStage();
 
@@ -125,13 +127,21 @@ namespace FightingGame
             }
 
             int playerCount = networkManager.ConnectedClientsIds.Count;
-            if (networkManager.IsHost && playerCount < 2)
+            if (relaySession != null && networkManager.IsHost && playerCount < 2)
             {
-                statusText = "호스트 대기 중 — IP: 이 PC IP, 포트 " + FightingNetworkBootstrap.DefaultPort;
+                statusText = "로비 코드: " + relaySession.LobbyCode + "  (상대에게 공유하세요)";
             }
-            else if (networkManager.IsClient && !networkManager.IsHost)
+            else if (relaySession != null && networkManager.IsClient && !networkManager.IsHost && playerCount < 2)
             {
-                statusText = playerCount < 2 ? "서버 접속됨 — 상대 대기 중" : "매치 준비 완료";
+                statusText = "Relay 접속됨 — 상대 대기 중 (로비: " + relaySession.LobbyCode + ")";
+            }
+            else if (networkManager.IsHost && playerCount < 2)
+            {
+                statusText = "LAN 호스트 대기 중 — IP: 이 PC IP, 포트 " + FightingNetworkBootstrap.DefaultPort;
+            }
+            else if (networkManager.IsClient && !networkManager.IsHost && playerCount < 2)
+            {
+                statusText = "서버 접속됨 — 상대 대기 중";
             }
             else if (playerCount >= 2)
             {
@@ -170,7 +180,13 @@ namespace FightingGame
 
         private void DrawConnectionStatus()
         {
-            GUI.Label(new Rect(24f, Screen.height - 36f, Screen.width - 48f, 24f), statusText, labelStyle);
+            float y = Screen.height - 36f;
+            if (relaySession != null && networkManager != null && networkManager.IsHost && networkManager.ConnectedClientsIds.Count < 2)
+            {
+                GUI.Label(new Rect(Screen.width * 0.5f - 160f, 96f, 320f, 32f), "로비 코드: " + relaySession.LobbyCode, titleStyle);
+            }
+
+            GUI.Label(new Rect(24f, y, Screen.width - 48f, 24f), statusText, labelStyle);
         }
 
         private void DrawHealthBar(Rect frame, FighterController fighter, bool alignRight)
