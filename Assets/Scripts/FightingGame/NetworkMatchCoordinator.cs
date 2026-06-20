@@ -241,7 +241,7 @@ namespace FightingGame
         private void BeginIntro(string message)
         {
             netPhase.Value = (int)MatchPhase.Intro;
-            phaseTimer = 1.4f;
+            phaseTimer = 0.9f;
             netRoundTimer.Value = FightConstants.RoundDuration;
             netStatusMessage.Value = message;
         }

@@ -26,6 +26,12 @@ namespace FightingGame
             matchManager.BeginMatch(playerOne, playerTwo);
         }
 
+        private void Start()
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+        }
+
         private void Update()
         {
             if (playerOne == null || playerTwo == null || matchManager == null)
@@ -181,12 +187,19 @@ namespace FightingGame
         private void DrawControlsHelp()
         {
             const float y = 78f;
-            GUI.Label(new Rect(24f, y, 520f, 80f),
+            GUI.Label(new Rect(24f, y, 520f, 44f),
                 "P1 카론: A/D W S J K L | U 불꽃검기 | I 용암방어",
                 labelStyle);
-            GUI.Label(new Rect(Screen.width - 544f, y, 520f, 80f),
+            GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
                 "P2: ←/→ ↑ ↓ 1 2 3 (기본 격투사)",
                 labelStyle);
+
+            if (matchManager.Phase == MatchPhase.Intro)
+            {
+                GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 72f, 360f, 24f),
+                    "게임 창을 클릭한 뒤 키보드로 조작하세요",
+                    labelStyle);
+            }
 
             if (matchManager.Phase == MatchPhase.MatchEnd)
             {

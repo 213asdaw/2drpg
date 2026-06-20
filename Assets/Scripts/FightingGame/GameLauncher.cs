@@ -23,14 +23,23 @@ namespace FightingGame
         private string lobbyCode = string.Empty;
         private string statusMessage = string.Empty;
         private bool isConnecting;
-        private bool showAdvancedLan;
-        private bool showFriendHelp;
+        private MenuSection expandedSection = MenuSection.None;
+        private Vector2 menuScroll;
         private OnlineFightingGame onlineSession;
         private GUIStyle titleStyle;
         private GUIStyle labelStyle;
         private GUIStyle buttonStyle;
         private GUIStyle textFieldStyle;
         private GUIStyle smallButtonStyle;
+        private GUIStyle statusStyle;
+        private GUIStyle scrollStyle;
+
+        private enum MenuSection
+        {
+            None,
+            FriendHelp,
+            AdvancedLan
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -67,82 +76,111 @@ namespace FightingGame
 
         private void DrawMainMenu()
         {
-            float panelWidth = 540f;
-            float panelHeight = showAdvancedLan ? 560f : showFriendHelp ? 620f : 500f;
+            const float panelWidth = 560f;
+            const float panelHeight = 640f;
             Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
 
             GUI.Box(panel, GUIContent.none);
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 16f, panel.width - 48f, 40f), "2D Fighting Game", titleStyle);
-            GUI.Label(new Rect(panel.x + 24f, panel.y + 56f, panel.width - 48f, 24f), "플레이 방식을 선택하세요", labelStyle);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 16f, panel.width - 48f, 36f), "2D Fighting Game", titleStyle);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 52f, panel.width - 48f, 22f), "플레이 방식을 선택하세요", labelStyle);
 
-            float y = panel.y + 96f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "오프라인 (로컬 2P)", buttonStyle))
+            Rect scrollViewRect = new Rect(panel.x + 16f, panel.y + 84f, panel.width - 32f, panel.height - 130f);
+            Rect scrollContentRect = new Rect(0f, 0f, panel.width - 52f, CalculateScrollContentHeight());
+
+            menuScroll = GUI.BeginScrollView(scrollViewRect, menuScroll, scrollContentRect, false, true, GUIStyle.none, scrollStyle);
+
+            float y = 8f;
+            float buttonWidth = scrollContentRect.width - 16f;
+
+            if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "오프라인 (로컬 2P)", buttonStyle))
             {
                 StartOffline();
             }
 
             y += 52f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 방 만들기 (로비 코드)", buttonStyle) && !isConnecting)
+            if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 방 만들기 (로비 코드)", buttonStyle) && !isConnecting)
             {
                 BeginRelayHost();
             }
 
             y += 52f;
-            GUI.Label(new Rect(panel.x + 40f, y + 8f, 110f, 24f), "로비 코드", labelStyle);
-            lobbyCode = GUI.TextField(new Rect(panel.x + 130f, y + 4f, panel.width - 170f, 28f), lobbyCode, textFieldStyle);
-            y += 40f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 코드로 참가", buttonStyle) && !isConnecting)
+            GUI.Label(new Rect(8f, y + 10f, 100f, 22f), "로비 코드", labelStyle);
+            lobbyCode = GUI.TextField(new Rect(108f, y + 6f, buttonWidth - 100f, 28f), lobbyCode, textFieldStyle);
+
+            y += 44f;
+            if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 코드로 참가", buttonStyle) && !isConnecting)
             {
                 BeginRelayJoin();
             }
 
             y += 52f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 42f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
+            if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
             {
                 BeginQuickMatch();
             }
 
-            y += 52f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, 180f, 28f), showFriendHelp ? "친구 초대 안내 닫기" : "친구는 게임을 어떻게 켜?", smallButtonStyle))
+            y += 56f;
+            DrawSectionToggle(ref y, buttonWidth, MenuSection.FriendHelp, "친구는 게임을 어떻게 켜?");
+            if (expandedSection == MenuSection.FriendHelp)
             {
-                showFriendHelp = !showFriendHelp;
-            }
-
-            if (showFriendHelp)
-            {
-                y += 34f;
                 GUI.Label(
-                    new Rect(panel.x + 28f, y, panel.width - 56f, 108f),
-                    "① 방장: Unity에서 빌드(File>Build) 후 exe/zip을 친구에게 전송\n"
-                    + "   (카톡·디스코드·구글드라이브 등)\n"
-                    + "② 친구: 받은 파일 압축 해제 → 게임 실행 파일 더블클릭\n"
-                    + "③ 친구: 메뉴에서 로비 코드 입력 → [코드로 참가]",
+                    new Rect(8f, y, buttonWidth, 96f),
+                    "① 방장: Unity에서 Build 후 exe/zip을 친구에게 전송\n"
+                    + "② 친구: zip 압축 해제 → exe 더블클릭\n"
+                    + "③ 친구: 로비 코드 입력 → [코드로 참가]\n"
+                    + "※ Unity 설치·IP 입력 불필요",
                     labelStyle);
+                y += 100f;
             }
 
-            y += showFriendHelp ? 112f : 0f;
-            if (GUI.Button(new Rect(panel.x + 40f, y, 160f, 28f), showAdvancedLan ? "고급 LAN 숨기기" : "고급 LAN 접속", smallButtonStyle))
+            y += 8f;
+            DrawSectionToggle(ref y, buttonWidth, MenuSection.AdvancedLan, "고급 LAN (IP 직접 접속)");
+            if (expandedSection == MenuSection.AdvancedLan)
             {
-                showAdvancedLan = !showAdvancedLan;
-            }
-
-            if (showAdvancedLan)
-            {
+                GUI.Label(new Rect(8f, y + 6f, 80f, 22f), "접속 IP", labelStyle);
+                joinAddress = GUI.TextField(new Rect(88f, y + 2f, buttonWidth - 80f, 28f), joinAddress, textFieldStyle);
                 y += 36f;
-                GUI.Label(new Rect(panel.x + 40f, y + 4f, 90f, 24f), "접속 IP", labelStyle);
-                joinAddress = GUI.TextField(new Rect(panel.x + 120f, y, panel.width - 160f, 28f), joinAddress, textFieldStyle);
-                y += 36f;
-                if (GUI.Button(new Rect(panel.x + 40f, y, panel.width - 80f, 36f), "LAN — IP 직접 접속", buttonStyle) && !isConnecting)
+                if (GUI.Button(new Rect(8f, y, buttonWidth, 38f), "LAN — IP로 접속", buttonStyle) && !isConnecting)
                 {
                     StartOnlineClient();
                 }
+
+                y += 46f;
             }
 
-            GUI.Label(
-                new Rect(panel.x + 24f, panel.y + panel.height - 72f, panel.width - 48f, 56f),
-                "친구는 같은 빌드(exe)만 받으면 됩니다 — Unity 설치 불필요\n"
-                + "방 만들기 → 로비 코드 카톡/디스코드로 공유 → 친구가 코드로 참가",
-                labelStyle);
+            GUI.EndScrollView();
+
+            if (!string.IsNullOrEmpty(statusMessage))
+            {
+                GUI.Label(new Rect(panel.x + 20f, panel.y + panel.height - 44f, panel.width - 40f, 36f), statusMessage, statusStyle);
+            }
+        }
+
+        private void DrawSectionToggle(ref float y, float buttonWidth, MenuSection section, string label)
+        {
+            string buttonLabel = expandedSection == section ? "▲ " + label : "▼ " + label;
+            if (GUI.Button(new Rect(8f, y, buttonWidth, 30f), buttonLabel, smallButtonStyle))
+            {
+                expandedSection = expandedSection == section ? MenuSection.None : section;
+            }
+
+            y += 34f;
+        }
+
+        private float CalculateScrollContentHeight()
+        {
+            float height = 8f + 52f + 52f + 44f + 52f + 52f + 56f + 34f + 8f + 34f + 24f;
+            if (expandedSection == MenuSection.FriendHelp)
+            {
+                height += 100f;
+            }
+
+            if (expandedSection == MenuSection.AdvancedLan)
+            {
+                height += 82f;
+            }
+
+            return height;
         }
 
         private void DrawConnectingOverlay()
@@ -159,8 +197,10 @@ namespace FightingGame
         private void StartOffline()
         {
             mode = GameLaunchMode.Offline;
-            gameObject.AddComponent<FightingGame>();
-            enabled = false;
+            GameObject session = new GameObject("Offline Fighting Game");
+            session.AddComponent<FightingGame>();
+            DontDestroyOnLoad(session);
+            Destroy(gameObject);
         }
 
         private void BeginRelayHost()
@@ -282,16 +322,18 @@ namespace FightingGame
 
         private void BeginOnlineSession(NetworkManager networkManager, RelayLobbySession relaySession, bool isHost)
         {
-            onlineSession = gameObject.AddComponent<OnlineFightingGame>();
+            GameObject session = new GameObject("Online Fighting Game");
+            DontDestroyOnLoad(session);
+            onlineSession = session.AddComponent<OnlineFightingGame>();
             onlineSession.Begin(networkManager, relaySession);
 
             if (isHost && relaySession != null)
             {
-                gameObject.AddComponent<LobbyHeartbeatRunner>();
+                session.AddComponent<LobbyHeartbeatRunner>();
             }
 
             isConnecting = false;
-            enabled = false;
+            Destroy(gameObject);
         }
 
         private void HandleConnectionFailure(string message)
@@ -318,7 +360,8 @@ namespace FightingGame
 
             labelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 15,
+                fontSize = 14,
+                wordWrap = true,
                 normal = { textColor = new Color(0.92f, 0.94f, 1f) }
             };
 
@@ -330,13 +373,24 @@ namespace FightingGame
 
             smallButtonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 13
+                fontSize = 13,
+                alignment = TextAnchor.MiddleLeft
             };
 
             textFieldStyle = new GUIStyle(GUI.skin.textField)
             {
                 fontSize = 15
             };
+
+            statusStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                wordWrap = true,
+                alignment = TextAnchor.UpperCenter,
+                normal = { textColor = new Color(1f, 0.82f, 0.45f) }
+            };
+
+            scrollStyle = new GUIStyle(GUI.skin.verticalScrollbar);
         }
     }
 }

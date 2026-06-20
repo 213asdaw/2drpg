@@ -105,7 +105,7 @@ namespace FightingGame
         private void BeginIntro(string message)
         {
             Phase = MatchPhase.Intro;
-            phaseTimer = 1.4f;
+            phaseTimer = 0.9f;
             roundTimer = FightConstants.RoundDuration;
             StatusMessage = message;
         }
