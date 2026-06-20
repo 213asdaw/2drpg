@@ -38,6 +38,23 @@ namespace FightingGame
 
     public static class FighterInputReader
     {
+        public static bool HasGameplayInput(FighterInputSnapshot input)
+        {
+            return Mathf.Abs(input.Horizontal) > 0.01f
+                || input.JumpPressed
+                || input.BlockHeld
+                || input.LightPressed
+                || input.KickPressed
+                || input.HeavyPressed
+                || input.Skill1Pressed
+                || input.Skill2Pressed;
+        }
+
+        public static bool HasAnyLocalGameplayInput()
+        {
+            return HasGameplayInput(ReadPlayerOne()) || HasGameplayInput(ReadPlayerTwo());
+        }
+
         public static FighterInputSnapshot ReadPlayerOne()
         {
             float horizontal = 0f;

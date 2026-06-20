@@ -12,7 +12,10 @@ namespace FightingGame
         private GUIStyle labelStyle;
         private GUIStyle buttonStyle;
         private GUIStyle bannerStyle;
+        private GUIStyle hintStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
+        private bool sawGameplayInput;
+        private float fightingPhaseStartedAt = -1f;
 
         private void Awake()
         {
@@ -40,8 +43,29 @@ namespace FightingGame
             }
 
             bool controlsEnabled = matchManager.ControlsEnabled;
-            playerOne.Tick(Time.deltaTime, FighterInputReader.ReadPlayerOne(), controlsEnabled);
-            playerTwo.Tick(Time.deltaTime, FighterInputReader.ReadPlayerTwo(), controlsEnabled);
+            FighterInputSnapshot playerOneInput = FighterInputReader.ReadPlayerOne();
+            FighterInputSnapshot playerTwoInput = FighterInputReader.ReadPlayerTwo();
+
+            if (controlsEnabled)
+            {
+                if (fightingPhaseStartedAt < 0f)
+                {
+                    fightingPhaseStartedAt = Time.time;
+                }
+
+                if (FighterInputReader.HasGameplayInput(playerOneInput)
+                    || FighterInputReader.HasGameplayInput(playerTwoInput))
+                {
+                    sawGameplayInput = true;
+                }
+            }
+            else
+            {
+                fightingPhaseStartedAt = -1f;
+            }
+
+            playerOne.Tick(Time.deltaTime, playerOneInput, controlsEnabled);
+            playerTwo.Tick(Time.deltaTime, playerTwoInput, controlsEnabled);
             matchManager.Tick(Time.deltaTime);
             UpdateFloatingTexts(Time.deltaTime);
 
@@ -76,6 +100,8 @@ namespace FightingGame
 
         private void HandleRoundStarted()
         {
+            sawGameplayInput = false;
+            fightingPhaseStartedAt = -1f;
             playerOne.ResetForRound(new Vector3(-3.5f, FightConstants.GroundY, 0f));
             playerTwo.ResetForRound(new Vector3(3.5f, FightConstants.GroundY, 0f));
         }
@@ -148,6 +174,15 @@ namespace FightingGame
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = new Color(1f, 0.92f, 0.35f) }
             };
+
+            hintStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 16,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true,
+                normal = { textColor = new Color(1f, 0.82f, 0.35f) }
+            };
         }
 
         private void DrawHealthBar(Rect frame, FighterController fighter, bool alignRight)
@@ -194,17 +229,45 @@ namespace FightingGame
                 "P2: ←/→ ↑ ↓ 1 2 3 (기본 격투사)",
                 labelStyle);
 
-            if (matchManager.Phase == MatchPhase.Intro)
-            {
-                GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 72f, 360f, 24f),
-                    "게임 창을 클릭한 뒤 키보드로 조작하세요",
-                    labelStyle);
-            }
+            DrawInputFocusHint();
 
             if (matchManager.Phase == MatchPhase.MatchEnd)
             {
                 GUI.Label(new Rect(Screen.width * 0.5f - 120f, Screen.height - 48f, 240f, 30f), "R 키 — 재대결", labelStyle);
             }
+        }
+
+        private void DrawInputFocusHint()
+        {
+            if (matchManager.Phase != MatchPhase.Intro && matchManager.Phase != MatchPhase.Fighting)
+            {
+                return;
+            }
+
+            EnsureStyles();
+
+            if (matchManager.Phase == MatchPhase.Intro)
+            {
+                GUI.Label(
+                    new Rect(Screen.width * 0.5f - 280f, Screen.height - 96f, 560f, 48f),
+                    "▶ Game 화면을 클릭한 뒤 키보드로 조작하세요\n한/영 키로 영문 입력 모드인지 확인하세요",
+                    hintStyle);
+                return;
+            }
+
+            if (sawGameplayInput || fightingPhaseStartedAt < 0f || Time.time - fightingPhaseStartedAt < 1.2f)
+            {
+                return;
+            }
+
+            GUI.Label(
+                new Rect(Screen.width * 0.5f - 300f, Screen.height - 110f, 600f, 72f),
+                "키 입력이 안 되면:\n"
+                + "1) Unity 상단 Game 탭을 클릭\n"
+                + "2) ▶ Pause 가 켜져 있지 않은지 확인\n"
+                + "3) Console 의 Error Pause 끄기\n"
+                + "4) 한/영 으로 영문 입력 모드",
+                hintStyle);
         }
 
         private void DrawBanner()

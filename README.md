@@ -126,6 +126,26 @@ Assets/Scripts/FightingGame/
 
 첫 실행 시 Netcode/UGS 패키지 복원으로 시간이 걸릴 수 있습니다.
 
+## 문제 해결
+
+### 키를 눌러도 캐릭터가 안 움직임
+
+스크린샷처럼 **타이머(예: 78)가 멈춰 있고** 키가 전혀 안 먹으면, 게임이 **일시정지**된 상태일 가능성이 큽니다.
+
+1. Unity 상단 **▶ Pause** 버튼이 켜져 있으면 **다시 눌러 해제**
+2. **Console** 창 오른쪽 **Error Pause** 가 켜져 있으면 **끄기**
+   - `SearchDatabase` / `ArgumentOutOfRangeException` 은 **Unity 에디터 검색 버그**이며, **게임 코드 오류가 아닙니다**
+   - Error Pause 가 켜져 있으면 이 에러 때문에 **Play가 자동으로 멈춥니다**
+3. **Game** 탭을 클릭한 뒤 키 입력 (Scene/Console 포커스면 입력이 게임으로 안 감)
+4. Windows **한/영** 키로 **영문 입력 모드** 확인
+5. 그래도 반복되면 Unity 종료 → 프로젝트 폴더의 `Library\Search` 삭제 → 재실행
+
+에디터 메뉴: **Fighting Game > Input Not Working?**
+
+### SearchDatabase 빨간 에러
+
+Unity 6 에디터 내부 검색 인덱스 문제입니다. **Play 자체는 되는 경우가 많고**, 위 Error Pause 만 꺼두면 플레이에 지장 없을 수 있습니다.
+
 ## 확장 아이디어
 
 - Unity Lobby 검색/친구 초대 UI
