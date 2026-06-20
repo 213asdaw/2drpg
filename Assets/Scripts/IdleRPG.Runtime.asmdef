@@ -2,11 +2,9 @@
     "name": "IdleRPG.Runtime",
     "rootNamespace": "",
     "references": [
-        "Unity.2D.Sprite",
         "UnityEngine.IMGUIModule",
         "UnityEngine.UIModule",
-        "UnityEngine.JSONSerializeModule",
-        "UnityEngine.Physics2DModule"
+        "UnityEngine.JSONSerializeModule"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
