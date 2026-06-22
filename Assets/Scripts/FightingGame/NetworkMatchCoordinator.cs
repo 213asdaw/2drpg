@@ -49,7 +49,8 @@ namespace FightingGame
         public int PlayerOneRoundWins => netPlayerOneRoundWins.Value;
         public int PlayerTwoRoundWins => netPlayerTwoRoundWins.Value;
         public string StatusMessage => netStatusMessage.Value.ToString();
-        public bool ControlsEnabled => Phase == MatchPhase.Fighting;
+        public bool ControlsEnabled =>
+            Phase == MatchPhase.Intro || Phase == MatchPhase.Fighting;
         public IReadOnlyList<NetworkFighter> Fighters => fighters;
 
         public static NetworkMatchCoordinator Instance { get; private set; }
@@ -241,7 +242,7 @@ namespace FightingGame
         private void BeginIntro(string message)
         {
             netPhase.Value = (int)MatchPhase.Intro;
-            phaseTimer = 0.9f;
+            phaseTimer = 0.15f;
             netRoundTimer.Value = FightConstants.RoundDuration;
             netStatusMessage.Value = message;
         }

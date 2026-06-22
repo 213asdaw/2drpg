@@ -37,6 +37,29 @@ namespace FightingGame
         }
 
         public static FighterInputSnapshot Empty => new FighterInputSnapshot(0f, false, false, false, false, false, false, false);
+
+        public static FighterInputSnapshot Merge(FighterInputSnapshot a, FighterInputSnapshot b)
+        {
+            float horizontal = 0f;
+            if (Mathf.Abs(a.Horizontal) > 0.01f)
+            {
+                horizontal = a.Horizontal;
+            }
+            else if (Mathf.Abs(b.Horizontal) > 0.01f)
+            {
+                horizontal = b.Horizontal;
+            }
+
+            return new FighterInputSnapshot(
+                horizontal,
+                a.JumpPressed || b.JumpPressed,
+                a.BlockHeld || b.BlockHeld,
+                a.LightPressed || b.LightPressed,
+                a.KickPressed || b.KickPressed,
+                a.HeavyPressed || b.HeavyPressed,
+                a.Skill1Pressed || b.Skill1Pressed,
+                a.Skill2Pressed || b.Skill2Pressed);
+        }
     }
 
     public static class FighterInputReader
@@ -137,36 +160,53 @@ namespace FightingGame
             return parts.Count == 0 ? string.Empty : string.Join(" ", parts);
         }
 
+        public static string DescribeInputBackend()
+        {
+#if ENABLE_INPUT_SYSTEM
+            bool keyboardReady = Keyboard.current != null;
+#else
+            bool keyboardReady = false;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            bool legacyReady = true;
+#else
+            bool legacyReady = false;
+#endif
+
+            return "키보드=" + (keyboardReady ? "OK" : "없음")
+                + " | 구입력=" + (legacyReady ? "ON" : "OFF");
+        }
+
         public static FighterInputSnapshot ReadPlayerOne()
         {
+            FighterInputSnapshot merged = FighterInputSnapshot.Empty;
+
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                return ReadPlayerOneFromKeyboard(keyboard);
+                merged = FighterInputSnapshot.Merge(merged, ReadPlayerOneFromKeyboard(keyboard));
             }
 #endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-            return ReadPlayerOneLegacy();
-#else
-            return FighterInputSnapshot.Empty;
-#endif
+
+            merged = FighterInputSnapshot.Merge(merged, ReadPlayerOneLegacySafe());
+            return merged;
         }
 
         public static FighterInputSnapshot ReadPlayerTwo()
         {
+            FighterInputSnapshot merged = FighterInputSnapshot.Empty;
+
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                return ReadPlayerTwoFromKeyboard(keyboard);
+                merged = FighterInputSnapshot.Merge(merged, ReadPlayerTwoFromKeyboard(keyboard));
             }
 #endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-            return ReadPlayerTwoLegacy();
-#else
-            return FighterInputSnapshot.Empty;
-#endif
+
+            merged = FighterInputSnapshot.Merge(merged, ReadPlayerTwoLegacySafe());
+            return merged;
         }
 
 #if ENABLE_INPUT_SYSTEM
@@ -229,10 +269,42 @@ namespace FightingGame
         }
 #endif
 
+        private static FighterInputSnapshot ReadPlayerOneLegacySafe()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            try
+            {
+                return ReadPlayerOneLegacy();
+            }
+            catch (System.InvalidOperationException)
+            {
+                return FighterInputSnapshot.Empty;
+            }
+#else
+            return FighterInputSnapshot.Empty;
+#endif
+        }
+
+        private static FighterInputSnapshot ReadPlayerTwoLegacySafe()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            try
+            {
+                return ReadPlayerTwoLegacy();
+            }
+            catch (System.InvalidOperationException)
+            {
+                return FighterInputSnapshot.Empty;
+            }
+#else
+            return FighterInputSnapshot.Empty;
+#endif
+        }
+
 #if ENABLE_LEGACY_INPUT_MANAGER
         private static FighterInputSnapshot ReadPlayerOneLegacy()
         {
-            float horizontal = 0f;
+            float horizontal = Input.GetAxisRaw("Horizontal");
             if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
             {
                 horizontal -= 1f;
@@ -242,6 +314,8 @@ namespace FightingGame
             {
                 horizontal += 1f;
             }
+
+            horizontal = Mathf.Clamp(horizontal, -1f, 1f);
 
             return new FighterInputSnapshot(
                 horizontal,

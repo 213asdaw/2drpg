@@ -94,25 +94,26 @@ namespace FightingGame
                 return;
             }
 
-            string activeKeys = FighterInputReader.DescribeActiveKeys();
             EnsureStyles();
+            string activeKeys = FighterInputReader.DescribeActiveKeys();
+            string backend = FighterInputReader.DescribeInputBackend();
+            float p1X = playerOne != null ? playerOne.transform.position.x : 0f;
 
             if (!string.IsNullOrEmpty(activeKeys))
             {
                 GUI.Label(
-                    new Rect(Screen.width * 0.5f - 180f, Screen.height - 36f, 360f, 24f),
-                    "입력: " + activeKeys,
-                    labelStyle);
+                    new Rect(Screen.width * 0.5f - 220f, Screen.height - 56f, 440f, 24f),
+                    "입력 OK: " + activeKeys + " | X=" + p1X.ToString("0.0"),
+                    hintStyle);
                 return;
             }
 
-            if (matchManager.Phase == MatchPhase.Fighting && !sawGameplayInput && fightingPhaseStartedAt >= 0f && Time.time - fightingPhaseStartedAt > 1.5f)
-            {
-                GUI.Label(
-                    new Rect(Screen.width * 0.5f - 320f, Screen.height - 52f, 640f, 24f),
-                    "키가 안 잡히면 Edit > Project Settings > Player > Active Input Handling = Both",
-                    labelStyle);
-            }
+            GUI.Label(
+                new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
+                backend + "\n"
+                + "Game 탭 클릭 → A/D 또는 ←/→ (P1)\n"
+                + "Active Input Handling = Both | Device Simulator 창 닫기",
+                hintStyle);
         }
 
         private void CreateFighters()

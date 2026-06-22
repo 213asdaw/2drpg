@@ -95,7 +95,8 @@ namespace FightingGame
             }
         }
 
-        public bool ControlsEnabled => Phase == MatchPhase.Fighting;
+        public bool ControlsEnabled =>
+            Phase == MatchPhase.Intro || Phase == MatchPhase.Fighting;
 
         public void RestartMatch()
         {
@@ -105,7 +106,7 @@ namespace FightingGame
         private void BeginIntro(string message)
         {
             Phase = MatchPhase.Intro;
-            phaseTimer = 0.9f;
+            phaseTimer = 0.15f;
             roundTimer = FightConstants.RoundDuration;
             StatusMessage = message;
         }

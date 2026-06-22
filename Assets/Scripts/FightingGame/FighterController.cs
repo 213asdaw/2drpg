@@ -663,7 +663,7 @@ namespace FightingGame
 
             float bob = State == FighterState.Walk ? Mathf.Sin(Time.time * 12f) * 0.04f : 0f;
             float squash = State == FighterState.Block ? -0.08f : 0f;
-            transform.localScale = new Vector3(1f, 1f + squash, 1f);
+            transform.localScale = new Vector3(VisualScale, VisualScale * (1f + squash), VisualScale);
             bodyRenderer.transform.localPosition = new Vector3(0f, bob, 0f);
 
             if (archetypeId == FighterArchetypeId.FlameSwordsman && IsDefenseBuffActive)
