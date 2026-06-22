@@ -73,6 +73,7 @@ namespace FightingGame
 
         private void OnGUI()
         {
+            FightKeyCapture.ProcessGuiEvent(Event.current);
             EnsureStyles();
             DrawConnectionStatus();
 

@@ -43,6 +43,42 @@ namespace FightingGame
                 return;
             }
 
+            matchManager.Tick(Time.deltaTime);
+            UpdateFloatingTexts(Time.deltaTime);
+
+            if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.R))
+            {
+                RestartMatch();
+            }
+
+            if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.M))
+            {
+                FightSessionCleanup.ReturnToMainMenu();
+            }
+        }
+
+        private int lastFighterTickFrame = -1;
+
+        private void LateUpdate()
+        {
+            if (playerOne == null || playerTwo == null || matchManager == null)
+            {
+                return;
+            }
+
+            if (lastFighterTickFrame == Time.frameCount)
+            {
+                FightKeyCapture.EndFrame();
+                return;
+            }
+
+            TickFighters();
+            FightKeyCapture.EndFrame();
+        }
+
+        private void TickFighters()
+        {
+            lastFighterTickFrame = Time.frameCount;
             bool controlsEnabled = matchManager.ControlsEnabled;
             FighterInputSnapshot playerOneInput = FighterInputReader.ReadPlayerOne();
             FighterInputSnapshot playerTwoInput = FighterInputReader.ReadPlayerTwo();
@@ -67,22 +103,17 @@ namespace FightingGame
 
             playerOne.Tick(Time.deltaTime, playerOneInput, controlsEnabled);
             playerTwo.Tick(Time.deltaTime, playerTwoInput, controlsEnabled);
-            matchManager.Tick(Time.deltaTime);
-            UpdateFloatingTexts(Time.deltaTime);
-
-            if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.R))
-            {
-                RestartMatch();
-            }
-
-            if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.M))
-            {
-                FightSessionCleanup.ReturnToMainMenu();
-            }
         }
 
         private void OnGUI()
         {
+            FightKeyCapture.ProcessGuiEvent(Event.current);
+
+            if (lastFighterTickFrame != Time.frameCount && Event.current.type == EventType.Repaint)
+            {
+                TickFighters();
+            }
+
             EnsureStyles();
             DrawHealthBar(new Rect(40f, 24f, 420f, 28f), playerOne, false);
             DrawHealthBar(new Rect(Screen.width - 460f, 24f, 420f, 28f), playerTwo, true);
@@ -142,7 +173,7 @@ namespace FightingGame
             GUI.Label(
                 new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
                 backend + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00") + "\n"
-                + "Game 탭 클릭 → P1: A/D | P2: ←/→ 또는 E/O (숫자패드 4/6)\n"
+                + "Game 탭 클릭 → P1: A/D | P2: ←/→ (E/O 대체) | ↑↓ 점프/가드\n"
                 + "Active Input Handling = Both | Device Simulator 창 닫기",
                 hintStyle);
         }
@@ -312,7 +343,7 @@ namespace FightingGame
                 "P1 카론: A/D 이동 W점프 S가드 J/K/L 공격 | U/I 스킬",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
-                "P2 검투사: ←/→ 또는 E/O 이동 | ↑ ↓ | 1/2/3 공격",
+                "P2 검투사: ←/→ 또는 E/O | ↑/↓ | 1/2/3 공격",
                 labelStyle);
 
             DrawInputFocusHint();

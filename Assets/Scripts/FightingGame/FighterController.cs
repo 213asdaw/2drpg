@@ -208,7 +208,6 @@ namespace FightingGame
             transform.localScale = Vector3.one * VisualScale;
             ClearProjectiles();
             SetState(FighterState.Idle);
-            UpdateFacingTowardOpponent();
             UpdateVisuals();
         }
 
@@ -283,11 +282,6 @@ namespace FightingGame
 
             if (!IsAttackState(State))
             {
-                if (Mathf.Abs(input.Horizontal) < 0.01f && !input.BlockHeld)
-                {
-                    UpdateFacingTowardOpponent();
-                }
-
                 if (input.BlockHeld && grounded)
                 {
                     SetState(FighterState.Block);
@@ -357,13 +351,20 @@ namespace FightingGame
                 return;
             }
 
-            if (!CanBeHitBy(attacker))
+            float dx = Mathf.Abs(transform.position.x - attacker.transform.position.x);
+            float dy = Mathf.Abs(transform.position.y - attacker.transform.position.y);
+            if (dx <= 4.2f && dy <= 3.2f)
             {
+                attacker.hasHitThisAttack = true;
+                ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
                 return;
             }
 
-            attacker.hasHitThisAttack = true;
-            ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
+            if (attacker.GetActiveHitboxBounds().Intersects(GetHurtboxBounds()))
+            {
+                attacker.hasHitThisAttack = true;
+                ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
+            }
         }
 
         public bool IsInHitWindow()
@@ -566,96 +567,12 @@ namespace FightingGame
             }
         }
 
-        private bool CanBeHitBy(FighterController attacker)
-        {
-            if (attacker == null || attacker.currentAttack == null)
-            {
-                return false;
-            }
-
-            float dx = Mathf.Abs(transform.position.x - attacker.transform.position.x);
-            float dy = Mathf.Abs(transform.position.y - attacker.transform.position.y);
-            float closeRangeX = 2.9f * CombatScale;
-            float closeRangeY = 2.5f * CombatScale;
-
-            if (dx <= closeRangeX && dy <= closeRangeY)
-            {
-                return true;
-            }
-
-            Bounds hurtbox = GetHurtboxBounds();
-            if (attacker.GetActiveHitboxBounds().Intersects(hurtbox))
-            {
-                return true;
-            }
-
-            return IsWithinForgivingMeleeRange(attacker, hurtbox) || IsWithinMeleeStrikeRange(attacker);
-        }
-
         public Bounds GetHurtboxBounds()
         {
             float centerY = 0.98f + visualGroundOffset * 0.45f;
             return new Bounds(
                 transform.position + new Vector3(0f, centerY, 0f),
                 new Vector3(1.15f * CombatScale, 1.95f * CombatScale, 0.1f));
-        }
-
-        private static bool IsWithinMeleeStrikeRange(FighterController attacker)
-        {
-            if (attacker.currentAttack == null || attacker.opponent == null)
-            {
-                return false;
-            }
-
-            if (!IsFacingToward(attacker, attacker.opponent))
-            {
-                return false;
-            }
-
-            FighterController defender = attacker.opponent;
-            float dx = Mathf.Abs(defender.transform.position.x - attacker.transform.position.x);
-            float dy = Mathf.Abs(defender.transform.position.y - attacker.transform.position.y);
-            float reach = (attacker.currentAttack.HitboxOffset.x
-                + attacker.currentAttack.HitboxSize.x * 0.5f
-                + 0.75f) * CombatScale;
-            return dx <= reach && dy <= 1.55f * CombatScale;
-        }
-
-        private static bool IsWithinForgivingMeleeRange(FighterController attacker, Bounds defenderHurtbox)
-        {
-            if (attacker.currentAttack == null || attacker.opponent == null)
-            {
-                return false;
-            }
-
-            if (!IsFacingToward(attacker, attacker.opponent))
-            {
-                return false;
-            }
-
-            Bounds hitbox = attacker.GetActiveHitboxBounds();
-            float closestDistance = ClosestBoundsDistance(hitbox, defenderHurtbox);
-            float maxGap = attacker.currentAttack.Type == AttackType.Light ? 0.55f : 0.35f;
-            return closestDistance <= maxGap;
-        }
-
-        private static bool IsFacingToward(FighterController attacker, FighterController defender)
-        {
-            float dx = defender.transform.position.x - attacker.transform.position.x;
-            if (Mathf.Abs(dx) <= 0.35f * CombatScale)
-            {
-                return true;
-            }
-
-            float directionToDefender = Mathf.Sign(dx);
-            return directionToDefender == attacker.facing;
-        }
-
-        private static float ClosestBoundsDistance(Bounds a, Bounds b)
-        {
-            float dx = Mathf.Max(0f, Mathf.Abs(a.center.x - b.center.x) - (a.extents.x + b.extents.x));
-            float dy = Mathf.Max(0f, Mathf.Abs(a.center.y - b.center.y) - (a.extents.y + b.extents.y));
-            return Mathf.Sqrt(dx * dx + dy * dy);
         }
 
         private void BuildVisuals()
@@ -690,10 +607,6 @@ namespace FightingGame
             if (Mathf.Abs(inputHorizontal) > 0.01f)
             {
                 facing = Mathf.Sign(inputHorizontal);
-            }
-            else
-            {
-                SnapFacingTowardOpponent();
             }
 
             currentAttack = attack;
@@ -766,16 +679,6 @@ namespace FightingGame
         {
             float x = Mathf.Clamp(transform.position.x, -FightConstants.ArenaHalfWidth, FightConstants.ArenaHalfWidth);
             transform.position = new Vector3(x, transform.position.y, transform.position.z);
-        }
-
-        private void UpdateFacingTowardOpponent()
-        {
-            if (opponent == null || IsAttackState(State) || IsSkillCastState(State) || State == FighterState.Hitstun)
-            {
-                return;
-            }
-
-            SnapFacingTowardOpponent();
         }
 
         private void SnapFacingTowardOpponent()

@@ -186,19 +186,21 @@ namespace FightingGame
 
         public static FighterInputSnapshot ReadPlayerTwo()
         {
-            float horizontal = ReadPlayerTwoHorizontalAllSources();
-            FighterInputSnapshot buttons = FighterInputSnapshot.Combine(
-                ReadPlayerTwoButtonsModern(),
-                ReadPlayerTwoButtonsLegacySafe());
+            float horizontal = FightKeyCapture.ReadPlayerTwoHorizontal();
+            bool jumpPressed = FightKeyCapture.ReadPlayerTwoJumpPressed();
+            bool blockHeld = FightKeyCapture.ReadPlayerTwoBlockHeld();
+            FighterInputSnapshot attacks = FighterInputSnapshot.Combine(
+                ReadPlayerTwoAttackButtonsModern(),
+                ReadPlayerTwoAttackButtonsLegacySafe());
             return new FighterInputSnapshot(
                 horizontal,
-                buttons.JumpPressed,
-                buttons.BlockHeld,
-                buttons.LightPressed,
-                buttons.KickPressed,
-                buttons.HeavyPressed,
-                buttons.Skill1Pressed,
-                buttons.Skill2Pressed);
+                jumpPressed,
+                blockHeld,
+                attacks.LightPressed,
+                attacks.KickPressed,
+                attacks.HeavyPressed,
+                false,
+                false);
         }
 
         private static float ReadPlayerOneHorizontalAllSources()
@@ -379,7 +381,7 @@ namespace FightingGame
             return FighterInputSnapshot.Empty;
         }
 
-        private static FighterInputSnapshot ReadPlayerTwoButtonsModern()
+        private static FighterInputSnapshot ReadPlayerTwoAttackButtonsModern()
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
@@ -387,8 +389,8 @@ namespace FightingGame
             {
                 return new FighterInputSnapshot(
                     0f,
-                    keyboard.upArrowKey.wasPressedThisFrame,
-                    keyboard.downArrowKey.isPressed,
+                    false,
+                    false,
                     keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame,
                     keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame,
                     keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame,
@@ -514,15 +516,15 @@ namespace FightingGame
 #endif
         }
 
-        private static FighterInputSnapshot ReadPlayerTwoButtonsLegacySafe()
+        private static FighterInputSnapshot ReadPlayerTwoAttackButtonsLegacySafe()
         {
 #if ENABLE_LEGACY_INPUT_MANAGER
             try
             {
                 return new FighterInputSnapshot(
                     0f,
-                    Input.GetKeyDown(KeyCode.UpArrow),
-                    Input.GetKey(KeyCode.DownArrow),
+                    false,
+                    false,
                     Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1),
                     Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2),
                     Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3),
