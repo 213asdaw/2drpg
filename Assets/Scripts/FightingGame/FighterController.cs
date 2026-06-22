@@ -69,15 +69,15 @@ namespace FightingGame
     public sealed class FighterController : MonoBehaviour
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
-            AttackType.Light, 0.03f, 0.28f, 0.14f, 8f, 1.2f, 0.25f,
+            AttackType.Light, 0.03f, 0.28f, 0.14f, 8f, 0.85f, 0.25f,
             new Vector2(1.05f, 0.95f), new Vector2(0.72f, 0.82f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.8f, 0.32f,
+            AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.65f, 0.32f,
             new Vector2(1.15f, 0.72f), new Vector2(0.82f, 0.52f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.36f, 0.24f, 0.34f, 20f, 2.8f, 0.45f,
+            AttackType.Heavy, 0.36f, 0.24f, 0.34f, 20f, 3.0f, 0.45f,
             new Vector2(1.28f, 1.05f), new Vector2(0.92f, 0.88f));
 
         private AttackDefinition lightAttack;
@@ -93,6 +93,7 @@ namespace FightingGame
         private readonly List<FlameProjectile> projectiles = new List<FlameProjectile>();
 
         private float velocityY;
+        private float knockbackVelocityX;
         private float facing = 1f;
         private float health;
         private float maxHealth;
@@ -120,6 +121,7 @@ namespace FightingGame
         private const float VisualScale = 1.35f;
         private const float CombatScale = VisualScale;
         private const float HitboxScale = 1f;
+        private const float KnockbackDeceleration = 16f;
         private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
@@ -197,6 +199,7 @@ namespace FightingGame
         {
             transform.position = startPosition;
             velocityY = 0f;
+            knockbackVelocityX = 0f;
             facing = playerIndex == 0 ? 1f : -1f;
             health = maxHealth;
             invulnTimer = 0f;
@@ -251,6 +254,7 @@ namespace FightingGame
             if (hitstunTimer > 0f)
             {
                 hitstunTimer -= deltaTime;
+                ApplyKnockback(deltaTime);
                 ApplyGravity(deltaTime);
                 ClampToArena();
                 UpdateVisuals();
@@ -551,7 +555,6 @@ namespace FightingGame
 
             health = Mathf.Max(0f, health - damage);
             invulnTimer = FightConstants.HitInvulnTime;
-            hitstunTimer = blocking ? hitstun * 0.5f : hitstun;
 
             float knockbackDirection = Mathf.Sign(transform.position.x - attacker.transform.position.x);
             if (knockbackDirection == 0f)
@@ -559,8 +562,10 @@ namespace FightingGame
                 knockbackDirection = attacker.facing;
             }
 
-            transform.position += new Vector3(knockbackDirection * knockback * (blocking ? 0.35f : 1f), 0f, 0f);
-            ClampToArena();
+            float knockbackDistance = knockback * (blocking ? 0.35f : 1f);
+            knockbackVelocityX = knockbackDirection * Mathf.Sqrt(2f * KnockbackDeceleration * knockbackDistance);
+            float knockbackDuration = Mathf.Sqrt(2f * knockbackDistance / KnockbackDeceleration);
+            hitstunTimer = Mathf.Max(blocking ? hitstun * 0.5f : hitstun, knockbackDuration);
             SetState(FighterState.Hitstun);
             Damaged?.Invoke(this, damage);
             attacker.LandedHit?.Invoke(attacker, this, attackType);
@@ -666,6 +671,18 @@ namespace FightingGame
         private bool CanStartAttack()
         {
             return State != FighterState.Block && !IsAttackState(State) && !IsSkillCastState(State);
+        }
+
+        private void ApplyKnockback(float deltaTime)
+        {
+            if (Mathf.Abs(knockbackVelocityX) <= 0.01f)
+            {
+                knockbackVelocityX = 0f;
+                return;
+            }
+
+            transform.position += new Vector3(knockbackVelocityX * deltaTime, 0f, 0f);
+            knockbackVelocityX = Mathf.MoveTowards(knockbackVelocityX, 0f, KnockbackDeceleration * deltaTime);
         }
 
         private void ApplyGravity(float deltaTime)
