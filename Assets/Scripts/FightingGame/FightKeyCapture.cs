@@ -196,25 +196,19 @@ namespace FightingGame
 
         public static float ReadPlayerTwoHorizontal()
         {
-            float arrowAxis = ReadArrowAxisOnly();
-            if (Mathf.Abs(arrowAxis) > 0.01f)
-            {
-                return arrowAxis;
-            }
-
             bool left = ReadModernKeyPressed(Key.E)
                 || ReadLegacyKey(KeyCode.E)
+                || ReadModernKeyPressed(Key.Comma)
+                || ReadLegacyKey(KeyCode.Comma)
                 || ReadModernKeyPressed(Key.Numpad4)
                 || ReadLegacyKey(KeyCode.Keypad4);
 
             bool right = ReadModernKeyPressed(Key.O)
                 || ReadLegacyKey(KeyCode.O)
-                || ReadModernKeyPressed(Key.Numpad6)
-                || ReadLegacyKey(KeyCode.Keypad6)
                 || ReadModernKeyPressed(Key.Period)
                 || ReadLegacyKey(KeyCode.Period)
-                || ReadModernKeyPressed(Key.RightBracket)
-                || ReadLegacyKey(KeyCode.RightBracket);
+                || ReadModernKeyPressed(Key.Numpad6)
+                || ReadLegacyKey(KeyCode.Keypad6);
 
             if (left && right)
             {
@@ -227,24 +221,6 @@ namespace FightingGame
             }
 
             if (left)
-            {
-                return -1f;
-            }
-
-            return 0f;
-        }
-
-        private static float ReadArrowAxisOnly()
-        {
-            bool left = hwArrowLeft || guiArrowLeftHeld;
-            bool right = hwArrowRight || guiArrowRightHeld;
-
-            if (right && !left)
-            {
-                return 1f;
-            }
-
-            if (left && !right)
             {
                 return -1f;
             }

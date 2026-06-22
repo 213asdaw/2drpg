@@ -77,7 +77,7 @@ namespace FightingGame
             new Vector2(1.75f, 0.95f), new Vector2(1.15f, 0.65f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.14f, 0.26f, 0.28f, 20f, 2.8f, 0.45f,
+            AttackType.Heavy, 0.36f, 0.24f, 0.34f, 20f, 2.8f, 0.45f,
             new Vector2(1.95f, 1.35f), new Vector2(1.3f, 1.05f));
 
         private AttackDefinition lightAttack;
@@ -86,8 +86,9 @@ namespace FightingGame
 
         private SpriteRenderer bodyRenderer;
         private SpriteRenderer auraRenderer;
-        private SpriteRenderer hitboxRenderer;
+        private SpriteRenderer attackEffectRenderer;
         private Transform bodyRoot;
+        private Transform attackEffectRoot;
         private Transform projectileRoot;
         private readonly List<FlameProjectile> projectiles = new List<FlameProjectile>();
 
@@ -114,6 +115,8 @@ namespace FightingGame
         private FighterController opponent;
         private bool lastVisualFacingRight = true;
         private Sprite cachedBodySprite;
+        private Sprite cachedAttackEffectSprite;
+        private int cachedAttackEffectKey = int.MinValue;
         private const float VisualScale = 1.35f;
         private const float CombatScale = VisualScale;
         private float visualGroundOffset;
@@ -536,7 +539,9 @@ namespace FightingGame
             bool blocking = State == FighterState.Block && grounded;
             if (blocking)
             {
-                damage *= FightConstants.BlockDamageMultiplier;
+                damage *= IsDefenseBuffActive
+                    ? FightConstants.MoltenGuardBlockDamageMultiplier
+                    : FightConstants.BlockDamageMultiplier;
             }
             else if (IsDefenseBuffActive)
             {
@@ -592,12 +597,12 @@ namespace FightingGame
             projectileContainer.transform.SetParent(transform, false);
             projectileRoot = projectileContainer.transform;
 
-            GameObject hitboxVisual = new GameObject("HitboxDebug");
-            hitboxVisual.transform.SetParent(transform, false);
-            hitboxRenderer = hitboxVisual.AddComponent<SpriteRenderer>();
-            hitboxRenderer.sprite = ProceduralArt.CreateRectSprite(8, 8, new Color(1f, 0.2f, 0.2f, 0.35f), "Hitbox");
-            hitboxRenderer.sortingOrder = 30;
-            hitboxRenderer.enabled = false;
+            GameObject attackEffectObject = new GameObject("AttackEffect");
+            attackEffectObject.transform.SetParent(bodyRoot, false);
+            attackEffectRoot = attackEffectObject.transform;
+            attackEffectRenderer = attackEffectObject.AddComponent<SpriteRenderer>();
+            attackEffectRenderer.sortingOrder = 15 + playerIndex;
+            attackEffectRenderer.enabled = false;
         }
 
         private void BeginAttack(AttackDefinition attack, float inputHorizontal = 0f)
@@ -791,19 +796,96 @@ namespace FightingGame
                 bodyRenderer.color = Color.white;
             }
 
-            if (IsAttackActive() && currentAttack != null)
+            UpdateAttackEffectVisuals(bob);
+        }
+
+        private void UpdateAttackEffectVisuals(float bob)
+        {
+            if (attackEffectRenderer == null || attackEffectRoot == null)
             {
-                hitboxRenderer.enabled = true;
-                Bounds hitbox = GetActiveHitboxBounds();
-                hitboxRenderer.transform.position = hitbox.center;
-                hitboxRenderer.transform.localScale = new Vector3(
-                    currentAttack.HitboxSize.x * 8f,
-                    currentAttack.HitboxSize.y * 8f,
-                    1f);
+                return;
+            }
+
+            if (!IsAttackState(State) || currentAttack == null)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            float totalWindow = currentAttack.Startup + currentAttack.Active;
+            float progress = totalWindow <= 0f ? 1f : Mathf.Clamp01(stateTimer / totalWindow);
+            int progressBucket = Mathf.Clamp(Mathf.FloorToInt(progress * 8f), 0, 7);
+            bool faceRight = facing >= 0f;
+            float facingSign = faceRight ? 1f : -1f;
+
+            attackEffectRenderer.enabled = true;
+            attackEffectRenderer.flipX = !faceRight;
+
+            if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            {
+                int effectKey = 1000 + (int)currentAttack.Type * 10 + progressBucket;
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateSwordSwingEffect(
+                        currentAttack.Type,
+                        progressBucket / 7f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float startAngle = faceRight ? -95f : 95f;
+                float endAngle = faceRight ? 35f : -35f;
+                float angle = Mathf.Lerp(startAngle, endAngle, progress);
+                attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.15f + progress * 0.35f),
+                    1.05f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.35f : 1.1f);
+                attackEffectRenderer.color = currentAttack.Type == AttackType.Heavy
+                    ? new Color(1f, 0.72f, 0.38f, 0.95f)
+                    : new Color(1f, 0.88f, 0.55f, 0.92f);
+            }
+            else if (currentAttack.Type == AttackType.Kick)
+            {
+                int effectKey = 2000 + progressBucket;
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateKickEffect(progressBucket / 7f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float extend = Mathf.Sin(progress * Mathf.PI) * 0.75f;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.45f + extend),
+                    0.45f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * 1.15f;
+                attackEffectRenderer.color = new Color(1f, 0.92f, 0.82f, 0.95f);
             }
             else
             {
-                hitboxRenderer.enabled = false;
+                int effectKey = 3000 + (int)currentAttack.Type * 10 + progressBucket;
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreatePunchEffect(
+                        currentAttack.Type,
+                        progressBucket / 7f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float extend = Mathf.Sin(progress * Mathf.PI) * (currentAttack.Type == AttackType.Heavy ? 0.85f : 0.55f);
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.42f + extend),
+                    0.92f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.25f : 1f);
+                attackEffectRenderer.color = new Color(1f, 0.9f, 0.82f, 0.95f);
             }
         }
 

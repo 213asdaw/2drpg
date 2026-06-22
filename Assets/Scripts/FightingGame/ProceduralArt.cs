@@ -355,6 +355,130 @@ namespace FightingGame
                 FightConstants.PixelsPerUnit * 0.45f);
         }
 
+        public static Sprite CreateSwordSwingEffect(AttackType attackType, float progress)
+        {
+            const int width = 40;
+            const int height = 40;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "SwordSwing_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color blade = new Color(0.92f, 0.94f, 1f, 0.95f);
+            Color edge = new Color(1f, 0.55f, 0.18f, 0.9f);
+            Color trail = new Color(1f, 0.35f, 0.08f, 0.55f);
+            Color[] pixels = new Color[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            float arcStart = Mathf.Lerp(-2.4f, -0.8f, progress);
+            float arcEnd = Mathf.Lerp(0.2f, 2.1f, progress);
+            float thickness = attackType == AttackType.Heavy ? 3.4f : 2.6f;
+            Vector2 pivot = new Vector2(width * 0.28f, height * 0.22f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector2 point = new Vector2(x, y);
+                    Vector2 dir = point - pivot;
+                    float angle = Mathf.Atan2(dir.y, dir.x);
+                    float radius = dir.magnitude;
+                    if (angle >= arcStart && angle <= arcEnd && radius >= 6f && radius <= 24f + progress * 6f)
+                    {
+                        float edgeBlend = Mathf.InverseLerp(arcStart, arcEnd, angle);
+                        Color pixel = Color.Lerp(trail, blade, edgeBlend);
+                        if (radius > 18f)
+                        {
+                            pixel = Color.Lerp(pixel, edge, 0.55f);
+                        }
+
+                        pixels[y * width + x] = pixel;
+                    }
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.28f, 0.22f),
+                FightConstants.PixelsPerUnit);
+        }
+
+        public static Sprite CreatePunchEffect(AttackType attackType, float progress)
+        {
+            int size = attackType == AttackType.Heavy ? 22 : 16;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "Punch_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color fist = new Color(0.96f, 0.82f, 0.72f, 0.98f);
+            Color glove = new Color(0.72f, 0.18f, 0.16f, 0.95f);
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            int fistWidth = attackType == AttackType.Heavy ? 12 : 9;
+            int fistHeight = attackType == AttackType.Heavy ? 10 : 8;
+            int offsetX = Mathf.RoundToInt(Mathf.Lerp(1f, size - fistWidth - 1f, progress));
+            FillRect(pixels, size, size, offsetX, 3, fistWidth, fistHeight, fist);
+            FillRect(pixels, size, size, offsetX + 1, 2, fistWidth - 2, 2, glove);
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.15f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
+        public static Sprite CreateKickEffect(float progress)
+        {
+            const int width = 24;
+            const int height = 14;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "Kick_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color boot = new Color(0.22f, 0.16f, 0.18f, 0.98f);
+            Color sole = new Color(0.72f, 0.24f, 0.18f, 0.95f);
+            Color[] pixels = new Color[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            int offsetX = Mathf.RoundToInt(Mathf.Lerp(2f, width - 11f, progress));
+            FillRect(pixels, width, height, offsetX, 4, 10, 6, boot);
+            FillRect(pixels, width, height, offsetX + 8, 3, 3, 8, sole);
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.1f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
         private static void FillRect(Color[] pixels, int width, int height, int x, int y, int w, int h, Color color)
         {
             for (int py = y; py < y + h && py < height; py++)

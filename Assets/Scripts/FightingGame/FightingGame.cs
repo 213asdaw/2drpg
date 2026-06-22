@@ -164,7 +164,7 @@ namespace FightingGame
             GUI.Label(
                 new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
                 backend + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00") + "\n"
-                + "Game 탭 클릭 → P2: ←/→ (안 되면 O 또는 . 키) | ↑↓\n"
+                + "Game 탭 클릭 → P2: E/O 또는 ,/. 이동 | PageUp/Down 점프/가드\n"
                 + "Active Input Handling = Both | Device Simulator 창 닫기",
                 hintStyle);
         }
@@ -334,7 +334,7 @@ namespace FightingGame
                 "P1 카론: A/D W S J/K/L | U/I 스킬(공중 가능)",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
-                "P2 검투사: ←/→ 또는 E/O | ↑/↓ | 1/2/3 공격(공중 가능)",
+                "P2 검투사: E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격",
                 labelStyle);
 
             DrawInputFocusHint();

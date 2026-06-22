@@ -13,7 +13,8 @@ namespace FightingGame
         public const float MoveSpeed = BaseMoveSpeed;
         public const float RoundDuration = 99f;
         public const int RoundsToWin = 2;
-        public const float BlockDamageMultiplier = 0.25f;
+        public const float BlockDamageMultiplier = 0.12f;
+        public const float MoltenGuardBlockDamageMultiplier = 0.06f;
         public const float HitInvulnTime = 0.15f;
         public const float RoundEndDelay = 2.5f;
         public const float MatchEndDelay = 3f;
