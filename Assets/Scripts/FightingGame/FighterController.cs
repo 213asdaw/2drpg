@@ -87,6 +87,7 @@ namespace FightingGame
         private SpriteRenderer bodyRenderer;
         private SpriteRenderer auraRenderer;
         private SpriteRenderer hitboxRenderer;
+        private Transform bodyRoot;
         private Transform projectileRoot;
         private readonly List<FlameProjectile> projectiles = new List<FlameProjectile>();
 
