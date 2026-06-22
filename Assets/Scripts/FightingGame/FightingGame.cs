@@ -13,6 +13,7 @@ namespace FightingGame
         private GUIStyle buttonStyle;
         private GUIStyle bannerStyle;
         private GUIStyle hintStyle;
+        private GUIStyle cooldownStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
         private bool sawGameplayInput;
         private float fightingPhaseStartedAt = -1f;
@@ -84,6 +85,7 @@ namespace FightingGame
             DrawControlsHelp();
             DrawBanner();
             DrawFloatingTexts();
+            DrawSkillCooldowns();
             DrawInputDebug();
         }
 
@@ -112,7 +114,7 @@ namespace FightingGame
             GUI.Label(
                 new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
                 backend + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00") + "\n"
-                + "Game 탭 클릭 → A/D 또는 ←/→ (P1)\n"
+                + "Game 탭 클릭 → P1: A/D | P2: ←/→\n"
                 + "Active Input Handling = Both | Device Simulator 창 닫기",
                 hintStyle);
         }
@@ -214,6 +216,27 @@ namespace FightingGame
                 wordWrap = true,
                 normal = { textColor = new Color(1f, 0.82f, 0.35f) }
             };
+
+            cooldownStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+        }
+
+        private void DrawSkillCooldowns()
+        {
+            Camera camera = mainCamera != null ? mainCamera : Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            EnsureStyles();
+            FightHudDrawer.DrawSkillCooldowns(camera, playerOne, cooldownStyle, cooldownStyle);
+            FightHudDrawer.DrawSkillCooldowns(camera, playerTwo, cooldownStyle, cooldownStyle);
         }
 
         private void DrawHealthBar(Rect frame, FighterController fighter, bool alignRight)
@@ -254,10 +277,10 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 520f, 44f),
-                "P1 카론: A/D W S J K L | U 불꽃검기 | I 용암방어",
+                "P1 카론: A/D 이동 W점프 S가드 J/K/L 공격 | U/I 스킬",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
-                "P2: ←/→ ↑ ↓ 1 2 3 (기본 격투사)",
+                "P2 검투사: ←/→ ↑ ↓ 1/2/3 공격 (방향키 전용)",
                 labelStyle);
 
             DrawInputFocusHint();

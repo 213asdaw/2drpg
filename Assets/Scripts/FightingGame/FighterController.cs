@@ -69,16 +69,16 @@ namespace FightingGame
     public sealed class FighterController : MonoBehaviour
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
-            AttackType.Light, 0.08f, 0.1f, 0.18f, 8f, 1.2f, 0.25f,
-            new Vector2(0.9f, 0.8f), new Vector2(0.75f, 1.1f));
+            AttackType.Light, 0.08f, 0.14f, 0.18f, 8f, 1.2f, 0.25f,
+            new Vector2(1.15f, 0.95f), new Vector2(0.95f, 1.05f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.12f, 0.12f, 0.22f, 12f, 1.8f, 0.32f,
-            new Vector2(1.0f, 0.55f), new Vector2(0.85f, 0.55f));
+            AttackType.Kick, 0.12f, 0.16f, 0.22f, 12f, 1.8f, 0.32f,
+            new Vector2(1.25f, 0.65f), new Vector2(1.05f, 0.55f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.22f, 0.14f, 0.34f, 20f, 2.8f, 0.45f,
-            new Vector2(1.1f, 1.0f), new Vector2(0.95f, 1.0f));
+            AttackType.Heavy, 0.22f, 0.18f, 0.34f, 20f, 2.8f, 0.45f,
+            new Vector2(1.35f, 1.05f), new Vector2(1.15f, 1.0f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
@@ -126,6 +126,10 @@ namespace FightingGame
         public bool IsAlive => health > 0f;
         public bool IsDefenseBuffActive => defenseBuffTimer > 0f || defenseBuffVisual;
         public bool CanAct => IsAlive && State != FighterState.Victory && State != FighterState.Defeat;
+        public float Skill1CooldownRemaining => skill1Cooldown;
+        public float Skill2CooldownRemaining => skill2Cooldown;
+        public float Skill1CooldownMax => FlameSwordsmanSkills.FlameSlashCooldown;
+        public float Skill2CooldownMax => FlameSwordsmanSkills.MoltenGuardCooldown;
 
         public event Action<FighterController, float> Damaged;
         public event Action<FighterController, FighterController, AttackType> LandedHit;
@@ -383,6 +387,7 @@ namespace FightingGame
 
         private void BeginSkill1()
         {
+            SnapFacingTowardOpponent();
             castingSkill = SkillId.FlameSlashWave;
             stateTimer = 0f;
             SetState(FighterState.Skill1Cast);
@@ -390,6 +395,7 @@ namespace FightingGame
 
         private void BeginSkill2()
         {
+            SnapFacingTowardOpponent();
             castingSkill = SkillId.MoltenGuard;
             stateTimer = 0f;
             SetState(FighterState.Skill2Cast);
@@ -560,6 +566,7 @@ namespace FightingGame
 
         private void BeginAttack(AttackDefinition attack)
         {
+            SnapFacingTowardOpponent();
             currentAttack = attack;
             hasHitThisAttack = false;
             stateTimer = 0f;
@@ -577,6 +584,8 @@ namespace FightingGame
 
             if (IsAttackActive() && opponent != null)
             {
+                float lunge = currentAttack.Type == AttackType.Heavy ? 0.45f : 0.28f;
+                transform.position += new Vector3(facing * lunge * deltaTime, 0f, 0f);
                 opponent.TryApplyHitFrom(this, currentAttack);
             }
 
@@ -630,6 +639,16 @@ namespace FightingGame
         private void UpdateFacingTowardOpponent()
         {
             if (opponent == null || IsAttackState(State) || IsSkillCastState(State) || State == FighterState.Hitstun)
+            {
+                return;
+            }
+
+            SnapFacingTowardOpponent();
+        }
+
+        private void SnapFacingTowardOpponent()
+        {
+            if (opponent == null)
             {
                 return;
             }

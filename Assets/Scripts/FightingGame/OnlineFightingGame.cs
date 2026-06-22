@@ -13,6 +13,7 @@ namespace FightingGame
         private GUIStyle titleStyle;
         private GUIStyle labelStyle;
         private GUIStyle bannerStyle;
+        private GUIStyle cooldownStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
 
         public void Begin(NetworkManager manager, RelayLobbySession relayLobbySession = null)
