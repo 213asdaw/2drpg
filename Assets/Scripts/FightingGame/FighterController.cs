@@ -268,67 +268,71 @@ namespace FightingGame
                 return;
             }
 
+            if (!controlsEnabled || !IsAlive)
+            {
+                if (IsAttackState(State))
+                {
+                    TickAttack(deltaTime);
+                }
+
+                ApplyGravity(deltaTime);
+                ClampToArena();
+                UpdateVisuals();
+                return;
+            }
+
+            if (!IsAttackState(State))
+            {
+                if (Mathf.Abs(input.Horizontal) < 0.01f && !input.BlockHeld)
+                {
+                    UpdateFacingTowardOpponent();
+                }
+
+                if (input.BlockHeld && grounded)
+                {
+                    SetState(FighterState.Block);
+                }
+                else if (input.Skill2Pressed && CanUseSkill2())
+                {
+                    BeginSkill2();
+                }
+                else if (input.Skill1Pressed && CanUseSkill1())
+                {
+                    BeginSkill1();
+                }
+                else if (input.HeavyPressed && CanStartAttack())
+                {
+                    BeginAttack(heavyAttack, input.Horizontal);
+                }
+                else if (input.KickPressed && CanStartAttack())
+                {
+                    BeginAttack(kickAttack, input.Horizontal);
+                }
+                else if (input.LightPressed && CanStartAttack())
+                {
+                    BeginAttack(lightAttack, input.Horizontal);
+                }
+                else if (input.JumpPressed && grounded)
+                {
+                    velocityY = FightConstants.JumpVelocity;
+                    grounded = false;
+                    SetState(FighterState.Jump);
+                }
+                else if (Mathf.Abs(input.Horizontal) > 0.01f)
+                {
+                    transform.position += new Vector3(input.Horizontal * moveSpeed * deltaTime, 0f, 0f);
+                    facing = Mathf.Sign(input.Horizontal);
+                    SetState(grounded ? FighterState.Walk : FighterState.Fall);
+                }
+                else if (grounded)
+                {
+                    SetState(FighterState.Idle);
+                }
+            }
+
             if (IsAttackState(State))
             {
                 TickAttack(deltaTime);
-                ApplyGravity(deltaTime);
-                ClampToArena();
-                UpdateVisuals();
-                return;
-            }
-
-            if (!controlsEnabled || !IsAlive)
-            {
-                ApplyGravity(deltaTime);
-                ClampToArena();
-                UpdateVisuals();
-                return;
-            }
-
-            if (Mathf.Abs(input.Horizontal) < 0.01f && !input.BlockHeld)
-            {
-                UpdateFacingTowardOpponent();
-            }
-
-            if (input.BlockHeld && grounded)
-            {
-                SetState(FighterState.Block);
-            }
-            else if (input.Skill2Pressed && CanUseSkill2())
-            {
-                BeginSkill2();
-            }
-            else if (input.Skill1Pressed && CanUseSkill1())
-            {
-                BeginSkill1();
-            }
-            else if (input.HeavyPressed && CanStartAttack())
-            {
-                BeginAttack(heavyAttack, input.Horizontal);
-            }
-            else if (input.KickPressed && CanStartAttack())
-            {
-                BeginAttack(kickAttack, input.Horizontal);
-            }
-            else if (input.LightPressed && CanStartAttack())
-            {
-                BeginAttack(lightAttack, input.Horizontal);
-            }
-            else if (input.JumpPressed && grounded)
-            {
-                velocityY = FightConstants.JumpVelocity;
-                grounded = false;
-                SetState(FighterState.Jump);
-            }
-            else if (Mathf.Abs(input.Horizontal) > 0.01f)
-            {
-                transform.position += new Vector3(input.Horizontal * moveSpeed * deltaTime, 0f, 0f);
-                facing = Mathf.Sign(input.Horizontal);
-                SetState(grounded ? FighterState.Walk : FighterState.Fall);
-            }
-            else if (grounded)
-            {
-                SetState(FighterState.Idle);
             }
 
             ApplyGravity(deltaTime);
@@ -338,7 +342,12 @@ namespace FightingGame
 
         public void TryApplyHitFrom(FighterController attacker, AttackDefinition attack)
         {
-            if (!attacker.IsAttackActive() || attacker.hasHitThisAttack || opponent != this)
+            if (attacker == null || attack == null || opponent != this || attacker.hasHitThisAttack)
+            {
+                return;
+            }
+
+            if (!attacker.IsInHitWindow())
             {
                 return;
             }
@@ -348,11 +357,7 @@ namespace FightingGame
                 return;
             }
 
-            Bounds hitbox = attacker.GetActiveHitboxBounds();
-            Bounds hurtbox = GetHurtboxBounds();
-            if (!hitbox.Intersects(hurtbox)
-                && !IsWithinMeleeStrikeRange(attacker)
-                && !IsWithinForgivingMeleeRange(attacker, hurtbox))
+            if (!CanBeHitBy(attacker))
             {
                 return;
             }
@@ -361,15 +366,25 @@ namespace FightingGame
             ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
         }
 
-        public bool IsAttackActive()
+        public bool IsInHitWindow()
         {
             if (!IsAttackState(State) || currentAttack == null)
             {
                 return false;
             }
 
-            float activeEnd = currentAttack.Startup + currentAttack.Active;
-            return stateTimer >= currentAttack.Startup && stateTimer <= activeEnd;
+            float hitEnd = currentAttack.Startup + currentAttack.Active + 0.05f;
+            return stateTimer >= 0f && stateTimer <= hitEnd;
+        }
+
+        public bool IsAttackActive()
+        {
+            if (currentAttack == null)
+            {
+                return false;
+            }
+
+            return IsInHitWindow() && stateTimer >= currentAttack.Startup;
         }
 
         public Bounds GetActiveHitboxBounds()
@@ -551,6 +566,32 @@ namespace FightingGame
             }
         }
 
+        private bool CanBeHitBy(FighterController attacker)
+        {
+            if (attacker == null || attacker.currentAttack == null)
+            {
+                return false;
+            }
+
+            float dx = Mathf.Abs(transform.position.x - attacker.transform.position.x);
+            float dy = Mathf.Abs(transform.position.y - attacker.transform.position.y);
+            float closeRangeX = 2.9f * CombatScale;
+            float closeRangeY = 2.5f * CombatScale;
+
+            if (dx <= closeRangeX && dy <= closeRangeY)
+            {
+                return true;
+            }
+
+            Bounds hurtbox = GetHurtboxBounds();
+            if (attacker.GetActiveHitboxBounds().Intersects(hurtbox))
+            {
+                return true;
+            }
+
+            return IsWithinForgivingMeleeRange(attacker, hurtbox) || IsWithinMeleeStrikeRange(attacker);
+        }
+
         public Bounds GetHurtboxBounds()
         {
             float centerY = 0.98f + visualGroundOffset * 0.45f;
@@ -600,8 +641,14 @@ namespace FightingGame
 
         private static bool IsFacingToward(FighterController attacker, FighterController defender)
         {
-            float directionToDefender = Mathf.Sign(defender.transform.position.x - attacker.transform.position.x);
-            return directionToDefender == 0f || directionToDefender == attacker.facing;
+            float dx = defender.transform.position.x - attacker.transform.position.x;
+            if (Mathf.Abs(dx) <= 0.35f * CombatScale)
+            {
+                return true;
+            }
+
+            float directionToDefender = Mathf.Sign(dx);
+            return directionToDefender == attacker.facing;
         }
 
         private static float ClosestBoundsDistance(Bounds a, Bounds b)
@@ -664,7 +711,7 @@ namespace FightingGame
                 return;
             }
 
-            if (IsAttackActive() && opponent != null)
+            if (IsInHitWindow() && opponent != null)
             {
                 if (currentAttack.Type == AttackType.Heavy)
                 {
