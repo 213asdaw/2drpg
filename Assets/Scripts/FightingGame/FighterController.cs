@@ -113,6 +113,7 @@ namespace FightingGame
         private FighterController opponent;
         private bool lastVisualFacingRight = true;
         private Sprite cachedBodySprite;
+        private const float VisualScale = 1.35f;
 
         public string DisplayName { get; private set; }
         public FighterArchetypeId ArchetypeId => archetypeId;
@@ -155,6 +156,7 @@ namespace FightingGame
             defenseBuffTimer = 0f;
             defenseBuffVisual = false;
             ClearProjectiles();
+            transform.localScale = Vector3.one * VisualScale;
 
             if (bodyRenderer == null)
             {
@@ -194,6 +196,7 @@ namespace FightingGame
             hasHitThisAttack = false;
             currentAttack = null;
             castingSkill = SkillId.None;
+            transform.localScale = Vector3.one * VisualScale;
             ClearProjectiles();
             SetState(FighterState.Idle);
             UpdateFacingTowardOpponent();

@@ -263,10 +263,11 @@ namespace FightingGame
                 name = "StageBackground_Tex"
             };
 
-            Color skyTop = new Color(0.12f, 0.16f, 0.32f);
-            Color skyBottom = new Color(0.45f, 0.28f, 0.42f);
-            Color ground = new Color(0.18f, 0.14f, 0.22f);
-            Color floor = new Color(0.32f, 0.26f, 0.34f);
+            Color skyTop = new Color(0.45f, 0.62f, 0.88f);
+            Color skyBottom = new Color(0.78f, 0.72f, 0.82f);
+            Color mountain = new Color(0.55f, 0.42f, 0.58f);
+            Color farGround = new Color(0.62f, 0.56f, 0.48f);
+            Color arenaGlow = new Color(0.92f, 0.78f, 0.55f, 0.35f);
 
             for (int y = 0; y < height; y++)
             {
@@ -274,23 +275,25 @@ namespace FightingGame
                 Color rowColor = Color.Lerp(skyBottom, skyTop, t);
                 for (int x = 0; x < width; x++)
                 {
-                    if (y < 28)
+                    if (y < 34)
                     {
                         texture.SetPixel(x, y, rowColor);
                     }
-                    else if (y < 40)
+                    else if (y < 52)
                     {
-                        float mountain = Mathf.PerlinNoise(x * 0.04f, y * 0.08f);
-                        Color mountainColor = Color.Lerp(ground, new Color(0.55f, 0.35f, 0.55f), mountain);
-                        texture.SetPixel(x, y, mountainColor);
+                        float ridge = Mathf.PerlinNoise(x * 0.05f, y * 0.1f);
+                        texture.SetPixel(x, y, Color.Lerp(mountain, farGround, ridge));
                     }
-                    else if (y < 118)
+                    else if (y < 96)
                     {
-                        texture.SetPixel(x, y, ground);
+                        texture.SetPixel(x, y, farGround);
                     }
                     else
                     {
-                        texture.SetPixel(x, y, floor);
+                        float centerGlow = 1f - Mathf.Abs(x - width * 0.5f) / (width * 0.5f);
+                        float platformBand = Mathf.Clamp01(1f - Mathf.Abs(y - 112f) / 10f);
+                        Color baseColor = Color.Lerp(farGround, arenaGlow, centerGlow * platformBand);
+                        texture.SetPixel(x, y, baseColor);
                     }
                 }
             }
@@ -301,6 +304,51 @@ namespace FightingGame
                 new Rect(0f, 0f, width, height),
                 new Vector2(0.5f, 0.5f),
                 FightConstants.PixelsPerUnit * 0.5f);
+        }
+
+        public static Sprite CreateArenaPlatform()
+        {
+            const int width = 192;
+            const int height = 24;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "ArenaPlatform_Tex"
+            };
+
+            Color top = new Color(0.96f, 0.88f, 0.72f);
+            Color mid = new Color(0.82f, 0.66f, 0.42f);
+            Color edge = new Color(0.58f, 0.42f, 0.28f);
+            Color stripe = new Color(0.95f, 0.55f, 0.28f, 0.55f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float nx = x / (float)(width - 1);
+                    float ny = y / (float)(height - 1);
+                    Color color = ny > 0.72f ? top : ny > 0.35f ? mid : edge;
+                    if (ny > 0.45f && ny < 0.58f && (int)(nx * 12f) % 2 == 0)
+                    {
+                        color = Color.Lerp(color, stripe, 0.45f);
+                    }
+
+                    if (x < 3 || x >= width - 3)
+                    {
+                        color = Color.Lerp(color, edge, 0.65f);
+                    }
+
+                    texture.SetPixel(x, y, color);
+                }
+            }
+
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.5f, 0.5f),
+                FightConstants.PixelsPerUnit * 0.45f);
         }
 
         private static void FillRect(Color[] pixels, int width, int height, int x, int y, int w, int h, Color color)

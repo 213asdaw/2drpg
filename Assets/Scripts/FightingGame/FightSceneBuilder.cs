@@ -17,22 +17,30 @@ namespace FightingGame
 
             mainCamera.orthographic = true;
             mainCamera.orthographicSize = 4.5f;
-            mainCamera.transform.position = new Vector3(0f, 0.5f, -10f);
-            mainCamera.backgroundColor = new Color(0.08f, 0.09f, 0.14f);
+            mainCamera.transform.position = new Vector3(0f, 0.15f, -10f);
+            mainCamera.backgroundColor = new Color(0.55f, 0.62f, 0.72f);
+            mainCamera.clearFlags = CameraClearFlags.SolidColor;
 
             GameObject background = new GameObject("Background");
             SpriteRenderer backgroundRenderer = background.AddComponent<SpriteRenderer>();
             backgroundRenderer.sprite = ProceduralArt.CreateStageBackground();
             backgroundRenderer.sortingOrder = -20;
-            background.transform.localScale = new Vector3(1.35f, 1.35f, 1f);
-            background.transform.position = new Vector3(0f, 0.4f, 1f);
+            background.transform.localScale = new Vector3(1.45f, 1.45f, 1f);
+            background.transform.position = new Vector3(0f, 0.35f, 5f);
 
-            GameObject floor = new GameObject("Floor");
+            GameObject arenaPlatform = new GameObject("Arena Platform");
+            SpriteRenderer arenaRenderer = arenaPlatform.AddComponent<SpriteRenderer>();
+            arenaRenderer.sprite = ProceduralArt.CreateArenaPlatform();
+            arenaRenderer.sortingOrder = -8;
+            arenaPlatform.transform.position = new Vector3(0f, FightConstants.GroundY - 0.05f, 0f);
+            arenaPlatform.transform.localScale = new Vector3(FightConstants.ArenaHalfWidth * 2.05f, 1.15f, 1f);
+
+            GameObject floor = new GameObject("Floor Edge");
             SpriteRenderer floorRenderer = floor.AddComponent<SpriteRenderer>();
-            floorRenderer.sprite = ProceduralArt.CreateRectSprite(256, 16, new Color(0.42f, 0.34f, 0.48f), "Floor");
-            floorRenderer.sortingOrder = -10;
-            floor.transform.position = new Vector3(0f, FightConstants.GroundY - 0.15f, 0f);
-            floor.transform.localScale = new Vector3(FightConstants.ArenaHalfWidth * 2.2f, 0.35f, 1f);
+            floorRenderer.sprite = ProceduralArt.CreateRectSprite(256, 16, new Color(0.72f, 0.58f, 0.38f), "Floor");
+            floorRenderer.sortingOrder = -9;
+            floor.transform.position = new Vector3(0f, FightConstants.GroundY - 0.28f, 0f);
+            floor.transform.localScale = new Vector3(FightConstants.ArenaHalfWidth * 2.2f, 0.28f, 1f);
 
             return mainCamera;
         }
