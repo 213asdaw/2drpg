@@ -69,16 +69,16 @@ namespace FightingGame
     public sealed class FighterController : MonoBehaviour
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
-            AttackType.Light, 0.05f, 0.22f, 0.16f, 8f, 1.2f, 0.25f,
-            new Vector2(1.55f, 1.25f), new Vector2(1.05f, 0.85f));
+            AttackType.Light, 0.03f, 0.28f, 0.14f, 8f, 1.2f, 0.25f,
+            new Vector2(1.85f, 1.45f), new Vector2(1.25f, 1.05f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.1f, 0.2f, 0.2f, 12f, 1.8f, 0.32f,
-            new Vector2(1.45f, 0.75f), new Vector2(1.0f, 0.5f));
+            AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.8f, 0.32f,
+            new Vector2(1.75f, 0.95f), new Vector2(1.15f, 0.65f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.18f, 0.22f, 0.3f, 20f, 2.8f, 0.45f,
-            new Vector2(1.6f, 1.15f), new Vector2(1.1f, 0.9f));
+            AttackType.Heavy, 0.14f, 0.26f, 0.28f, 20f, 2.8f, 0.45f,
+            new Vector2(1.95f, 1.35f), new Vector2(1.3f, 1.05f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
@@ -115,6 +115,7 @@ namespace FightingGame
         private bool lastVisualFacingRight = true;
         private Sprite cachedBodySprite;
         private const float VisualScale = 1.35f;
+        private const float CombatScale = VisualScale;
         private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
@@ -348,7 +349,10 @@ namespace FightingGame
             }
 
             Bounds hitbox = attacker.GetActiveHitboxBounds();
-            if (!hitbox.Intersects(GetHurtboxBounds()) && !IsWithinMeleeStrikeRange(attacker))
+            Bounds hurtbox = GetHurtboxBounds();
+            if (!hitbox.Intersects(hurtbox)
+                && !IsWithinMeleeStrikeRange(attacker)
+                && !IsWithinForgivingMeleeRange(attacker, hurtbox))
             {
                 return;
             }
@@ -375,8 +379,17 @@ namespace FightingGame
                 return new Bounds(transform.position, Vector3.zero);
             }
 
-            Vector3 center = transform.position + new Vector3(facing * currentAttack.HitboxOffset.x, currentAttack.HitboxOffset.y, 0f);
-            return new Bounds(center, new Vector3(currentAttack.HitboxSize.x, currentAttack.HitboxSize.y, 0.1f));
+            float bodyCenterY = 0.95f + visualGroundOffset * 0.45f;
+            Vector3 center = transform.position + new Vector3(
+                facing * currentAttack.HitboxOffset.x * CombatScale,
+                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * CombatScale,
+                0f);
+            return new Bounds(
+                center,
+                new Vector3(
+                    currentAttack.HitboxSize.x * CombatScale,
+                    currentAttack.HitboxSize.y * CombatScale,
+                    0.1f));
         }
 
         private bool CanUseSkill1()
@@ -540,7 +553,10 @@ namespace FightingGame
 
         public Bounds GetHurtboxBounds()
         {
-            return new Bounds(transform.position + new Vector3(0f, 0.95f, 0f), new Vector3(0.95f, 1.75f, 0.1f));
+            float centerY = 0.98f + visualGroundOffset * 0.45f;
+            return new Bounds(
+                transform.position + new Vector3(0f, centerY, 0f),
+                new Vector3(1.15f * CombatScale, 1.95f * CombatScale, 0.1f));
         }
 
         private static bool IsWithinMeleeStrikeRange(FighterController attacker)
@@ -550,19 +566,49 @@ namespace FightingGame
                 return false;
             }
 
-            FighterController defender = attacker.opponent;
-            float directionToDefender = Mathf.Sign(defender.transform.position.x - attacker.transform.position.x);
-            if (directionToDefender != 0f && directionToDefender != attacker.facing)
+            if (!IsFacingToward(attacker, attacker.opponent))
             {
                 return false;
             }
 
+            FighterController defender = attacker.opponent;
             float dx = Mathf.Abs(defender.transform.position.x - attacker.transform.position.x);
             float dy = Mathf.Abs(defender.transform.position.y - attacker.transform.position.y);
-            float reach = attacker.currentAttack.HitboxOffset.x
-                + attacker.currentAttack.HitboxSize.x * 0.55f
-                + 0.45f;
-            return dx <= reach && dy <= 1.25f;
+            float reach = (attacker.currentAttack.HitboxOffset.x
+                + attacker.currentAttack.HitboxSize.x * 0.5f
+                + 0.75f) * CombatScale;
+            return dx <= reach && dy <= 1.55f * CombatScale;
+        }
+
+        private static bool IsWithinForgivingMeleeRange(FighterController attacker, Bounds defenderHurtbox)
+        {
+            if (attacker.currentAttack == null || attacker.opponent == null)
+            {
+                return false;
+            }
+
+            if (!IsFacingToward(attacker, attacker.opponent))
+            {
+                return false;
+            }
+
+            Bounds hitbox = attacker.GetActiveHitboxBounds();
+            float closestDistance = ClosestBoundsDistance(hitbox, defenderHurtbox);
+            float maxGap = attacker.currentAttack.Type == AttackType.Light ? 0.55f : 0.35f;
+            return closestDistance <= maxGap;
+        }
+
+        private static bool IsFacingToward(FighterController attacker, FighterController defender)
+        {
+            float directionToDefender = Mathf.Sign(defender.transform.position.x - attacker.transform.position.x);
+            return directionToDefender == 0f || directionToDefender == attacker.facing;
+        }
+
+        private static float ClosestBoundsDistance(Bounds a, Bounds b)
+        {
+            float dx = Mathf.Max(0f, Mathf.Abs(a.center.x - b.center.x) - (a.extents.x + b.extents.x));
+            float dy = Mathf.Max(0f, Mathf.Abs(a.center.y - b.center.y) - (a.extents.y + b.extents.y));
+            return Mathf.Sqrt(dx * dx + dy * dy);
         }
 
         private void BuildVisuals()
@@ -597,6 +643,10 @@ namespace FightingGame
             if (Mathf.Abs(inputHorizontal) > 0.01f)
             {
                 facing = Mathf.Sign(inputHorizontal);
+            }
+            else
+            {
+                SnapFacingTowardOpponent();
             }
 
             currentAttack = attack;
