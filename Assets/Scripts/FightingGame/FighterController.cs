@@ -70,15 +70,15 @@ namespace FightingGame
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
             AttackType.Light, 0.03f, 0.28f, 0.14f, 8f, 1.2f, 0.25f,
-            new Vector2(1.85f, 1.45f), new Vector2(1.25f, 1.05f));
+            new Vector2(1.05f, 0.95f), new Vector2(0.72f, 0.82f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
             AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.8f, 0.32f,
-            new Vector2(1.75f, 0.95f), new Vector2(1.15f, 0.65f));
+            new Vector2(1.15f, 0.72f), new Vector2(0.82f, 0.52f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
             AttackType.Heavy, 0.36f, 0.24f, 0.34f, 20f, 2.8f, 0.45f,
-            new Vector2(1.95f, 1.35f), new Vector2(1.3f, 1.05f));
+            new Vector2(1.28f, 1.05f), new Vector2(0.92f, 0.88f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
@@ -119,6 +119,7 @@ namespace FightingGame
         private int cachedAttackEffectKey = int.MinValue;
         private const float VisualScale = 1.35f;
         private const float CombatScale = VisualScale;
+        private const float HitboxScale = 1f;
         private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
@@ -398,14 +399,14 @@ namespace FightingGame
 
             float bodyCenterY = 0.95f + visualGroundOffset * 0.45f;
             Vector3 center = transform.position + new Vector3(
-                facing * currentAttack.HitboxOffset.x * CombatScale,
-                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * CombatScale,
+                facing * currentAttack.HitboxOffset.x * HitboxScale,
+                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * HitboxScale,
                 0f);
             return new Bounds(
                 center,
                 new Vector3(
-                    currentAttack.HitboxSize.x * CombatScale,
-                    currentAttack.HitboxSize.y * CombatScale,
+                    currentAttack.HitboxSize.x * HitboxScale,
+                    currentAttack.HitboxSize.y * HitboxScale,
                     0.1f));
         }
 
@@ -575,7 +576,7 @@ namespace FightingGame
             float centerY = 0.98f + visualGroundOffset * 0.45f;
             return new Bounds(
                 transform.position + new Vector3(0f, centerY, 0f),
-                new Vector3(1.15f * CombatScale, 1.95f * CombatScale, 0.1f));
+                new Vector3(0.82f * HitboxScale, 1.55f * HitboxScale, 0.1f));
         }
 
         private void BuildVisuals()
@@ -627,7 +628,7 @@ namespace FightingGame
                 return;
             }
 
-            if (IsInHitWindow() && opponent != null)
+            if (IsAttackActive() && opponent != null)
             {
                 if (currentAttack.Type == AttackType.Heavy && grounded)
                 {
@@ -647,14 +648,14 @@ namespace FightingGame
 
         private void ResolveAttackHit()
         {
-            if (opponent == null || hasHitThisAttack || currentAttack == null || !IsInHitWindow())
+            if (opponent == null || hasHitThisAttack || currentAttack == null || !IsAttackActive())
             {
                 return;
             }
 
-            float dx = Mathf.Abs(opponent.transform.position.x - transform.position.x);
-            float dy = Mathf.Abs(opponent.transform.position.y - transform.position.y);
-            if (dx > 5.5f || dy > 4.5f)
+            Bounds hitbox = GetActiveHitboxBounds();
+            Bounds hurtbox = opponent.GetHurtboxBounds();
+            if (!hitbox.Intersects(hurtbox))
             {
                 return;
             }
