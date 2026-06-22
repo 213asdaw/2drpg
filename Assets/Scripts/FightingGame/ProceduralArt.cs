@@ -123,6 +123,8 @@ namespace FightingGame
                 MirrorHorizontal(pixels, width, height);
             }
 
+            FlipPixelsVertical(pixels, width, height);
+
             texture.SetPixels(pixels);
             texture.Apply(false, true);
 
@@ -234,6 +236,8 @@ namespace FightingGame
             {
                 MirrorHorizontal(pixels, width, height);
             }
+
+            FlipPixelsVertical(pixels, width, height);
 
             texture.SetPixels(pixels);
             texture.Apply(false, true);
@@ -376,6 +380,22 @@ namespace FightingGame
                     Color temp = pixels[left];
                     pixels[left] = pixels[right];
                     pixels[right] = temp;
+                }
+            }
+        }
+
+        private static void FlipPixelsVertical(Color[] pixels, int width, int height)
+        {
+            for (int y = 0; y < height / 2; y++)
+            {
+                int oppositeY = height - 1 - y;
+                for (int x = 0; x < width; x++)
+                {
+                    int bottomIndex = y * width + x;
+                    int topIndex = oppositeY * width + x;
+                    Color temp = pixels[bottomIndex];
+                    pixels[bottomIndex] = pixels[topIndex];
+                    pixels[topIndex] = temp;
                 }
             }
         }

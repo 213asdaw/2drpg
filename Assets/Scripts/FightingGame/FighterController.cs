@@ -69,16 +69,16 @@ namespace FightingGame
     public sealed class FighterController : MonoBehaviour
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
-            AttackType.Light, 0.08f, 0.14f, 0.18f, 8f, 1.2f, 0.25f,
-            new Vector2(1.15f, 0.95f), new Vector2(0.95f, 1.05f));
+            AttackType.Light, 0.05f, 0.22f, 0.16f, 8f, 1.2f, 0.25f,
+            new Vector2(1.55f, 1.25f), new Vector2(1.05f, 0.85f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.12f, 0.16f, 0.22f, 12f, 1.8f, 0.32f,
-            new Vector2(1.25f, 0.65f), new Vector2(1.05f, 0.55f));
+            AttackType.Kick, 0.1f, 0.2f, 0.2f, 12f, 1.8f, 0.32f,
+            new Vector2(1.45f, 0.75f), new Vector2(1.0f, 0.5f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.22f, 0.18f, 0.34f, 20f, 2.8f, 0.45f,
-            new Vector2(1.35f, 1.05f), new Vector2(1.15f, 1.0f));
+            AttackType.Heavy, 0.18f, 0.22f, 0.3f, 20f, 2.8f, 0.45f,
+            new Vector2(1.6f, 1.15f), new Vector2(1.1f, 0.9f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
@@ -343,7 +343,7 @@ namespace FightingGame
             }
 
             Bounds hitbox = attacker.GetActiveHitboxBounds();
-            if (!hitbox.Intersects(GetHurtboxBounds()))
+            if (!hitbox.Intersects(GetHurtboxBounds()) && !IsWithinMeleeStrikeRange(attacker))
             {
                 return;
             }
@@ -535,7 +535,29 @@ namespace FightingGame
 
         public Bounds GetHurtboxBounds()
         {
-            return new Bounds(transform.position + new Vector3(0f, 0.75f, 0f), new Vector3(0.7f, 1.5f, 0.1f));
+            return new Bounds(transform.position + new Vector3(0f, 0.95f, 0f), new Vector3(0.95f, 1.75f, 0.1f));
+        }
+
+        private static bool IsWithinMeleeStrikeRange(FighterController attacker)
+        {
+            if (attacker.currentAttack == null || attacker.opponent == null)
+            {
+                return false;
+            }
+
+            FighterController defender = attacker.opponent;
+            float directionToDefender = Mathf.Sign(defender.transform.position.x - attacker.transform.position.x);
+            if (directionToDefender != 0f && directionToDefender != attacker.facing)
+            {
+                return false;
+            }
+
+            float dx = Mathf.Abs(defender.transform.position.x - attacker.transform.position.x);
+            float dy = Mathf.Abs(defender.transform.position.y - attacker.transform.position.y);
+            float reach = attacker.currentAttack.HitboxOffset.x
+                + attacker.currentAttack.HitboxSize.x * 0.55f
+                + 0.45f;
+            return dx <= reach && dy <= 1.25f;
         }
 
         private void BuildVisuals()
@@ -585,7 +607,7 @@ namespace FightingGame
 
             if (IsAttackActive() && opponent != null)
             {
-                float lunge = currentAttack.Type == AttackType.Heavy ? 0.45f : 0.28f;
+                float lunge = currentAttack.Type == AttackType.Heavy ? 0.65f : 0.42f;
                 transform.position += new Vector3(facing * lunge * deltaTime, 0f, 0f);
                 opponent.TryApplyHitFrom(this, currentAttack);
             }
@@ -687,10 +709,11 @@ namespace FightingGame
 
             float bob = State == FighterState.Walk ? Mathf.Sin(Time.time * 12f) * 0.04f : 0f;
             float squash = State == FighterState.Block ? -0.08f : 0f;
-            transform.localScale = new Vector3(VisualScale, VisualScale * (1f + squash), VisualScale);
+            transform.localScale = Vector3.one * VisualScale;
             if (bodyRoot != null)
             {
                 bodyRoot.localPosition = new Vector3(0f, bob, 0f);
+                bodyRoot.localScale = new Vector3(1f, 1f + squash, 1f);
             }
 
             if (archetypeId == FighterArchetypeId.FlameSwordsman && IsDefenseBuffActive)
