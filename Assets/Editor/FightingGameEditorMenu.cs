@@ -27,8 +27,10 @@ namespace FightingGame.Editor
                 "2) 상단 ▶ Pause 가 켜져 있으면 해제하세요.\n" +
                 "3) Console 창의 Error Pause 를 끄세요.\n" +
                 "   (SearchDatabase 빨간 에러는 게임 버그가 아닙니다)\n" +
-                "4) 한/영 키로 영문 입력 모드로 바꾸세요.\n" +
-                "5) Library\\Search 폴더 삭제 후 Unity 재실행.",
+                "4) Edit > Project Settings > Player > Active Input Handling = Both\n" +
+                "   (Unity 6 기본값이 New Input System 이면 구 Input.GetKey 가 안 됩니다)\n" +
+                "5) 한/영 키로 영문 입력 모드로 바꾸세요.\n" +
+                "6) Library\\Search 폴더 삭제 후 Unity 재실행.",
                 "OK");
         }
     }

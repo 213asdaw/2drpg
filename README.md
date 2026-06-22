@@ -130,15 +130,23 @@ Assets/Scripts/FightingGame/
 
 ### 키를 눌러도 캐릭터가 안 움직임
 
-스크린샷처럼 **타이머(예: 78)가 멈춰 있고** 키가 전혀 안 먹으면, 게임이 **일시정지**된 상태일 가능성이 큽니다.
+**Unity 6** 은 기본이 **New Input System** 이라, 예전 `Input.GetKey` 만 쓰면 키가 **전혀 안 먹을 수 있습니다.**
 
-1. Unity 상단 **▶ Pause** 버튼이 켜져 있으면 **다시 눌러 해제**
-2. **Console** 창 오른쪽 **Error Pause** 가 켜져 있으면 **끄기**
-   - `SearchDatabase` / `ArgumentOutOfRangeException` 은 **Unity 에디터 검색 버그**이며, **게임 코드 오류가 아닙니다**
-   - Error Pause 가 켜져 있으면 이 에러 때문에 **Play가 자동으로 멈춥니다**
-3. **Game** 탭을 클릭한 뒤 키 입력 (Scene/Console 포커스면 입력이 게임으로 안 감)
-4. Windows **한/영** 키로 **영문 입력 모드** 확인
-5. 그래도 반복되면 Unity 종료 → 프로젝트 폴더의 `Library\Search` 삭제 → 재실행
+1. **Edit > Project Settings > Player > Active Input Handling** → **Both** 로 설정 (변경 후 Unity 재시작)
+2. 최신 코드 Pull 후 다시 Play (**Input System 패키지** 포함)
+3. **오프라인 (로컬 2P)** 로 시작했는지 확인
+4. **Game** 탭 클릭 후 **A/D** 또는 **방향키** (P1 둘 다 가능)
+5. 화면 하단에 **입력: P1→** 같은 표시가 뜨면 키는 정상 인식 중
+
+| 플레이어 | 키 |
+|----------|-----|
+| **P1 카론** | `A/D` 또는 `←/→`, `W/↑` 점프, `S/↓` 가드, `J/K/L` 공격, `U/I` 스킬 |
+| **P2** | `←/→` 이동, `↑` 점프, `↓` 가드, `1/2/3` 공격 |
+
+그 외:
+- Unity 상단 **▶ Pause** / Console **Error Pause** 확인
+- **한/영** 으로 영문 입력 모드
+- Unity 종료 → `Library\Search` 삭제 → 재실행
 
 에디터 메뉴: **Fighting Game > Input Not Working?**
 

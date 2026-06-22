@@ -101,7 +101,7 @@ PlayerSettings:
   gcIncremental: 1
   assemblyVersionValidation: 1
   apiCompatibilityLevelPerPlatform: {}
-  activeInputHandler: 0
+  activeInputHandler: 2
   cloudProjectId:
   projectName:
   organizationId:

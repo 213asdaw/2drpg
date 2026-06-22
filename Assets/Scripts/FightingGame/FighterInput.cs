@@ -1,4 +1,7 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace FightingGame
 {
@@ -55,23 +58,197 @@ namespace FightingGame
             return HasGameplayInput(ReadPlayerOne()) || HasGameplayInput(ReadPlayerTwo());
         }
 
+        public static string DescribeActiveKeys()
+        {
+            var parts = new System.Collections.Generic.List<string>(8);
+            FighterInputSnapshot p1 = ReadPlayerOne();
+            FighterInputSnapshot p2 = ReadPlayerTwo();
+
+            if (Mathf.Abs(p1.Horizontal) > 0.01f)
+            {
+                parts.Add(p1.Horizontal < 0f ? "P1←" : "P1→");
+            }
+
+            if (p1.JumpPressed)
+            {
+                parts.Add("P1점프");
+            }
+
+            if (p1.BlockHeld)
+            {
+                parts.Add("P1가드");
+            }
+
+            if (p1.LightPressed)
+            {
+                parts.Add("P1J");
+            }
+
+            if (p1.KickPressed)
+            {
+                parts.Add("P1K");
+            }
+
+            if (p1.HeavyPressed)
+            {
+                parts.Add("P1L");
+            }
+
+            if (p1.Skill1Pressed)
+            {
+                parts.Add("P1U");
+            }
+
+            if (p1.Skill2Pressed)
+            {
+                parts.Add("P1I");
+            }
+
+            if (Mathf.Abs(p2.Horizontal) > 0.01f)
+            {
+                parts.Add(p2.Horizontal < 0f ? "P2←" : "P2→");
+            }
+
+            if (p2.JumpPressed)
+            {
+                parts.Add("P2점프");
+            }
+
+            if (p2.BlockHeld)
+            {
+                parts.Add("P2가드");
+            }
+
+            if (p2.LightPressed)
+            {
+                parts.Add("P21");
+            }
+
+            if (p2.KickPressed)
+            {
+                parts.Add("P22");
+            }
+
+            if (p2.HeavyPressed)
+            {
+                parts.Add("P23");
+            }
+
+            return parts.Count == 0 ? string.Empty : string.Join(" ", parts);
+        }
+
         public static FighterInputSnapshot ReadPlayerOne()
         {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                return ReadPlayerOneFromKeyboard(keyboard);
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            return ReadPlayerOneLegacy();
+#else
+            return FighterInputSnapshot.Empty;
+#endif
+        }
+
+        public static FighterInputSnapshot ReadPlayerTwo()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                return ReadPlayerTwoFromKeyboard(keyboard);
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            return ReadPlayerTwoLegacy();
+#else
+            return FighterInputSnapshot.Empty;
+#endif
+        }
+
+#if ENABLE_INPUT_SYSTEM
+        private static FighterInputSnapshot ReadPlayerOneFromKeyboard(Keyboard keyboard)
+        {
             float horizontal = 0f;
-            if (Input.GetKey(KeyCode.A))
+            if (IsPressed(keyboard, Key.A) || IsPressed(keyboard, Key.LeftArrow))
             {
                 horizontal -= 1f;
             }
 
-            if (Input.GetKey(KeyCode.D))
+            if (IsPressed(keyboard, Key.D) || IsPressed(keyboard, Key.RightArrow))
             {
                 horizontal += 1f;
             }
 
             return new FighterInputSnapshot(
                 horizontal,
-                Input.GetKeyDown(KeyCode.W),
-                Input.GetKey(KeyCode.S),
+                WasPressedThisFrame(keyboard, Key.W) || WasPressedThisFrame(keyboard, Key.UpArrow),
+                IsPressed(keyboard, Key.S) || IsPressed(keyboard, Key.DownArrow),
+                WasPressedThisFrame(keyboard, Key.J),
+                WasPressedThisFrame(keyboard, Key.K),
+                WasPressedThisFrame(keyboard, Key.L),
+                WasPressedThisFrame(keyboard, Key.U),
+                WasPressedThisFrame(keyboard, Key.I));
+        }
+
+        private static FighterInputSnapshot ReadPlayerTwoFromKeyboard(Keyboard keyboard)
+        {
+            float horizontal = 0f;
+            if (IsPressed(keyboard, Key.LeftArrow))
+            {
+                horizontal -= 1f;
+            }
+
+            if (IsPressed(keyboard, Key.RightArrow))
+            {
+                horizontal += 1f;
+            }
+
+            return new FighterInputSnapshot(
+                horizontal,
+                WasPressedThisFrame(keyboard, Key.UpArrow),
+                IsPressed(keyboard, Key.DownArrow),
+                WasPressedThisFrame(keyboard, Key.Digit1) || WasPressedThisFrame(keyboard, Key.Numpad1),
+                WasPressedThisFrame(keyboard, Key.Digit2) || WasPressedThisFrame(keyboard, Key.Numpad2),
+                WasPressedThisFrame(keyboard, Key.Digit3) || WasPressedThisFrame(keyboard, Key.Numpad3),
+                WasPressedThisFrame(keyboard, Key.Digit4) || WasPressedThisFrame(keyboard, Key.Numpad4),
+                WasPressedThisFrame(keyboard, Key.Digit5) || WasPressedThisFrame(keyboard, Key.Numpad5));
+        }
+
+        private static bool IsPressed(Keyboard keyboard, Key key)
+        {
+            KeyControl control = keyboard[key];
+            return control != null && control.isPressed;
+        }
+
+        private static bool WasPressedThisFrame(Keyboard keyboard, Key key)
+        {
+            KeyControl control = keyboard[key];
+            return control != null && control.wasPressedThisFrame;
+        }
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        private static FighterInputSnapshot ReadPlayerOneLegacy()
+        {
+            float horizontal = 0f;
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+            {
+                horizontal -= 1f;
+            }
+
+            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+            {
+                horizontal += 1f;
+            }
+
+            return new FighterInputSnapshot(
+                horizontal,
+                Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow),
+                Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow),
                 Input.GetKeyDown(KeyCode.J),
                 Input.GetKeyDown(KeyCode.K),
                 Input.GetKeyDown(KeyCode.L),
@@ -79,7 +256,7 @@ namespace FightingGame
                 Input.GetKeyDown(KeyCode.I));
         }
 
-        public static FighterInputSnapshot ReadPlayerTwo()
+        private static FighterInputSnapshot ReadPlayerTwoLegacy()
         {
             float horizontal = 0f;
             if (Input.GetKey(KeyCode.LeftArrow))
@@ -102,5 +279,6 @@ namespace FightingGame
                 Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4),
                 Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5));
         }
+#endif
     }
 }

@@ -84,6 +84,35 @@ namespace FightingGame
             DrawControlsHelp();
             DrawBanner();
             DrawFloatingTexts();
+            DrawInputDebug();
+        }
+
+        private void DrawInputDebug()
+        {
+            if (matchManager.Phase != MatchPhase.Fighting && matchManager.Phase != MatchPhase.Intro)
+            {
+                return;
+            }
+
+            string activeKeys = FighterInputReader.DescribeActiveKeys();
+            EnsureStyles();
+
+            if (!string.IsNullOrEmpty(activeKeys))
+            {
+                GUI.Label(
+                    new Rect(Screen.width * 0.5f - 180f, Screen.height - 36f, 360f, 24f),
+                    "입력: " + activeKeys,
+                    labelStyle);
+                return;
+            }
+
+            if (matchManager.Phase == MatchPhase.Fighting && !sawGameplayInput && fightingPhaseStartedAt >= 0f && Time.time - fightingPhaseStartedAt > 1.5f)
+            {
+                GUI.Label(
+                    new Rect(Screen.width * 0.5f - 320f, Screen.height - 52f, 640f, 24f),
+                    "키가 안 잡히면 Edit > Project Settings > Player > Active Input Handling = Both",
+                    labelStyle);
+            }
         }
 
         private void CreateFighters()
@@ -265,8 +294,9 @@ namespace FightingGame
                 "키 입력이 안 되면:\n"
                 + "1) Unity 상단 Game 탭을 클릭\n"
                 + "2) ▶ Pause 가 켜져 있지 않은지 확인\n"
-                + "3) Console 의 Error Pause 끄기\n"
-                + "4) 한/영 으로 영문 입력 모드",
+                +                 "3) Console 의 Error Pause 끄기\n"
+                + "4) Edit > Project Settings > Player > Active Input Handling = Both\n"
+                + "5) 한/영 으로 영문 입력 모드",
                 hintStyle);
         }
 

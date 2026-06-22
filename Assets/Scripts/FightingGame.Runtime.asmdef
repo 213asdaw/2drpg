@@ -2,6 +2,7 @@
     "name": "FightingGame.Runtime",
     "rootNamespace": "",
     "references": [
+        "Unity.InputSystem",
         "UnityEngine.IMGUIModule",
         "UnityEngine.UIModule",
         "Unity.Netcode.Runtime",
