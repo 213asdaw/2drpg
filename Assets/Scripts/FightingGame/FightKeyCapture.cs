@@ -27,6 +27,48 @@ namespace FightingGame
         private static bool guiArrowUpPressed;
         private static bool frameEnded;
 
+        private static bool hwArrowLeft;
+        private static bool hwArrowRight;
+        private static bool hwArrowUp;
+        private static bool hwArrowDown;
+        private static bool hwArrowUpPressed;
+
+        public static void PollHardwareKeys()
+        {
+            bool nextLeft = false;
+            bool nextRight = false;
+            bool nextUp = false;
+            bool nextDown = false;
+
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                nextLeft = keyboard.leftArrowKey.isPressed;
+                nextRight = keyboard.rightArrowKey.isPressed;
+                nextUp = keyboard.upArrowKey.isPressed;
+                nextDown = keyboard.downArrowKey.isPressed;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            try
+            {
+                nextLeft |= Input.GetKey(KeyCode.LeftArrow);
+                nextRight |= Input.GetKey(KeyCode.RightArrow);
+                nextUp |= Input.GetKey(KeyCode.UpArrow);
+                nextDown |= Input.GetKey(KeyCode.DownArrow);
+            }
+            catch (System.InvalidOperationException)
+            {
+            }
+#endif
+            hwArrowUpPressed = nextUp && !hwArrowUp;
+            hwArrowLeft = nextLeft;
+            hwArrowRight = nextRight;
+            hwArrowUp = nextUp;
+            hwArrowDown = nextDown;
+        }
+
         public static void ProcessGuiEvent(Event current)
         {
             if (current == null)
@@ -154,20 +196,25 @@ namespace FightingGame
 
         public static float ReadPlayerTwoHorizontal()
         {
-            bool left = guiArrowLeftHeld
-                || ReadModernArrowLeft()
-                || ReadLegacyKey(KeyCode.LeftArrow)
-                || ReadModernKeyPressed(Key.E)
-                || ReadLegacyKey(KeyCode.E);
+            float arrowAxis = ReadArrowAxisOnly();
+            if (Mathf.Abs(arrowAxis) > 0.01f)
+            {
+                return arrowAxis;
+            }
 
-            bool right = guiArrowRightHeld
-                || ReadModernArrowRight()
-                || ReadLegacyKey(KeyCode.RightArrow)
-                || ReadModernKeyPressed(Key.O)
-                || ReadLegacyKey(KeyCode.O);
+            bool left = ReadModernKeyPressed(Key.E)
+                || ReadLegacyKey(KeyCode.E)
+                || ReadModernKeyPressed(Key.Numpad4)
+                || ReadLegacyKey(KeyCode.Keypad4);
 
-            left |= ReadModernKeyPressed(Key.Numpad4) || ReadLegacyKey(KeyCode.Keypad4);
-            right |= ReadModernKeyPressed(Key.Numpad6) || ReadLegacyKey(KeyCode.Keypad6);
+            bool right = ReadModernKeyPressed(Key.O)
+                || ReadLegacyKey(KeyCode.O)
+                || ReadModernKeyPressed(Key.Numpad6)
+                || ReadLegacyKey(KeyCode.Keypad6)
+                || ReadModernKeyPressed(Key.Period)
+                || ReadLegacyKey(KeyCode.Period)
+                || ReadModernKeyPressed(Key.RightBracket)
+                || ReadLegacyKey(KeyCode.RightBracket);
 
             if (left && right)
             {
@@ -180,6 +227,24 @@ namespace FightingGame
             }
 
             if (left)
+            {
+                return -1f;
+            }
+
+            return 0f;
+        }
+
+        private static float ReadArrowAxisOnly()
+        {
+            bool left = hwArrowLeft || guiArrowLeftHeld;
+            bool right = hwArrowRight || guiArrowRightHeld;
+
+            if (right && !left)
+            {
+                return 1f;
+            }
+
+            if (left && !right)
             {
                 return -1f;
             }
@@ -238,6 +303,7 @@ namespace FightingGame
         {
             return guiP2JumpPressed
                 || guiArrowUpPressed
+                || hwArrowUpPressed
                 || ReadModernUpPressed()
                 || ReadLegacyKeyDown(KeyCode.UpArrow)
                 || ReadModernKeyDown(Key.PageUp)
@@ -275,7 +341,8 @@ namespace FightingGame
 
         public static bool ReadPlayerTwoBlockHeld()
         {
-            return guiArrowDownHeld
+            return hwArrowDown
+                || guiArrowDownHeld
                 || ReadModernDownHeld()
                 || ReadLegacyKey(KeyCode.DownArrow)
                 || ReadModernKeyPressed(Key.PageDown)

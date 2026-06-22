@@ -409,13 +409,13 @@ namespace FightingGame
         private bool CanUseSkill1()
         {
             FighterArchetypeDefinition def = FighterArchetypes.Get(archetypeId);
-            return def.HasFlameSlash && grounded && skill1Cooldown <= 0f && CanStartAttack();
+            return def.HasFlameSlash && skill1Cooldown <= 0f && CanStartAttack();
         }
 
         private bool CanUseSkill2()
         {
             FighterArchetypeDefinition def = FighterArchetypes.Get(archetypeId);
-            return def.HasMoltenGuard && grounded && skill2Cooldown <= 0f && CanStartAttack();
+            return def.HasMoltenGuard && skill2Cooldown <= 0f && CanStartAttack();
         }
 
         private void BeginSkill1()

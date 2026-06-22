@@ -90,6 +90,7 @@ namespace FightingGame
             }
 
             lastFighterTickFrame = Time.frameCount;
+            FightKeyCapture.PollHardwareKeys();
             bool controlsEnabled = matchManager.ControlsEnabled;
             FighterInputSnapshot playerOneInput = FighterInputReader.ReadPlayerOne();
             FighterInputSnapshot playerTwoInput = FighterInputReader.ReadPlayerTwo();
@@ -163,7 +164,7 @@ namespace FightingGame
             GUI.Label(
                 new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
                 backend + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00") + "\n"
-                + "Game 탭 클릭 → P1: A/D | P2: ←/→ (E/O 대체) | ↑↓ 점프/가드\n"
+                + "Game 탭 클릭 → P2: ←/→ (안 되면 O 또는 . 키) | ↑↓\n"
                 + "Active Input Handling = Both | Device Simulator 창 닫기",
                 hintStyle);
         }
@@ -330,7 +331,7 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 520f, 44f),
-                "P1 카론: A/D 이동 W점프 S가드 J/K/L 공격(공중 가능) | U/I 스킬",
+                "P1 카론: A/D W S J/K/L | U/I 스킬(공중 가능)",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
                 "P2 검투사: ←/→ 또는 E/O | ↑/↓ | 1/2/3 공격(공중 가능)",

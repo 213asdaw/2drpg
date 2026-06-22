@@ -11,6 +11,21 @@ namespace FightingGame
         {
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            InputSystem.onBeforeUpdate += FightKeyCapture.PollHardwareKeys;
+        }
+    }
+}
+#else
+using UnityEngine;
+
+namespace FightingGame
+{
+    public static class FightInputBootstrap
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ConfigureLegacyPoll()
+        {
+            // Legacy-only projects still poll arrows from Update via FightKeyboardPoll.
         }
     }
 }
