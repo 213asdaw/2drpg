@@ -23,6 +23,7 @@ namespace FightingGame
         public float DamageMultiplier { get; }
         public bool HasFlameSlash { get; }
         public bool HasMoltenGuard { get; }
+        public float VisualGroundOffset { get; }
 
         public FighterArchetypeDefinition(
             FighterArchetypeId id,
@@ -32,7 +33,8 @@ namespace FightingGame
             float attackSpeedMultiplier,
             float damageMultiplier,
             bool hasFlameSlash,
-            bool hasMoltenGuard)
+            bool hasMoltenGuard,
+            float visualGroundOffset = 0f)
         {
             Id = id;
             DisplayName = displayName;
@@ -42,6 +44,7 @@ namespace FightingGame
             DamageMultiplier = damageMultiplier;
             HasFlameSlash = hasFlameSlash;
             HasMoltenGuard = hasMoltenGuard;
+            VisualGroundOffset = visualGroundOffset;
         }
     }
 
@@ -55,7 +58,8 @@ namespace FightingGame
             1f,
             1f,
             false,
-            false);
+            false,
+            0.25f);
 
         public static readonly FighterArchetypeDefinition FlameSwordsman = new FighterArchetypeDefinition(
             FighterArchetypeId.FlameSwordsman,
@@ -65,7 +69,8 @@ namespace FightingGame
             1.18f,
             0.9f,
             true,
-            true);
+            true,
+            0f);
 
         public static FighterArchetypeDefinition Get(FighterArchetypeId id)
         {

@@ -115,6 +115,7 @@ namespace FightingGame
         private bool lastVisualFacingRight = true;
         private Sprite cachedBodySprite;
         private const float VisualScale = 1.35f;
+        private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
         public FighterArchetypeId ArchetypeId => archetypeId;
@@ -143,6 +144,7 @@ namespace FightingGame
             DisplayName = definition.DisplayName;
             maxHealth = definition.MaxHealth;
             moveSpeed = definition.MoveSpeed;
+            visualGroundOffset = definition.VisualGroundOffset;
             primaryColor = archetype == FighterArchetypeId.FlameSwordsman
                 ? new Color(0.95f, 0.42f, 0.18f)
                 : index == 0 ? new Color(0.28f, 0.62f, 0.95f) : new Color(0.95f, 0.38f, 0.32f);
@@ -282,7 +284,10 @@ namespace FightingGame
                 return;
             }
 
-            UpdateFacingTowardOpponent();
+            if (Mathf.Abs(input.Horizontal) < 0.01f && !input.BlockHeld)
+            {
+                UpdateFacingTowardOpponent();
+            }
 
             if (input.BlockHeld && grounded)
             {
@@ -298,15 +303,15 @@ namespace FightingGame
             }
             else if (input.HeavyPressed && CanStartAttack())
             {
-                BeginAttack(heavyAttack);
+                BeginAttack(heavyAttack, input.Horizontal);
             }
             else if (input.KickPressed && CanStartAttack())
             {
-                BeginAttack(kickAttack);
+                BeginAttack(kickAttack, input.Horizontal);
             }
             else if (input.LightPressed && CanStartAttack())
             {
-                BeginAttack(lightAttack);
+                BeginAttack(lightAttack, input.Horizontal);
             }
             else if (input.JumpPressed && grounded)
             {
@@ -587,9 +592,13 @@ namespace FightingGame
             hitboxRenderer.enabled = false;
         }
 
-        private void BeginAttack(AttackDefinition attack)
+        private void BeginAttack(AttackDefinition attack, float inputHorizontal = 0f)
         {
-            SnapFacingTowardOpponent();
+            if (Mathf.Abs(inputHorizontal) > 0.01f)
+            {
+                facing = Mathf.Sign(inputHorizontal);
+            }
+
             currentAttack = attack;
             hasHitThisAttack = false;
             stateTimer = 0f;
@@ -607,8 +616,11 @@ namespace FightingGame
 
             if (IsAttackActive() && opponent != null)
             {
-                float lunge = currentAttack.Type == AttackType.Heavy ? 0.65f : 0.42f;
-                transform.position += new Vector3(facing * lunge * deltaTime, 0f, 0f);
+                if (currentAttack.Type == AttackType.Heavy)
+                {
+                    transform.position += new Vector3(facing * 0.25f * deltaTime, 0f, 0f);
+                }
+
                 opponent.TryApplyHitFrom(this, currentAttack);
             }
 
@@ -712,7 +724,7 @@ namespace FightingGame
             transform.localScale = Vector3.one * VisualScale;
             if (bodyRoot != null)
             {
-                bodyRoot.localPosition = new Vector3(0f, bob, 0f);
+                bodyRoot.localPosition = new Vector3(0f, visualGroundOffset + bob, 0f);
                 bodyRoot.localScale = new Vector3(1f, 1f + squash, 1f);
             }
 

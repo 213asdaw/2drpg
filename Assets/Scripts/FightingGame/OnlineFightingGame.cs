@@ -63,6 +63,11 @@ namespace FightingGame
                 coordinator.ServerRestartMatch();
             }
 
+            if (coordinator != null && coordinator.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.M))
+            {
+                FightSessionCleanup.ReturnToMainMenu();
+            }
+
             UpdateStatusText();
         }
 
@@ -86,6 +91,7 @@ namespace FightingGame
             DrawBanner(coordinator);
             DrawFloatingTexts();
             DrawSkillCooldowns(playerOne.Fighter, playerTwo.Fighter);
+            DrawMatchEndMenu(coordinator);
         }
 
         private void HandleServerStarted()
@@ -187,6 +193,42 @@ namespace FightingGame
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white }
             };
+
+            buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 16,
+                fontStyle = FontStyle.Bold
+            };
+        }
+
+        private void DrawMatchEndMenu(NetworkMatchCoordinator coordinator)
+        {
+            if (coordinator.Phase != MatchPhase.MatchEnd)
+            {
+                return;
+            }
+
+            EnsureStyles();
+            float centerX = Screen.width * 0.5f;
+            float y = Screen.height - 118f;
+            bool isHost = networkManager != null && networkManager.IsServer;
+
+            if (isHost)
+            {
+                if (GUI.Button(new Rect(centerX - 170f, y, 160f, 42f), "재대결 (R)", buttonStyle))
+                {
+                    coordinator.ServerRestartMatch();
+                }
+            }
+            else
+            {
+                GUI.Label(new Rect(centerX - 170f, y + 10f, 160f, 24f), "재대결: 호스트만", labelStyle);
+            }
+
+            if (GUI.Button(new Rect(centerX + 10f, y, 160f, 42f), "메인 메뉴 (M)", buttonStyle))
+            {
+                FightSessionCleanup.ReturnToMainMenu();
+            }
         }
 
         private void DrawSkillCooldowns(FighterController playerOneFighter, FighterController playerTwoFighter)
@@ -254,9 +296,12 @@ namespace FightingGame
                 "P1 카론: A/D W S J K L | U/I 스킬 (방향키는 P2 전용)",
                 labelStyle);
 
-            if (coordinator.Phase == MatchPhase.MatchEnd && networkManager != null && networkManager.IsServer)
+            if (coordinator.Phase == MatchPhase.MatchEnd)
             {
-                GUI.Label(new Rect(Screen.width * 0.5f - 120f, Screen.height - 48f, 240f, 30f), "R 키 — 재대결 (호스트만)", labelStyle);
+                string restartHint = networkManager != null && networkManager.IsServer
+                    ? "R — 재대결  |  M — 메인 메뉴"
+                    : "M — 메인 메뉴";
+                GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 72f, 360f, 24f), restartHint, labelStyle);
             }
         }
 

@@ -37,6 +37,40 @@ namespace FightingGame
         }
 
         public static FighterInputSnapshot Empty => new FighterInputSnapshot(0f, false, false, false, false, false, false, false);
+
+        public static FighterInputSnapshot Combine(FighterInputSnapshot primary, FighterInputSnapshot secondary)
+        {
+            float horizontal = 0f;
+            if (Mathf.Abs(primary.Horizontal) > 0.01f && Mathf.Abs(secondary.Horizontal) > 0.01f)
+            {
+                if (Mathf.Sign(primary.Horizontal) == Mathf.Sign(secondary.Horizontal))
+                {
+                    horizontal = Mathf.Clamp(primary.Horizontal + secondary.Horizontal, -1f, 1f);
+                }
+                else
+                {
+                    horizontal = primary.Horizontal;
+                }
+            }
+            else if (Mathf.Abs(primary.Horizontal) > 0.01f)
+            {
+                horizontal = primary.Horizontal;
+            }
+            else
+            {
+                horizontal = secondary.Horizontal;
+            }
+
+            return new FighterInputSnapshot(
+                horizontal,
+                primary.JumpPressed || secondary.JumpPressed,
+                primary.BlockHeld || secondary.BlockHeld,
+                primary.LightPressed || secondary.LightPressed,
+                primary.KickPressed || secondary.KickPressed,
+                primary.HeavyPressed || secondary.HeavyPressed,
+                primary.Skill1Pressed || secondary.Skill1Pressed,
+                primary.Skill2Pressed || secondary.Skill2Pressed);
+        }
     }
 
     public static class FighterInputReader
@@ -156,6 +190,20 @@ namespace FightingGame
 
         public static FighterInputSnapshot ReadPlayerOne()
         {
+            FighterInputSnapshot modern = ReadPlayerOneModern();
+            FighterInputSnapshot legacy = ReadPlayerOneLegacySafe();
+            return FighterInputSnapshot.Combine(modern, legacy);
+        }
+
+        public static FighterInputSnapshot ReadPlayerTwo()
+        {
+            FighterInputSnapshot modern = ReadPlayerTwoModern();
+            FighterInputSnapshot legacy = ReadPlayerTwoLegacySafe();
+            return FighterInputSnapshot.Combine(modern, legacy);
+        }
+
+        private static FighterInputSnapshot ReadPlayerOneModern()
+        {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
@@ -163,10 +211,10 @@ namespace FightingGame
                 return ReadPlayerOneFromKeyboard(keyboard);
             }
 #endif
-            return ReadPlayerOneLegacySafe();
+            return FighterInputSnapshot.Empty;
         }
 
-        public static FighterInputSnapshot ReadPlayerTwo()
+        private static FighterInputSnapshot ReadPlayerTwoModern()
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
@@ -175,7 +223,7 @@ namespace FightingGame
                 return ReadPlayerTwoFromKeyboard(keyboard);
             }
 #endif
-            return ReadPlayerTwoLegacySafe();
+            return FighterInputSnapshot.Empty;
         }
 
 #if ENABLE_INPUT_SYSTEM
@@ -205,16 +253,7 @@ namespace FightingGame
 
         private static FighterInputSnapshot ReadPlayerTwoFromKeyboard(Keyboard keyboard)
         {
-            float horizontal = 0f;
-            if (IsPressed(keyboard, Key.LeftArrow))
-            {
-                horizontal -= 1f;
-            }
-
-            if (IsPressed(keyboard, Key.RightArrow))
-            {
-                horizontal += 1f;
-            }
+            float horizontal = ReadPlayerTwoHorizontal(keyboard);
 
             return new FighterInputSnapshot(
                 horizontal,
@@ -223,8 +262,32 @@ namespace FightingGame
                 WasPressedThisFrame(keyboard, Key.Digit1) || WasPressedThisFrame(keyboard, Key.Numpad1),
                 WasPressedThisFrame(keyboard, Key.Digit2) || WasPressedThisFrame(keyboard, Key.Numpad2),
                 WasPressedThisFrame(keyboard, Key.Digit3) || WasPressedThisFrame(keyboard, Key.Numpad3),
-                WasPressedThisFrame(keyboard, Key.Digit4) || WasPressedThisFrame(keyboard, Key.Numpad4),
-                WasPressedThisFrame(keyboard, Key.Digit5) || WasPressedThisFrame(keyboard, Key.Numpad5));
+                false,
+                false);
+        }
+
+        private static float ReadPlayerTwoHorizontal(Keyboard keyboard)
+        {
+            bool left = keyboard.leftArrowKey.isPressed
+                || keyboard.numpad4Key.isPressed
+                || keyboard.commaKey.isPressed
+                || IsPressed(keyboard, Key.LeftArrow)
+                || IsPressed(keyboard, Key.Numpad4)
+                || IsPressed(keyboard, Key.Comma);
+
+            bool right = keyboard.rightArrowKey.isPressed
+                || keyboard.numpad6Key.isPressed
+                || keyboard.periodKey.isPressed
+                || IsPressed(keyboard, Key.RightArrow)
+                || IsPressed(keyboard, Key.Numpad6)
+                || IsPressed(keyboard, Key.Period);
+
+            if (left == right)
+            {
+                return 0f;
+            }
+
+            return right ? 1f : -1f;
         }
 
         private static bool IsPressed(Keyboard keyboard, Key key)
@@ -298,12 +361,16 @@ namespace FightingGame
         private static FighterInputSnapshot ReadPlayerTwoLegacy()
         {
             float horizontal = 0f;
-            if (Input.GetKey(KeyCode.LeftArrow))
+            if (Input.GetKey(KeyCode.LeftArrow)
+                || Input.GetKey(KeyCode.Keypad4)
+                || Input.GetKey(KeyCode.Comma))
             {
                 horizontal -= 1f;
             }
 
-            if (Input.GetKey(KeyCode.RightArrow))
+            if (Input.GetKey(KeyCode.RightArrow)
+                || Input.GetKey(KeyCode.Keypad6)
+                || Input.GetKey(KeyCode.Period))
             {
                 horizontal += 1f;
             }
@@ -315,8 +382,8 @@ namespace FightingGame
                 Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1),
                 Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2),
                 Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3),
-                Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4),
-                Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5));
+                false,
+                false);
         }
 #endif
     }
