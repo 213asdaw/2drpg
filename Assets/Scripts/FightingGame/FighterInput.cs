@@ -2,6 +2,40 @@ using UnityEngine;
 
 namespace FightingGame
 {
+    public readonly struct FighterInputSnapshot
+    {
+        public readonly float Horizontal;
+        public readonly bool JumpPressed;
+        public readonly bool BlockHeld;
+        public readonly bool LightPressed;
+        public readonly bool KickPressed;
+        public readonly bool HeavyPressed;
+        public readonly bool Skill1Pressed;
+        public readonly bool Skill2Pressed;
+
+        public FighterInputSnapshot(
+            float horizontal,
+            bool jumpPressed,
+            bool blockHeld,
+            bool lightPressed,
+            bool kickPressed,
+            bool heavyPressed,
+            bool skill1Pressed,
+            bool skill2Pressed)
+        {
+            Horizontal = horizontal;
+            JumpPressed = jumpPressed;
+            BlockHeld = blockHeld;
+            LightPressed = lightPressed;
+            KickPressed = kickPressed;
+            HeavyPressed = heavyPressed;
+            Skill1Pressed = skill1Pressed;
+            Skill2Pressed = skill2Pressed;
+        }
+
+        public static FighterInputSnapshot Empty => new FighterInputSnapshot(0f, false, false, false, false, false, false, false);
+    }
+
     public static class FighterInputReader
     {
         public static bool HasGameplayInput(FighterInputSnapshot input)
