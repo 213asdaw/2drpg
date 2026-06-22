@@ -98,19 +98,20 @@ namespace FightingGame
             string activeKeys = FighterInputReader.DescribeActiveKeys();
             string backend = FighterInputReader.DescribeInputBackend();
             float p1X = playerOne != null ? playerOne.transform.position.x : 0f;
+            float p2X = playerTwo != null ? playerTwo.transform.position.x : 0f;
 
             if (!string.IsNullOrEmpty(activeKeys))
             {
                 GUI.Label(
-                    new Rect(Screen.width * 0.5f - 220f, Screen.height - 56f, 440f, 24f),
-                    "입력 OK: " + activeKeys + " | X=" + p1X.ToString("0.0"),
+                    new Rect(Screen.width * 0.5f - 260f, Screen.height - 56f, 520f, 24f),
+                    "입력 OK: " + activeKeys + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00"),
                     hintStyle);
                 return;
             }
 
             GUI.Label(
                 new Rect(Screen.width * 0.5f - 340f, Screen.height - 88f, 680f, 72f),
-                backend + "\n"
+                backend + " | P1 X=" + p1X.ToString("0.00") + " P2 X=" + p2X.ToString("0.00") + "\n"
                 + "Game 탭 클릭 → A/D 또는 ←/→ (P1)\n"
                 + "Active Input Handling = Both | Device Simulator 창 닫기",
                 hintStyle);

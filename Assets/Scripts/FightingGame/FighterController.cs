@@ -309,11 +309,11 @@ namespace FightingGame
                 grounded = false;
                 SetState(FighterState.Jump);
             }
-            else if (Mathf.Abs(input.Horizontal) > 0.01f && grounded)
+            else if (Mathf.Abs(input.Horizontal) > 0.01f)
             {
                 transform.position += new Vector3(input.Horizontal * moveSpeed * deltaTime, 0f, 0f);
                 facing = Mathf.Sign(input.Horizontal);
-                SetState(FighterState.Walk);
+                SetState(grounded ? FighterState.Walk : FighterState.Fall);
             }
             else if (grounded)
             {
@@ -533,11 +533,14 @@ namespace FightingGame
 
         private void BuildVisuals()
         {
-            bodyRenderer = gameObject.AddComponent<SpriteRenderer>();
+            GameObject bodyObject = new GameObject("Body");
+            bodyObject.transform.SetParent(transform, false);
+            bodyRoot = bodyObject.transform;
+            bodyRenderer = bodyObject.AddComponent<SpriteRenderer>();
             bodyRenderer.sortingOrder = 10 + playerIndex;
 
             GameObject auraObject = new GameObject("DefenseAura");
-            auraObject.transform.SetParent(transform, false);
+            auraObject.transform.SetParent(bodyRoot, false);
             auraRenderer = auraObject.AddComponent<SpriteRenderer>();
             auraRenderer.sprite = ProceduralArt.CreateRectSprite(24, 24, new Color(1f, 0.55f, 0.12f, 0.35f), "DefenseAura");
             auraRenderer.sortingOrder = 8 + playerIndex;
@@ -665,7 +668,10 @@ namespace FightingGame
             float bob = State == FighterState.Walk ? Mathf.Sin(Time.time * 12f) * 0.04f : 0f;
             float squash = State == FighterState.Block ? -0.08f : 0f;
             transform.localScale = new Vector3(VisualScale, VisualScale * (1f + squash), VisualScale);
-            bodyRenderer.transform.localPosition = new Vector3(0f, bob, 0f);
+            if (bodyRoot != null)
+            {
+                bodyRoot.localPosition = new Vector3(0f, bob, 0f);
+            }
 
             if (archetypeId == FighterArchetypeId.FlameSwordsman && IsDefenseBuffActive)
             {
