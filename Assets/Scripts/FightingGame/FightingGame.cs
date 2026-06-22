@@ -59,25 +59,36 @@ namespace FightingGame
 
         private int lastFighterTickFrame = -1;
 
-        private void LateUpdate()
+        private void OnGUI()
+        {
+            FightKeyCapture.ProcessGuiEvent(Event.current);
+
+            if (Event.current.type == EventType.Repaint && lastFighterTickFrame != Time.frameCount)
+            {
+                FightKeyCapture.BeginFrame();
+                TickFighters();
+                FightKeyCapture.EndFrame();
+            }
+
+            EnsureStyles();
+            DrawHealthBar(new Rect(40f, 24f, 420f, 28f), playerOne, false);
+            DrawHealthBar(new Rect(Screen.width - 460f, 24f, 420f, 28f), playerTwo, true);
+            DrawRoundInfo();
+            DrawControlsHelp();
+            DrawBanner();
+            DrawFloatingTexts();
+            DrawSkillCooldowns();
+            DrawInputDebug();
+            DrawMatchEndMenu();
+        }
+
+        private void TickFighters()
         {
             if (playerOne == null || playerTwo == null || matchManager == null)
             {
                 return;
             }
 
-            if (lastFighterTickFrame == Time.frameCount)
-            {
-                FightKeyCapture.EndFrame();
-                return;
-            }
-
-            TickFighters();
-            FightKeyCapture.EndFrame();
-        }
-
-        private void TickFighters()
-        {
             lastFighterTickFrame = Time.frameCount;
             bool controlsEnabled = matchManager.ControlsEnabled;
             FighterInputSnapshot playerOneInput = FighterInputReader.ReadPlayerOne();
@@ -103,27 +114,6 @@ namespace FightingGame
 
             playerOne.Tick(Time.deltaTime, playerOneInput, controlsEnabled);
             playerTwo.Tick(Time.deltaTime, playerTwoInput, controlsEnabled);
-        }
-
-        private void OnGUI()
-        {
-            FightKeyCapture.ProcessGuiEvent(Event.current);
-
-            if (lastFighterTickFrame != Time.frameCount && Event.current.type == EventType.Repaint)
-            {
-                TickFighters();
-            }
-
-            EnsureStyles();
-            DrawHealthBar(new Rect(40f, 24f, 420f, 28f), playerOne, false);
-            DrawHealthBar(new Rect(Screen.width - 460f, 24f, 420f, 28f), playerTwo, true);
-            DrawRoundInfo();
-            DrawControlsHelp();
-            DrawBanner();
-            DrawFloatingTexts();
-            DrawSkillCooldowns();
-            DrawInputDebug();
-            DrawMatchEndMenu();
         }
 
         private void DrawMatchEndMenu()
@@ -340,10 +330,10 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 520f, 44f),
-                "P1 카론: A/D 이동 W점프 S가드 J/K/L 공격 | U/I 스킬",
+                "P1 카론: A/D 이동 W점프 S가드 J/K/L 공격(공중 가능) | U/I 스킬",
                 labelStyle);
             GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
-                "P2 검투사: ←/→ 또는 E/O | ↑/↓ | 1/2/3 공격",
+                "P2 검투사: ←/→ 또는 E/O | ↑/↓ | 1/2/3 공격(공중 가능)",
                 labelStyle);
 
             DrawInputFocusHint();

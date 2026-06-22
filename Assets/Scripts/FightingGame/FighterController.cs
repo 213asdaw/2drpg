@@ -306,7 +306,7 @@ namespace FightingGame
                 {
                     BeginAttack(lightAttack, input.Horizontal);
                 }
-                else if (input.JumpPressed && grounded)
+                else if (input.JumpPressed && grounded && !IsAttackState(State))
                 {
                     velocityY = FightConstants.JumpVelocity;
                     grounded = false;
@@ -334,6 +334,22 @@ namespace FightingGame
             UpdateVisuals();
         }
 
+        public void ReceiveMeleeHit(FighterController attacker, AttackDefinition attack)
+        {
+            if (attacker == null || attack == null || attacker.hasHitThisAttack || !IsAlive)
+            {
+                return;
+            }
+
+            if (invulnTimer > 0f)
+            {
+                return;
+            }
+
+            attacker.hasHitThisAttack = true;
+            ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
+        }
+
         public void TryApplyHitFrom(FighterController attacker, AttackDefinition attack)
         {
             if (attacker == null || attack == null || opponent != this || attacker.hasHitThisAttack)
@@ -346,25 +362,7 @@ namespace FightingGame
                 return;
             }
 
-            if (invulnTimer > 0f || !IsAlive)
-            {
-                return;
-            }
-
-            float dx = Mathf.Abs(transform.position.x - attacker.transform.position.x);
-            float dy = Mathf.Abs(transform.position.y - attacker.transform.position.y);
-            if (dx <= 4.2f && dy <= 3.2f)
-            {
-                attacker.hasHitThisAttack = true;
-                ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
-                return;
-            }
-
-            if (attacker.GetActiveHitboxBounds().Intersects(GetHurtboxBounds()))
-            {
-                attacker.hasHitThisAttack = true;
-                ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
-            }
+            ReceiveMeleeHit(attacker, attack);
         }
 
         public bool IsInHitWindow()
@@ -626,12 +624,12 @@ namespace FightingGame
 
             if (IsInHitWindow() && opponent != null)
             {
-                if (currentAttack.Type == AttackType.Heavy)
+                if (currentAttack.Type == AttackType.Heavy && grounded)
                 {
                     transform.position += new Vector3(facing * 0.25f * deltaTime, 0f, 0f);
                 }
 
-                opponent.TryApplyHitFrom(this, currentAttack);
+                ResolveAttackHit();
             }
 
             if (stateTimer >= currentAttack.TotalDuration)
@@ -642,9 +640,26 @@ namespace FightingGame
             }
         }
 
+        private void ResolveAttackHit()
+        {
+            if (opponent == null || hasHitThisAttack || currentAttack == null || !IsInHitWindow())
+            {
+                return;
+            }
+
+            float dx = Mathf.Abs(opponent.transform.position.x - transform.position.x);
+            float dy = Mathf.Abs(opponent.transform.position.y - transform.position.y);
+            if (dx > 5.5f || dy > 4.5f)
+            {
+                return;
+            }
+
+            opponent.ReceiveMeleeHit(this, currentAttack);
+        }
+
         private bool CanStartAttack()
         {
-            return grounded && State != FighterState.Block && !IsAttackState(State) && !IsSkillCastState(State);
+            return State != FighterState.Block && !IsAttackState(State) && !IsSkillCastState(State);
         }
 
         private void ApplyGravity(float deltaTime)

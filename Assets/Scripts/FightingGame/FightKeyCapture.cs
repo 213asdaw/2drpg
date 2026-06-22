@@ -11,7 +11,21 @@ namespace FightingGame
         private static bool guiArrowRightHeld;
         private static bool guiArrowUpHeld;
         private static bool guiArrowDownHeld;
+
+        private static bool guiP1JumpPressed;
+        private static bool guiP1LightPressed;
+        private static bool guiP1KickPressed;
+        private static bool guiP1HeavyPressed;
+        private static bool guiP1Skill1Pressed;
+        private static bool guiP1Skill2Pressed;
+
+        private static bool guiP2JumpPressed;
+        private static bool guiP2LightPressed;
+        private static bool guiP2KickPressed;
+        private static bool guiP2HeavyPressed;
+
         private static bool guiArrowUpPressed;
+        private static bool frameEnded;
 
         public static void ProcessGuiEvent(Event current)
         {
@@ -35,10 +49,55 @@ namespace FightingGame
                     case KeyCode.UpArrow:
                         guiArrowUpHeld = true;
                         guiArrowUpPressed = true;
+                        guiP2JumpPressed = true;
                         current.Use();
                         break;
                     case KeyCode.DownArrow:
                         guiArrowDownHeld = true;
+                        current.Use();
+                        break;
+                    case KeyCode.W:
+                        guiP1JumpPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.J:
+                        guiP1LightPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.K:
+                        guiP1KickPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.L:
+                        guiP1HeavyPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.U:
+                        guiP1Skill1Pressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.I:
+                        guiP1Skill2Pressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.Alpha1:
+                    case KeyCode.Keypad1:
+                        guiP2LightPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.Alpha2:
+                    case KeyCode.Keypad2:
+                        guiP2KickPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.Alpha3:
+                    case KeyCode.Keypad3:
+                        guiP2HeavyPressed = true;
+                        current.Use();
+                        break;
+                    case KeyCode.PageUp:
+                    case KeyCode.Keypad8:
+                        guiP2JumpPressed = true;
                         current.Use();
                         break;
                 }
@@ -69,7 +128,28 @@ namespace FightingGame
 
         public static void EndFrame()
         {
+            if (frameEnded)
+            {
+                return;
+            }
+
+            frameEnded = true;
             guiArrowUpPressed = false;
+            guiP1JumpPressed = false;
+            guiP1LightPressed = false;
+            guiP1KickPressed = false;
+            guiP1HeavyPressed = false;
+            guiP1Skill1Pressed = false;
+            guiP1Skill2Pressed = false;
+            guiP2JumpPressed = false;
+            guiP2LightPressed = false;
+            guiP2KickPressed = false;
+            guiP2HeavyPressed = false;
+        }
+
+        public static void BeginFrame()
+        {
+            frameEnded = false;
         }
 
         public static float ReadPlayerTwoHorizontal()
@@ -107,15 +187,90 @@ namespace FightingGame
             return 0f;
         }
 
+        public static bool ReadPlayerOneJumpPressed()
+        {
+            return guiP1JumpPressed
+                || ReadModernKeyDown(Key.W)
+                || ReadLegacyKeyDown(KeyCode.W);
+        }
+
+        public static bool ReadPlayerOneLightPressed()
+        {
+            return guiP1LightPressed
+                || ReadModernKeyDown(Key.J)
+                || ReadLegacyKeyDown(KeyCode.J);
+        }
+
+        public static bool ReadPlayerOneKickPressed()
+        {
+            return guiP1KickPressed
+                || ReadModernKeyDown(Key.K)
+                || ReadLegacyKeyDown(KeyCode.K);
+        }
+
+        public static bool ReadPlayerOneHeavyPressed()
+        {
+            return guiP1HeavyPressed
+                || ReadModernKeyDown(Key.L)
+                || ReadLegacyKeyDown(KeyCode.L);
+        }
+
+        public static bool ReadPlayerOneSkill1Pressed()
+        {
+            return guiP1Skill1Pressed
+                || ReadModernKeyDown(Key.U)
+                || ReadLegacyKeyDown(KeyCode.U);
+        }
+
+        public static bool ReadPlayerOneSkill2Pressed()
+        {
+            return guiP1Skill2Pressed
+                || ReadModernKeyDown(Key.I)
+                || ReadLegacyKeyDown(KeyCode.I);
+        }
+
+        public static bool ReadPlayerOneBlockHeld()
+        {
+            return ReadModernKeyPressed(Key.S) || ReadLegacyKey(KeyCode.S);
+        }
+
         public static bool ReadPlayerTwoJumpPressed()
         {
-            return guiArrowUpPressed
+            return guiP2JumpPressed
+                || guiArrowUpPressed
                 || ReadModernUpPressed()
                 || ReadLegacyKeyDown(KeyCode.UpArrow)
                 || ReadModernKeyDown(Key.PageUp)
                 || ReadLegacyKeyDown(KeyCode.PageUp)
                 || ReadModernKeyDown(Key.Numpad8)
                 || ReadLegacyKeyDown(KeyCode.Keypad8);
+        }
+
+        public static bool ReadPlayerTwoLightPressed()
+        {
+            return guiP2LightPressed
+                || ReadModernKeyDown(Key.Digit1)
+                || ReadModernKeyDown(Key.Numpad1)
+                || ReadLegacyKeyDown(KeyCode.Alpha1)
+                || ReadLegacyKeyDown(KeyCode.Keypad1);
+        }
+
+        public static bool ReadPlayerTwoKickPressed()
+        {
+            return guiP2KickPressed
+                || ReadModernKeyDown(Key.Digit2)
+                || ReadModernKeyDown(Key.Numpad2)
+                || ReadLegacyKeyDown(KeyCode.Alpha2)
+                || ReadLegacyKeyDown(KeyCode.Keypad2);
+        }
+
+        public static bool ReadPlayerTwoHeavyPressed()
+        {
+            return guiP2HeavyPressed
+                || ReadModernKeyDown(Key.Digit3)
+                || ReadModernKeyDown(Key.Numpad3)
+                || ReadLegacyKeyDown(KeyCode.Alpha3)
+                || ReadLegacyKeyDown(KeyCode.Keypad3);
         }
 
         public static bool ReadPlayerTwoBlockHeld()
