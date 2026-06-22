@@ -14,6 +14,7 @@ namespace FightingGame
         private GUIStyle labelStyle;
         private GUIStyle bannerStyle;
         private GUIStyle cooldownStyle;
+        private GUIStyle buttonStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
 
         public void Begin(NetworkManager manager, RelayLobbySession relayLobbySession = null)
@@ -84,6 +85,7 @@ namespace FightingGame
             DrawControlsHelp(coordinator);
             DrawBanner(coordinator);
             DrawFloatingTexts();
+            DrawSkillCooldowns(playerOne.Fighter, playerTwo.Fighter);
         }
 
         private void HandleServerStarted()
@@ -177,6 +179,27 @@ namespace FightingGame
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = new Color(1f, 0.92f, 0.35f) }
             };
+
+            cooldownStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+        }
+
+        private void DrawSkillCooldowns(FighterController playerOneFighter, FighterController playerTwoFighter)
+        {
+            Camera camera = mainCamera != null ? mainCamera : Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            EnsureStyles();
+            FightHudDrawer.DrawSkillCooldowns(camera, playerOneFighter, cooldownStyle, cooldownStyle);
+            FightHudDrawer.DrawSkillCooldowns(camera, playerTwoFighter, cooldownStyle, cooldownStyle);
         }
 
         private void DrawConnectionStatus()
@@ -228,7 +251,7 @@ namespace FightingGame
         {
             const float y = 78f;
             GUI.Label(new Rect(24f, y, 560f, 80f),
-                "카론: A/D W S J K L | U 불꽃검기 | I 용암방어",
+                "P1 카론: A/D W S J K L | U/I 스킬 (방향키는 P2 전용)",
                 labelStyle);
 
             if (coordinator.Phase == MatchPhase.MatchEnd && networkManager != null && networkManager.IsServer)

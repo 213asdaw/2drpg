@@ -74,6 +74,11 @@ namespace FightingGame
             {
                 RestartMatch();
             }
+
+            if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.M))
+            {
+                FightSessionCleanup.ReturnToMainMenu();
+            }
         }
 
         private void OnGUI()
@@ -87,6 +92,29 @@ namespace FightingGame
             DrawFloatingTexts();
             DrawSkillCooldowns();
             DrawInputDebug();
+            DrawMatchEndMenu();
+        }
+
+        private void DrawMatchEndMenu()
+        {
+            if (matchManager.Phase != MatchPhase.MatchEnd)
+            {
+                return;
+            }
+
+            EnsureStyles();
+            float centerX = Screen.width * 0.5f;
+            float y = Screen.height - 118f;
+
+            if (GUI.Button(new Rect(centerX - 170f, y, 160f, 42f), "재대결 (R)", buttonStyle))
+            {
+                RestartMatch();
+            }
+
+            if (GUI.Button(new Rect(centerX + 10f, y, 160f, 42f), "메인 메뉴 (M)", buttonStyle))
+            {
+                FightSessionCleanup.ReturnToMainMenu();
+            }
         }
 
         private void DrawInputDebug()
@@ -129,6 +157,10 @@ namespace FightingGame
             playerTwo.Damaged += (_, damage) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
             playerOne.LandedHit += (_, __, type) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
             playerTwo.LandedHit += (_, __, type) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
+            playerOne.BuffActivated += fighter => SpawnFloatingText(
+                fighter.transform.position + Vector3.up * 2.1f,
+                "용암방어!",
+                new Color(1f, 0.62f, 0.28f));
         }
 
         private void HandleRoundStarted()
@@ -287,7 +319,7 @@ namespace FightingGame
 
             if (matchManager.Phase == MatchPhase.MatchEnd)
             {
-                GUI.Label(new Rect(Screen.width * 0.5f - 120f, Screen.height - 48f, 240f, 30f), "R 키 — 재대결", labelStyle);
+                GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 72f, 360f, 24f), "R — 재대결  |  M — 메인 메뉴", labelStyle);
             }
         }
 

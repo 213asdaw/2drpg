@@ -133,6 +133,7 @@ namespace FightingGame
 
         public event Action<FighterController, float> Damaged;
         public event Action<FighterController, FighterController, AttackType> LandedHit;
+        public event Action<FighterController> BuffActivated;
 
         public void Initialize(int index, FighterArchetypeId archetype, Vector3 startPosition)
         {
@@ -429,7 +430,7 @@ namespace FightingGame
                     {
                         defenseBuffTimer = FlameSwordsmanSkills.MoltenGuardDuration;
                         skill2Cooldown = FlameSwordsmanSkills.MoltenGuardCooldown;
-                        LandedHit?.Invoke(this, opponent, AttackType.MoltenGuard);
+                        BuffActivated?.Invoke(this);
                     }
 
                     if (stateTimer >= FlameSwordsmanSkills.MoltenGuardStartup + 0.12f)
