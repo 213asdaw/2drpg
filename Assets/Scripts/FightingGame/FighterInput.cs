@@ -220,14 +220,12 @@ namespace FightingGame
 
         private static bool IsPressed(Keyboard keyboard, Key key)
         {
-            KeyControl control = keyboard[key];
-            return control != null && control.isPressed;
+            return keyboard[key].isPressed;
         }
 
         private static bool WasPressedThisFrame(Keyboard keyboard, Key key)
         {
-            KeyControl control = keyboard[key];
-            return control != null && control.wasPressedThisFrame;
+            return keyboard[key].wasPressedThisFrame;
         }
 #endif
 
