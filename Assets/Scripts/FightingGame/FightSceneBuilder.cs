@@ -47,6 +47,7 @@ namespace FightingGame
 
         public static void ConfigureDisplay()
         {
+            Application.runInBackground = true;
             Screen.orientation = ScreenOrientation.LandscapeLeft;
             Screen.autorotateToLandscapeLeft = true;
             Screen.autorotateToLandscapeRight = true;

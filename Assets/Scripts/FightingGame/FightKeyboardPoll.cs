@@ -21,7 +21,13 @@ namespace FightingGame
 
         private void Update()
         {
+            FightKeyCapture.BeginFrame();
             FightKeyCapture.PollHardwareKeys();
+        }
+
+        private void LateUpdate()
+        {
+            FightKeyCapture.EndFrame();
         }
     }
 }

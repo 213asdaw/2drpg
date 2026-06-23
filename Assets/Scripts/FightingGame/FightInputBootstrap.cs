@@ -9,6 +9,7 @@ namespace FightingGame
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ConfigureInputSystem()
         {
+            Application.runInBackground = true;
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             InputSystem.onBeforeUpdate += FightKeyCapture.PollHardwareKeys;
@@ -25,6 +26,7 @@ namespace FightingGame
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void ConfigureLegacyPoll()
         {
+            Application.runInBackground = true;
             // Legacy-only projects still poll arrows from Update via FightKeyboardPoll.
         }
     }

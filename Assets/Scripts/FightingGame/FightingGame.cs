@@ -45,6 +45,7 @@ namespace FightingGame
 
             matchManager.Tick(Time.deltaTime);
             UpdateFloatingTexts(Time.deltaTime);
+            TickFighters();
 
             if (matchManager.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.R))
             {
@@ -57,18 +58,9 @@ namespace FightingGame
             }
         }
 
-        private int lastFighterTickFrame = -1;
-
         private void OnGUI()
         {
             FightKeyCapture.ProcessGuiEvent(Event.current);
-
-            if (Event.current.type == EventType.Repaint && lastFighterTickFrame != Time.frameCount)
-            {
-                FightKeyCapture.BeginFrame();
-                TickFighters();
-                FightKeyCapture.EndFrame();
-            }
 
             EnsureStyles();
             DrawHealthBar(new Rect(40f, 24f, 420f, 28f), playerOne, false);
@@ -89,8 +81,6 @@ namespace FightingGame
                 return;
             }
 
-            lastFighterTickFrame = Time.frameCount;
-            FightKeyCapture.PollHardwareKeys();
             bool controlsEnabled = matchManager.ControlsEnabled;
             FighterInputSnapshot playerOneInput = FighterInputReader.ReadPlayerOne();
             FighterInputSnapshot playerTwoInput = FighterInputReader.ReadPlayerTwo();
