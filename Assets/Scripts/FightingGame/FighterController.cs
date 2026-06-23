@@ -42,14 +42,15 @@ namespace FightingGame
 
         public AttackDefinition Scale(float attackSpeedMultiplier, float damageMultiplier)
         {
+            float speed = Mathf.Max(0.01f, attackSpeedMultiplier);
             return new AttackDefinition(
                 Type,
-                Startup * attackSpeedMultiplier,
-                Active * attackSpeedMultiplier,
-                Recovery * attackSpeedMultiplier,
+                Startup / speed,
+                Active / speed,
+                Recovery / speed,
                 Damage * damageMultiplier,
                 Knockback,
-                Hitstun * attackSpeedMultiplier,
+                Hitstun / speed,
                 HitboxSize,
                 HitboxOffset);
         }
