@@ -413,11 +413,11 @@ namespace FightingGame
                 pixels[i] = clear;
             }
 
-            float arcEnd = Mathf.Lerp(-0.15f, 2.05f, progress);
+            float arcEnd = Mathf.Lerp(-0.35f, 1.75f, progress);
             float trailSpan = Mathf.Lerp(0.28f, 0.62f, progress) * Mathf.Lerp(1f, 0.72f, progress);
             float arcStart = arcEnd - trailSpan;
             float thickness = attackType == AttackType.Heavy ? 3.0f : 2.4f;
-            Vector2 pivot = new Vector2(width * 0.28f, height * 0.22f);
+            Vector2 pivot = new Vector2(width * 0.28f, height * 0.14f);
 
             for (int y = 0; y < height; y++)
             {
@@ -448,7 +448,7 @@ namespace FightingGame
             return Sprite.Create(
                 texture,
                 new Rect(0f, 0f, width, height),
-                new Vector2(0.28f, 0.22f),
+                new Vector2(0.28f, 0.14f),
                 FightConstants.PixelsPerUnit);
         }
 

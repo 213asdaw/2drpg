@@ -124,7 +124,7 @@ namespace FightingGame
         private const float CombatScale = VisualScale;
         private const float HitboxScale = 1f;
         private const float KnockbackDeceleration = 16f;
-        private const float KaronSwordVisualY = 0.82f;
+        private const float KaronSwordVisualY = 0.64f;
         private const float KaronSwordHitboxY = 0.50f;
         private float visualGroundOffset;
 
@@ -988,8 +988,8 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float startAngle = faceRight ? -95f : 95f;
-                float endAngle = faceRight ? 35f : -35f;
+                float startAngle = faceRight ? -108f : 108f;
+                float endAngle = faceRight ? 18f : -18f;
                 float angle = Mathf.Lerp(startAngle, endAngle, activeProgress);
                 attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
                 attackEffectRoot.localPosition = new Vector3(
@@ -1103,8 +1103,8 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float startAngle = faceRight ? -95f : 95f;
-                float endAngle = faceRight ? 35f : -35f;
+                float startAngle = faceRight ? -108f : 108f;
+                float endAngle = faceRight ? 18f : -18f;
                 float angle = Mathf.Lerp(startAngle, endAngle, activeProgress);
                 attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
                 attackEffectRoot.localPosition = new Vector3(
