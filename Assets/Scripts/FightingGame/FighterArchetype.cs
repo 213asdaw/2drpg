@@ -52,11 +52,11 @@ namespace FightingGame
     {
         public static readonly FighterArchetypeDefinition Default = new FighterArchetypeDefinition(
             FighterArchetypeId.Default,
-            "검투사",
-            FightConstants.BaseMaxHealth,
-            FightConstants.BaseMoveSpeed,
-            1f,
-            1f,
+            "격투가",
+            125f,
+            5.5f,
+            1.12f,
+            1.1f,
             false,
             false,
             0.25f);
@@ -81,6 +81,19 @@ namespace FightingGame
                 default:
                     return Default;
             }
+        }
+
+        public static string GetSelectionSummary(FighterArchetypeId id)
+        {
+            FighterArchetypeDefinition definition = Get(id);
+            if (definition.HasFlameSlash || definition.HasMoltenGuard)
+            {
+                return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
+                    + " | U/I 스킬 (화염 베기, 용암 가드)";
+            }
+
+            return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
+                + " | 공격·공속 ↑ | 스킬 없음";
         }
     }
 

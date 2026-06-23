@@ -39,6 +39,7 @@ namespace FightingGame
             NetworkVariableWritePermission.Server);
 
         private readonly List<NetworkFighter> fighters = new List<NetworkFighter>();
+        private readonly Dictionary<ulong, FighterArchetypeId> clientArchetypeChoices = new Dictionary<ulong, FighterArchetypeId>();
         private float phaseTimer;
         private bool matchInitialized;
         private NetworkFighter lastRoundWinner;
@@ -141,8 +142,8 @@ namespace FightingGame
 
             FighterArchetypeId[] archetypes =
             {
-                FighterArchetypeId.FlameSwordsman,
-                FighterArchetypeId.Default
+                ResolveArchetypeForClient(0, clientIds[0]),
+                clientIds.Count > 1 ? ResolveArchetypeForClient(1, clientIds[1]) : FighterArchetypeId.Default
             };
 
             for (int i = 0; i < clientIds.Count && i < 2; i++)
@@ -161,6 +162,55 @@ namespace FightingGame
                 fighters[0].Fighter.SetOpponent(fighters[1].Fighter);
                 fighters[1].Fighter.SetOpponent(fighters[0].Fighter);
             }
+        }
+
+        public void SubmitLocalArchetype(FighterArchetypeId archetype)
+        {
+            if (!IsSpawned)
+            {
+                return;
+            }
+
+            if (IsServer)
+            {
+                RegisterClientArchetype(NetworkManager.Singleton.LocalClientId, archetype);
+                return;
+            }
+
+            SubmitLocalArchetypeServerRpc(archetype);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void SubmitLocalArchetypeServerRpc(FighterArchetypeId archetype, ServerRpcParams rpcParams = default)
+        {
+            RegisterClientArchetype(rpcParams.Receive.SenderClientId, archetype);
+        }
+
+        private void RegisterClientArchetype(ulong clientId, FighterArchetypeId archetype)
+        {
+            clientArchetypeChoices[clientId] = archetype;
+
+            for (int i = 0; i < fighters.Count; i++)
+            {
+                NetworkObject networkObject = fighters[i].NetworkObject;
+                if (networkObject != null && networkObject.OwnerClientId == clientId)
+                {
+                    fighters[i].ServerReconfigureArchetype(archetype);
+                    break;
+                }
+            }
+        }
+
+        private FighterArchetypeId ResolveArchetypeForClient(int slotIndex, ulong clientId)
+        {
+            if (clientArchetypeChoices.TryGetValue(clientId, out FighterArchetypeId chosen))
+            {
+                return chosen;
+            }
+
+            return slotIndex == 0
+                ? FightSessionConfig.GetArchetypeForSlot(0)
+                : FighterArchetypeId.Default;
         }
 
         private void ServerTickMatch(float deltaTime)

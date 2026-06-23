@@ -161,8 +161,14 @@ namespace FightingGame
 
         private void CreateFighters()
         {
-            playerOne = FightSceneBuilder.CreateFighter(0, new Vector3(-3.5f, FightConstants.GroundY, 0f), FighterArchetypeId.FlameSwordsman);
-            playerTwo = FightSceneBuilder.CreateFighter(1, new Vector3(3.5f, FightConstants.GroundY, 0f), FighterArchetypeId.Default);
+            playerOne = FightSceneBuilder.CreateFighter(
+                0,
+                new Vector3(-3.5f, FightConstants.GroundY, 0f),
+                FightSessionConfig.PlayerOneArchetype);
+            playerTwo = FightSceneBuilder.CreateFighter(
+                1,
+                new Vector3(3.5f, FightConstants.GroundY, 0f),
+                FightSessionConfig.PlayerTwoArchetype);
             playerOne.SetOpponent(playerTwo);
             playerTwo.SetOpponent(playerOne);
             playerOne.Damaged += (_, damage) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
@@ -320,12 +326,8 @@ namespace FightingGame
         private void DrawControlsHelp()
         {
             const float y = 78f;
-            GUI.Label(new Rect(24f, y, 520f, 44f),
-                "P1 카론: A/D W S J/K/L | U/I 스킬(공중 가능)",
-                labelStyle);
-            GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f),
-                "P2 검투사: E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격",
-                labelStyle);
+            GUI.Label(new Rect(24f, y, 520f, 44f), BuildPlayerControlLine(0, playerOne), labelStyle);
+            GUI.Label(new Rect(Screen.width - 544f, y, 520f, 44f), BuildPlayerControlLine(1, playerTwo), labelStyle);
 
             DrawInputFocusHint();
 
@@ -430,6 +432,26 @@ namespace FightingGame
                 GUI.Label(new Rect(screenPoint.x - 40f, Screen.height - screenPoint.y - 12f, 80f, 24f), entry.Text, titleStyle);
                 GUI.color = previous;
             }
+        }
+
+        public static string BuildPlayerControlLine(int playerIndex, FighterController fighter)
+        {
+            if (fighter == null)
+            {
+                return string.Empty;
+            }
+
+            FighterArchetypeDefinition definition = FighterArchetypes.Get(fighter.ArchetypeId);
+            string skillHint = definition.HasFlameSlash || definition.HasMoltenGuard
+                ? " | U/I 스킬(공중 가능)"
+                : string.Empty;
+
+            if (playerIndex == 0)
+            {
+                return "P1 " + fighter.DisplayName + ": A/D W S J/K/L" + skillHint;
+            }
+
+            return "P2 " + fighter.DisplayName + ": E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격";
         }
 
         private struct FloatingCombatText

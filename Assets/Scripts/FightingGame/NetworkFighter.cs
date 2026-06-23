@@ -124,6 +124,18 @@ namespace FightingGame
             PublishState();
         }
 
+        public void ServerReconfigureArchetype(FighterArchetypeId archetype)
+        {
+            if (fighter == null || slotIndex < 0)
+            {
+                return;
+            }
+
+            Vector3 startPosition = fighter.transform.position;
+            fighter.Initialize(slotIndex, archetype, startPosition);
+            PublishState();
+        }
+
         public void ServerApplyMatchResult(bool won)
         {
             fighter?.SetMatchResult(won);

@@ -41,6 +41,19 @@ namespace FightingGame
             AdvancedLan
         }
 
+        private enum LauncherScreen
+        {
+            MainMenu,
+            CharacterSelect
+        }
+
+        private LauncherScreen launcherScreen = LauncherScreen.MainMenu;
+        private GameLaunchMode pendingLaunchMode = GameLaunchMode.MainMenu;
+        private bool pendingOnlineHost;
+        private FighterArchetypeId selectedPlayerOneArchetype = FighterArchetypeId.FlameSwordsman;
+        private FighterArchetypeId selectedPlayerTwoArchetype = FighterArchetypeId.Default;
+        private FighterArchetypeId selectedOnlineArchetype = FighterArchetypeId.Default;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
@@ -63,9 +76,13 @@ namespace FightingGame
         {
             EnsureStyles();
 
-            if (mode == GameLaunchMode.MainMenu)
+            if (launcherScreen == LauncherScreen.MainMenu)
             {
                 DrawMainMenu();
+            }
+            else if (launcherScreen == LauncherScreen.CharacterSelect)
+            {
+                DrawCharacterSelect();
             }
 
             if (isConnecting)
@@ -94,13 +111,13 @@ namespace FightingGame
 
             if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "오프라인 (로컬 2P)", buttonStyle))
             {
-                StartOffline();
+                OpenCharacterSelect(GameLaunchMode.Offline, false);
             }
 
             y += 52f;
             if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 방 만들기 (로비 코드)", buttonStyle) && !isConnecting)
             {
-                BeginRelayHost();
+                OpenCharacterSelect(GameLaunchMode.RelayHost, true);
             }
 
             y += 52f;
@@ -110,13 +127,20 @@ namespace FightingGame
             y += 44f;
             if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 코드로 참가", buttonStyle) && !isConnecting)
             {
-                BeginRelayJoin();
+                if (string.IsNullOrWhiteSpace(lobbyCode))
+                {
+                    statusMessage = "로비 코드를 입력하세요.";
+                }
+                else
+                {
+                    OpenCharacterSelect(GameLaunchMode.RelayJoin, false);
+                }
             }
 
             y += 52f;
             if (GUI.Button(new Rect(8f, y, buttonWidth, 44f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
             {
-                BeginQuickMatch();
+                OpenCharacterSelect(GameLaunchMode.QuickMatch, false);
             }
 
             y += 56f;
@@ -142,7 +166,7 @@ namespace FightingGame
                 y += 36f;
                 if (GUI.Button(new Rect(8f, y, buttonWidth, 38f), "LAN — IP로 접속", buttonStyle) && !isConnecting)
                 {
-                    StartOnlineClient();
+                    OpenCharacterSelect(GameLaunchMode.OnlineClient, false);
                 }
 
                 y += 46f;
@@ -194,6 +218,140 @@ namespace FightingGame
             GUI.Label(new Rect(Screen.width * 0.5f - 200f, Screen.height * 0.5f - 36f, 400f, 72f), statusMessage, labelStyle);
         }
 
+        private void OpenCharacterSelect(GameLaunchMode launchMode, bool onlineHost)
+        {
+            pendingLaunchMode = launchMode;
+            pendingOnlineHost = onlineHost;
+            launcherScreen = LauncherScreen.CharacterSelect;
+            selectedPlayerOneArchetype = FighterArchetypeId.FlameSwordsman;
+            selectedPlayerTwoArchetype = FighterArchetypeId.Default;
+            selectedOnlineArchetype = FighterArchetypeId.Default;
+            statusMessage = string.Empty;
+        }
+
+        private void DrawCharacterSelect()
+        {
+            const float panelWidth = 620f;
+            const float panelHeight = 420f;
+            Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
+
+            GUI.Box(panel, GUIContent.none);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 16f, panel.width - 48f, 36f), "캐릭터 선택", titleStyle);
+
+            bool isOffline = pendingLaunchMode == GameLaunchMode.Offline;
+            float y = panel.y + 64f;
+
+            if (isOffline)
+            {
+                GUI.Label(new Rect(panel.x + 24f, y, panel.width - 48f, 22f), "1P 캐릭터", labelStyle);
+                y += 28f;
+                selectedPlayerOneArchetype = DrawArchetypePicker(
+                    new Rect(panel.x + 24f, y, panel.width - 48f, 40f),
+                    selectedPlayerOneArchetype);
+                y += 52f;
+                GUI.Label(new Rect(panel.x + 24f, y, panel.width - 48f, 22f), "2P 캐릭터", labelStyle);
+                y += 28f;
+                selectedPlayerTwoArchetype = DrawArchetypePicker(
+                    new Rect(panel.x + 24f, y, panel.width - 48f, 40f),
+                    selectedPlayerTwoArchetype);
+                y += 56f;
+                GUI.Label(
+                    new Rect(panel.x + 24f, y, panel.width - 48f, 44f),
+                    "P1: " + FighterArchetypes.GetSelectionSummary(selectedPlayerOneArchetype)
+                    + "\nP2: " + FighterArchetypes.GetSelectionSummary(selectedPlayerTwoArchetype),
+                    labelStyle);
+            }
+            else
+            {
+                string roleLabel = pendingOnlineHost ? "방장 (1P) 캐릭터" : "내 캐릭터";
+                GUI.Label(new Rect(panel.x + 24f, y, panel.width - 48f, 22f), roleLabel, labelStyle);
+                y += 28f;
+                selectedOnlineArchetype = DrawArchetypePicker(
+                    new Rect(panel.x + 24f, y, panel.width - 48f, 40f),
+                    selectedOnlineArchetype);
+                y += 56f;
+                GUI.Label(
+                    new Rect(panel.x + 24f, y, panel.width - 48f, 44f),
+                    FighterArchetypes.GetSelectionSummary(selectedOnlineArchetype),
+                    labelStyle);
+            }
+
+            y = panel.y + panel.height - 58f;
+            float buttonWidth = (panel.width - 72f) * 0.5f;
+            if (GUI.Button(new Rect(panel.x + 24f, y, buttonWidth, 40f), "뒤로", buttonStyle))
+            {
+                launcherScreen = LauncherScreen.MainMenu;
+                pendingLaunchMode = GameLaunchMode.MainMenu;
+            }
+
+            if (GUI.Button(new Rect(panel.x + 48f + buttonWidth, y, buttonWidth, 40f), "게임 시작", buttonStyle))
+            {
+                ConfirmCharacterSelect();
+            }
+        }
+
+        private FighterArchetypeId DrawArchetypePicker(Rect area, FighterArchetypeId current)
+        {
+            float halfWidth = (area.width - 12f) * 0.5f;
+            Rect karonButton = new Rect(area.x, area.y, halfWidth, area.height);
+            Rect brawlerButton = new Rect(area.x + halfWidth + 12f, area.y, halfWidth, area.height);
+
+            if (DrawArchetypeChoiceButton(karonButton, "카론", current == FighterArchetypeId.FlameSwordsman))
+            {
+                return FighterArchetypeId.FlameSwordsman;
+            }
+
+            if (DrawArchetypeChoiceButton(brawlerButton, "격투가", current == FighterArchetypeId.Default))
+            {
+                return FighterArchetypeId.Default;
+            }
+
+            return current;
+        }
+
+        private bool DrawArchetypeChoiceButton(Rect rect, string label, bool selected)
+        {
+            Color previous = GUI.color;
+            if (selected)
+            {
+                GUI.color = new Color(0.72f, 0.88f, 1f, 1f);
+            }
+
+            bool pressed = GUI.Button(rect, label, buttonStyle);
+            GUI.color = previous;
+            return pressed;
+        }
+
+        private void ConfirmCharacterSelect()
+        {
+            launcherScreen = LauncherScreen.MainMenu;
+
+            switch (pendingLaunchMode)
+            {
+                case GameLaunchMode.Offline:
+                    FightSessionConfig.SetOfflineSelection(selectedPlayerOneArchetype, selectedPlayerTwoArchetype);
+                    StartOffline();
+                    break;
+                case GameLaunchMode.RelayHost:
+                    FightSessionConfig.SetLocalArchetype(selectedOnlineArchetype);
+                    FightSessionConfig.ApplyHostSlotArchetype();
+                    BeginRelayHost();
+                    break;
+                case GameLaunchMode.RelayJoin:
+                    FightSessionConfig.SetLocalArchetype(selectedOnlineArchetype);
+                    BeginRelayJoin();
+                    break;
+                case GameLaunchMode.QuickMatch:
+                    FightSessionConfig.SetLocalArchetype(selectedOnlineArchetype);
+                    BeginQuickMatch();
+                    break;
+                case GameLaunchMode.OnlineClient:
+                    FightSessionConfig.SetLocalArchetype(selectedOnlineArchetype);
+                    StartOnlineClient();
+                    break;
+            }
+        }
+
         private void StartOffline()
         {
             mode = GameLaunchMode.Offline;
@@ -213,12 +371,6 @@ namespace FightingGame
 
         private void BeginRelayJoin()
         {
-            if (string.IsNullOrWhiteSpace(lobbyCode))
-            {
-                statusMessage = "로비 코드를 입력하세요.";
-                return;
-            }
-
             mode = GameLaunchMode.RelayJoin;
             isConnecting = true;
             statusMessage = "로비 참가 중...";

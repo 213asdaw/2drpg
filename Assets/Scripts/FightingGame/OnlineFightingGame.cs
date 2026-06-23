@@ -16,6 +16,7 @@ namespace FightingGame
         private GUIStyle cooldownStyle;
         private GUIStyle buttonStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
+        private bool submittedLocalArchetype;
 
         public void Begin(NetworkManager manager, RelayLobbySession relayLobbySession = null)
         {
@@ -23,6 +24,11 @@ namespace FightingGame
             relaySession = relayLobbySession;
             FightSceneBuilder.ConfigureDisplay();
             mainCamera = FightSceneBuilder.BuildStage();
+
+            if (networkManager.IsHost)
+            {
+                FightSessionConfig.ApplyHostSlotArchetype();
+            }
 
             networkManager.OnClientConnectedCallback += HandleClientConnected;
             networkManager.OnClientDisconnectCallback += HandleClientDisconnected;
@@ -68,7 +74,19 @@ namespace FightingGame
                 FightSessionCleanup.ReturnToMainMenu();
             }
 
+            TrySubmitLocalArchetype(coordinator);
             UpdateStatusText();
+        }
+
+        private void TrySubmitLocalArchetype(NetworkMatchCoordinator coordinator)
+        {
+            if (submittedLocalArchetype || coordinator == null || networkManager == null || !networkManager.IsConnectedClient)
+            {
+                return;
+            }
+
+            coordinator.SubmitLocalArchetype(FightSessionConfig.LocalPlayerArchetype);
+            submittedLocalArchetype = true;
         }
 
         private void OnGUI()
@@ -292,10 +310,16 @@ namespace FightingGame
 
         private void DrawControlsHelp(NetworkMatchCoordinator coordinator)
         {
+            if (coordinator.Fighters.Count < 2)
+            {
+                return;
+            }
+
             const float y = 78f;
-            GUI.Label(new Rect(24f, y, 560f, 80f),
-                "P1 카론: A/D W S J K L | U/I 스킬 (방향키는 P2 전용)",
-                labelStyle);
+            NetworkFighter playerOne = coordinator.Fighters[0];
+            NetworkFighter playerTwo = coordinator.Fighters[1];
+            GUI.Label(new Rect(24f, y, 560f, 80f), FightingGame.BuildPlayerControlLine(0, playerOne.Fighter), labelStyle);
+            GUI.Label(new Rect(Screen.width - 584f, y, 560f, 80f), FightingGame.BuildPlayerControlLine(1, playerTwo.Fighter), labelStyle);
 
             if (coordinator.Phase == MatchPhase.MatchEnd)
             {
