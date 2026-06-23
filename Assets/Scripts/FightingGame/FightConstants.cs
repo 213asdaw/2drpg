@@ -16,6 +16,8 @@ namespace FightingGame
         public const float BlockDamageMultiplier = 0.12f;
         public const float MoltenGuardBlockDamageMultiplier = 0.06f;
         public const float HitInvulnTime = 0.15f;
+        public const float HeavyAttackStunBonus = 0.18f;
+        public const float HeavyAttackKnockbackDelay = 0.12f;
         public const float RoundEndDelay = 2.5f;
         public const float MatchEndDelay = 3f;
     }

@@ -94,6 +94,7 @@ namespace FightingGame
 
         private float velocityY;
         private float knockbackVelocityX;
+        private float knockbackDelayTimer;
         private float facing = 1f;
         private float health;
         private float maxHealth;
@@ -200,6 +201,7 @@ namespace FightingGame
             transform.position = startPosition;
             velocityY = 0f;
             knockbackVelocityX = 0f;
+            knockbackDelayTimer = 0f;
             facing = playerIndex == 0 ? 1f : -1f;
             health = maxHealth;
             invulnTimer = 0f;
@@ -254,7 +256,15 @@ namespace FightingGame
             if (hitstunTimer > 0f)
             {
                 hitstunTimer -= deltaTime;
-                ApplyKnockback(deltaTime);
+                if (knockbackDelayTimer > 0f)
+                {
+                    knockbackDelayTimer -= deltaTime;
+                }
+                else
+                {
+                    ApplyKnockback(deltaTime);
+                }
+
                 ApplyGravity(deltaTime);
                 ClampToArena();
                 UpdateVisuals();
@@ -565,7 +575,18 @@ namespace FightingGame
             float knockbackDistance = knockback * (blocking ? 0.35f : 1f);
             knockbackVelocityX = knockbackDirection * Mathf.Sqrt(2f * KnockbackDeceleration * knockbackDistance);
             float knockbackDuration = Mathf.Sqrt(2f * knockbackDistance / KnockbackDeceleration);
-            hitstunTimer = Mathf.Max(blocking ? hitstun * 0.5f : hitstun, knockbackDuration);
+            float stunDuration = blocking ? hitstun * 0.5f : hitstun;
+            if (attackType == AttackType.Heavy)
+            {
+                stunDuration += blocking ? FightConstants.HeavyAttackStunBonus * 0.45f : FightConstants.HeavyAttackStunBonus;
+            }
+
+            hitstunTimer = Mathf.Max(stunDuration, knockbackDuration + (attackType == AttackType.Heavy && !blocking
+                ? FightConstants.HeavyAttackKnockbackDelay
+                : 0f));
+            knockbackDelayTimer = attackType == AttackType.Heavy && !blocking
+                ? FightConstants.HeavyAttackKnockbackDelay
+                : 0f;
             SetState(FighterState.Hitstun);
             Damaged?.Invoke(this, damage);
             attacker.LandedHit?.Invoke(attacker, this, attackType);
@@ -621,6 +642,11 @@ namespace FightingGame
             currentAttack = attack;
             hasHitThisAttack = false;
             stateTimer = 0f;
+            if (!grounded)
+            {
+                velocityY = 0f;
+            }
+
             SetState(AttackTypeToState(attack.Type));
         }
 
@@ -689,8 +715,15 @@ namespace FightingGame
         {
             if (!grounded)
             {
-                velocityY += FightConstants.Gravity * deltaTime;
-                transform.position += new Vector3(0f, velocityY * deltaTime, 0f);
+                if (IsAttackState(State))
+                {
+                    velocityY = 0f;
+                }
+                else
+                {
+                    velocityY += FightConstants.Gravity * deltaTime;
+                    transform.position += new Vector3(0f, velocityY * deltaTime, 0f);
+                }
             }
 
             if (transform.position.y <= FightConstants.GroundY)
