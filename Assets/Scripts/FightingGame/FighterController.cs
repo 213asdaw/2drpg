@@ -124,6 +124,8 @@ namespace FightingGame
         private const float CombatScale = VisualScale;
         private const float HitboxScale = 1f;
         private const float KnockbackDeceleration = 16f;
+        private const float KaronSwordVisualY = 0.82f;
+        private const float KaronSwordHitboxY = 0.50f;
         private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
@@ -422,10 +424,10 @@ namespace FightingGame
                 float reachScale = currentAttack.Type == AttackType.Heavy ? 1.05f : currentAttack.Type == AttackType.Kick ? 0.92f : 0.88f;
                 float reach = Mathf.Lerp(0.48f, 0.98f, activeProgress) * reachScale;
                 float width = currentAttack.Type == AttackType.Heavy ? 0.68f : 0.58f;
-                float height = currentAttack.Type == AttackType.Heavy ? 0.78f : 0.68f;
+                float height = currentAttack.Type == AttackType.Heavy ? 0.72f : 0.62f;
                 Vector3 center = transform.position + new Vector3(
                     facing * reach,
-                    bodyCenterY - 0.95f + 0.72f,
+                    bodyCenterY - 0.95f + KaronSwordHitboxY,
                     0f);
                 return new Bounds(center, new Vector3(width, height, 0.1f));
             }
@@ -992,7 +994,7 @@ namespace FightingGame
                 attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
                 attackEffectRoot.localPosition = new Vector3(
                     facingSign * (0.15f + activeProgress * 0.35f),
-                    1.05f + bob,
+                    KaronSwordVisualY + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * 1.1f;
                 attackEffectRenderer.color = new Color(1f, 0.88f, 0.55f, 0.92f);
@@ -1072,7 +1074,7 @@ namespace FightingGame
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
                     -facingSign * (0.12f + windUp * 0.18f),
-                    0.98f + bob,
+                    (archetypeId == FighterArchetypeId.FlameSwordsman ? KaronSwordVisualY - 0.04f : 0.98f) + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * (0.85f + windUp * 0.15f);
                 attackEffectRenderer.color = new Color(0.85f, 0.78f, 0.72f, 0.65f + windUp * 0.2f);
@@ -1107,7 +1109,7 @@ namespace FightingGame
                 attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
                 attackEffectRoot.localPosition = new Vector3(
                     facingSign * (0.15f + activeProgress * 0.45f),
-                    1.05f + bob,
+                    KaronSwordVisualY + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * 1.35f;
                 attackEffectRenderer.color = new Color(1f, 0.72f, 0.38f, 0.95f);
