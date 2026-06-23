@@ -70,15 +70,15 @@ namespace FightingGame
     {
         private static readonly AttackDefinition BaseLightAttack = new AttackDefinition(
             AttackType.Light, 0.03f, 0.28f, 0.14f, 8f, 0.85f, 0.25f,
-            new Vector2(1.05f, 0.95f), new Vector2(0.72f, 0.82f));
+            new Vector2(0.92f, 0.88f), new Vector2(0.62f, 0.80f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
             AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.65f, 0.32f,
-            new Vector2(1.15f, 0.72f), new Vector2(0.82f, 0.52f));
+            new Vector2(1.0f, 0.66f), new Vector2(0.72f, 0.50f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
             AttackType.Heavy, 0.55f, 0.38f, 0.52f, 20f, 3.0f, 0.45f,
-            new Vector2(1.28f, 1.05f), new Vector2(0.92f, 0.88f));
+            new Vector2(1.12f, 0.92f), new Vector2(0.80f, 0.84f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
