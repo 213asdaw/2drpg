@@ -74,12 +74,12 @@ namespace FightingGame
             new Vector2(0.92f, 0.88f), new Vector2(0.62f, 0.80f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.08f, 0.24f, 0.18f, 12f, 1.65f, 0.32f,
-            new Vector2(1.0f, 0.66f), new Vector2(0.72f, 0.50f));
+            AttackType.Kick, 0.16f, 0.24f, 0.26f, 12f, 1.65f, 0.32f,
+            new Vector2(1.15f, 0.66f), new Vector2(0.95f, 0.42f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
             AttackType.Heavy, 0.55f, 0.38f, 0.52f, 20f, 3.0f, 0.45f,
-            new Vector2(1.12f, 0.92f), new Vector2(0.80f, 0.84f));
+            new Vector2(1.28f, 0.92f), new Vector2(0.98f, 0.84f));
 
         private AttackDefinition lightAttack;
         private AttackDefinition kickAttack;
@@ -431,17 +431,44 @@ namespace FightingGame
             }
 
             float extendScale = currentAttack.Type == AttackType.Kick ? 1.0f : 0.92f;
-            float punchReach = Mathf.Lerp(currentAttack.HitboxOffset.x * 0.72f, currentAttack.HitboxOffset.x, activeProgress) * extendScale;
+            float reachMin;
+            float reachMax;
+            float hitWidth;
+            float hitHeight;
+            float centerY;
+            if (currentAttack.Type == AttackType.Kick)
+            {
+                reachMin = 0.58f;
+                reachMax = 1.22f;
+                hitWidth = 0.88f;
+                hitHeight = 0.62f;
+                centerY = 0.42f;
+            }
+            else if (currentAttack.Type == AttackType.Heavy)
+            {
+                reachMin = 0.64f;
+                reachMax = 1.18f;
+                hitWidth = 0.92f;
+                hitHeight = 0.88f;
+                centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+            }
+            else
+            {
+                reachMin = currentAttack.HitboxOffset.x * 0.72f;
+                reachMax = currentAttack.HitboxOffset.x;
+                hitWidth = currentAttack.HitboxSize.x * 0.72f * HitboxScale;
+                hitHeight = currentAttack.HitboxSize.y * 0.72f * HitboxScale;
+                centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+            }
+
+            float punchReach = Mathf.Lerp(reachMin, reachMax, activeProgress) * extendScale;
             Vector3 meleeCenter = transform.position + new Vector3(
                 facing * punchReach,
-                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * HitboxScale * 0.85f,
+                bodyCenterY - 0.95f + centerY,
                 0f);
             return new Bounds(
                 meleeCenter,
-                new Vector3(
-                    currentAttack.HitboxSize.x * 0.72f * HitboxScale,
-                    currentAttack.HitboxSize.y * 0.72f * HitboxScale,
-                    0.1f));
+                new Vector3(hitWidth, hitHeight, 0.1f));
         }
 
         private float GetAttackActiveProgress()
@@ -980,10 +1007,10 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.75f;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.88f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.45f + extend),
+                    facingSign * (0.52f + extend),
                     0.45f + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * 1.15f;
@@ -1094,10 +1121,10 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.85f;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.98f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.42f + extend),
+                    facingSign * (0.48f + extend),
                     0.92f + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * 1.25f;
