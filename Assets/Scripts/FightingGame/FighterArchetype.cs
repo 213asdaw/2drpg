@@ -55,7 +55,7 @@ namespace FightingGame
             "격투가",
             125f,
             5.5f,
-            1.12f,
+            1.24f,
             1.1f,
             false,
             false,
