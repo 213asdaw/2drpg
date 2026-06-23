@@ -77,7 +77,7 @@ namespace FightingGame
             new Vector2(1.15f, 0.72f), new Vector2(0.82f, 0.52f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
-            AttackType.Heavy, 0.36f, 0.24f, 0.34f, 20f, 3.0f, 0.45f,
+            AttackType.Heavy, 0.55f, 0.38f, 0.52f, 20f, 3.0f, 0.45f,
             new Vector2(1.28f, 1.05f), new Vector2(0.92f, 0.88f));
 
         private AttackDefinition lightAttack;
@@ -637,7 +637,7 @@ namespace FightingGame
             {
                 if (currentAttack.Type == AttackType.Heavy && grounded)
                 {
-                    transform.position += new Vector3(facing * 0.25f * deltaTime, 0f, 0f);
+                    transform.position += new Vector3(facing * 0.32f * deltaTime, 0f, 0f);
                 }
 
                 ResolveAttackHit();
@@ -759,10 +759,34 @@ namespace FightingGame
 
             float bob = State == FighterState.Walk ? Mathf.Sin(Time.time * 12f) * 0.04f : 0f;
             float squash = State == FighterState.Block ? -0.08f : 0f;
+            float lean = 0f;
+            if (State == FighterState.HeavyAttack && currentAttack != null && currentAttack.Type == AttackType.Heavy)
+            {
+                if (stateTimer < currentAttack.Startup)
+                {
+                    float windUp = currentAttack.Startup <= 0f ? 1f : stateTimer / currentAttack.Startup;
+                    squash = Mathf.Lerp(0f, -0.12f, windUp);
+                    lean = -facing * windUp * 0.08f;
+                }
+                else if (stateTimer < currentAttack.Startup + currentAttack.Active)
+                {
+                    float strike = (stateTimer - currentAttack.Startup) / Mathf.Max(0.01f, currentAttack.Active);
+                    squash = Mathf.Lerp(-0.12f, 0.06f, strike);
+                    lean = facing * strike * 0.1f;
+                }
+                else
+                {
+                    float recover = (stateTimer - currentAttack.Startup - currentAttack.Active)
+                        / Mathf.Max(0.01f, currentAttack.Recovery);
+                    squash = Mathf.Lerp(0.06f, 0f, recover);
+                    lean = facing * Mathf.Lerp(0.1f, 0f, recover);
+                }
+            }
+
             transform.localScale = Vector3.one * VisualScale;
             if (bodyRoot != null)
             {
-                bodyRoot.localPosition = new Vector3(0f, visualGroundOffset + bob, 0f);
+                bodyRoot.localPosition = new Vector3(lean, visualGroundOffset + bob, 0f);
                 bodyRoot.localScale = new Vector3(1f, 1f + squash, 1f);
             }
 
@@ -831,6 +855,12 @@ namespace FightingGame
                 return;
             }
 
+            if (currentAttack.Type == AttackType.Heavy)
+            {
+                UpdateHeavyAttackEffectVisuals(bob);
+                return;
+            }
+
             float totalWindow = currentAttack.Startup + currentAttack.Active;
             float progress = totalWindow <= 0f ? 1f : Mathf.Clamp01(stateTimer / totalWindow);
             int progressBucket = Mathf.Clamp(Mathf.FloorToInt(progress * 8f), 0, 7);
@@ -860,10 +890,8 @@ namespace FightingGame
                     facingSign * (0.15f + progress * 0.35f),
                     1.05f + bob,
                     0f);
-                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.35f : 1.1f);
-                attackEffectRenderer.color = currentAttack.Type == AttackType.Heavy
-                    ? new Color(1f, 0.72f, 0.38f, 0.95f)
-                    : new Color(1f, 0.88f, 0.55f, 0.92f);
+                attackEffectRoot.localScale = Vector3.one * 1.1f;
+                attackEffectRenderer.color = new Color(1f, 0.88f, 0.55f, 0.92f);
             }
             else if (currentAttack.Type == AttackType.Kick)
             {
@@ -896,13 +924,106 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(progress * Mathf.PI) * (currentAttack.Type == AttackType.Heavy ? 0.85f : 0.55f);
+                float extend = Mathf.Sin(progress * Mathf.PI) * 0.55f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
                     facingSign * (0.42f + extend),
                     0.92f + bob,
                     0f);
-                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.25f : 1f);
+                attackEffectRoot.localScale = Vector3.one;
+                attackEffectRenderer.color = new Color(1f, 0.9f, 0.82f, 0.95f);
+            }
+        }
+
+        private void UpdateHeavyAttackEffectVisuals(float bob)
+        {
+            bool faceRight = facing >= 0f;
+            float facingSign = faceRight ? 1f : -1f;
+            float recoveryStart = currentAttack.Startup + currentAttack.Active;
+
+            if (stateTimer >= currentAttack.TotalDuration)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            attackEffectRenderer.enabled = true;
+            attackEffectRenderer.flipX = !faceRight;
+
+            if (stateTimer < currentAttack.Startup)
+            {
+                float windUp = currentAttack.Startup <= 0f ? 1f : stateTimer / currentAttack.Startup;
+                int progressBucket = Mathf.Clamp(Mathf.FloorToInt(windUp * 4f), 0, 3);
+                int effectKey = 4000 + progressBucket;
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = archetypeId == FighterArchetypeId.FlameSwordsman
+                        ? ProceduralArt.CreateSwordWindUpEffect(progressBucket / 3f)
+                        : ProceduralArt.CreatePunchWindUpEffect(progressBucket / 3f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    -facingSign * (0.12f + windUp * 0.18f),
+                    0.98f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * (0.85f + windUp * 0.15f);
+                attackEffectRenderer.color = new Color(0.85f, 0.78f, 0.72f, 0.65f + windUp * 0.2f);
+                return;
+            }
+
+            if (stateTimer >= recoveryStart)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            float activeProgress = (stateTimer - currentAttack.Startup) / Mathf.Max(0.01f, currentAttack.Active);
+            int strikeBucket = Mathf.Clamp(Mathf.FloorToInt(activeProgress * 8f), 0, 7);
+            int strikeKey = 5000 + strikeBucket;
+
+            if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            {
+                if (strikeKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = strikeKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateSwordSwingEffect(
+                        AttackType.Heavy,
+                        strikeBucket / 7f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float startAngle = faceRight ? -95f : 95f;
+                float endAngle = faceRight ? 35f : -35f;
+                float angle = Mathf.Lerp(startAngle, endAngle, activeProgress);
+                attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.15f + activeProgress * 0.45f),
+                    1.05f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * 1.35f;
+                attackEffectRenderer.color = new Color(1f, 0.72f, 0.38f, 0.95f);
+            }
+            else
+            {
+                if (strikeKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = strikeKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreatePunchEffect(AttackType.Heavy, strikeBucket / 7f);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.85f;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.42f + extend),
+                    0.92f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * 1.25f;
                 attackEffectRenderer.color = new Color(1f, 0.9f, 0.82f, 0.95f);
             }
         }

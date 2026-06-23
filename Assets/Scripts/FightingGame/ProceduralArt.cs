@@ -355,6 +355,43 @@ namespace FightingGame
                 FightConstants.PixelsPerUnit * 0.45f);
         }
 
+        public static Sprite CreateSwordWindUpEffect(float progress)
+        {
+            return CreateSwordSwingEffect(AttackType.Heavy, Mathf.Lerp(0f, 0.18f, progress));
+        }
+
+        public static Sprite CreatePunchWindUpEffect(float progress)
+        {
+            const int size = 18;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "PunchWindUp_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color fist = new Color(0.82f, 0.72f, 0.66f, 0.75f);
+            Color glove = new Color(0.58f, 0.16f, 0.14f, 0.7f);
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            int pullBack = Mathf.RoundToInt(Mathf.Lerp(2f, 8f, progress));
+            FillRect(pixels, size, size, pullBack, 4, 10, 9, fist);
+            FillRect(pixels, size, size, pullBack + 1, 3, 8, 2, glove);
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.85f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
         public static Sprite CreateSwordSwingEffect(AttackType attackType, float progress)
         {
             const int width = 40;
