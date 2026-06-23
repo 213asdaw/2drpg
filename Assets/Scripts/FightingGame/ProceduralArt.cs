@@ -413,9 +413,10 @@ namespace FightingGame
                 pixels[i] = clear;
             }
 
-            float arcStart = Mathf.Lerp(-2.4f, -0.8f, progress);
-            float arcEnd = Mathf.Lerp(0.2f, 2.1f, progress);
-            float thickness = attackType == AttackType.Heavy ? 3.4f : 2.6f;
+            float arcEnd = Mathf.Lerp(-0.15f, 2.05f, progress);
+            float trailSpan = Mathf.Lerp(0.28f, 0.62f, progress) * Mathf.Lerp(1f, 0.72f, progress);
+            float arcStart = arcEnd - trailSpan;
+            float thickness = attackType == AttackType.Heavy ? 3.0f : 2.4f;
             Vector2 pivot = new Vector2(width * 0.28f, height * 0.22f);
 
             for (int y = 0; y < height; y++)
@@ -426,15 +427,17 @@ namespace FightingGame
                     Vector2 dir = point - pivot;
                     float angle = Mathf.Atan2(dir.y, dir.x);
                     float radius = dir.magnitude;
-                    if (angle >= arcStart && angle <= arcEnd && radius >= 6f && radius <= 24f + progress * 6f)
+                    if (angle >= arcStart && angle <= arcEnd && radius >= 8f && radius <= 20f + progress * 4f)
                     {
                         float edgeBlend = Mathf.InverseLerp(arcStart, arcEnd, angle);
+                        float trailFade = Mathf.SmoothStep(0f, 1f, edgeBlend);
                         Color pixel = Color.Lerp(trail, blade, edgeBlend);
-                        if (radius > 18f)
+                        if (radius > 16f)
                         {
                             pixel = Color.Lerp(pixel, edge, 0.55f);
                         }
 
+                        pixel.a *= trailFade * Mathf.Lerp(0.18f, 0.95f, edgeBlend);
                         pixels[y * width + x] = pixel;
                     }
                 }

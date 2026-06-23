@@ -410,17 +410,48 @@ namespace FightingGame
                 return new Bounds(transform.position, Vector3.zero);
             }
 
+            float activeProgress = GetAttackActiveProgress();
+            if (activeProgress < 0f)
+            {
+                return new Bounds(transform.position, Vector3.zero);
+            }
+
             float bodyCenterY = 0.95f + visualGroundOffset * 0.45f;
-            Vector3 center = transform.position + new Vector3(
-                facing * currentAttack.HitboxOffset.x * HitboxScale,
-                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * HitboxScale,
+            if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            {
+                float reachScale = currentAttack.Type == AttackType.Heavy ? 1.05f : currentAttack.Type == AttackType.Kick ? 0.92f : 0.88f;
+                float reach = Mathf.Lerp(0.48f, 0.98f, activeProgress) * reachScale;
+                float width = currentAttack.Type == AttackType.Heavy ? 0.68f : 0.58f;
+                float height = currentAttack.Type == AttackType.Heavy ? 0.78f : 0.68f;
+                Vector3 center = transform.position + new Vector3(
+                    facing * reach,
+                    bodyCenterY - 0.95f + 0.72f,
+                    0f);
+                return new Bounds(center, new Vector3(width, height, 0.1f));
+            }
+
+            float extendScale = currentAttack.Type == AttackType.Kick ? 1.0f : 0.92f;
+            float punchReach = Mathf.Lerp(currentAttack.HitboxOffset.x * 0.72f, currentAttack.HitboxOffset.x, activeProgress) * extendScale;
+            Vector3 meleeCenter = transform.position + new Vector3(
+                facing * punchReach,
+                bodyCenterY - 0.95f + currentAttack.HitboxOffset.y * HitboxScale * 0.85f,
                 0f);
             return new Bounds(
-                center,
+                meleeCenter,
                 new Vector3(
-                    currentAttack.HitboxSize.x * HitboxScale,
-                    currentAttack.HitboxSize.y * HitboxScale,
+                    currentAttack.HitboxSize.x * 0.72f * HitboxScale,
+                    currentAttack.HitboxSize.y * 0.72f * HitboxScale,
                     0.1f));
+        }
+
+        private float GetAttackActiveProgress()
+        {
+            if (currentAttack == null || !IsAttackActive())
+            {
+                return -1f;
+            }
+
+            return Mathf.Clamp01((stateTimer - currentAttack.Startup) / Mathf.Max(0.01f, currentAttack.Active));
         }
 
         private bool CanUseSkill1()
@@ -893,9 +924,23 @@ namespace FightingGame
                 return;
             }
 
-            float totalWindow = currentAttack.Startup + currentAttack.Active;
-            float progress = totalWindow <= 0f ? 1f : Mathf.Clamp01(stateTimer / totalWindow);
-            int progressBucket = Mathf.Clamp(Mathf.FloorToInt(progress * 8f), 0, 7);
+            float recoveryStart = currentAttack.Startup + currentAttack.Active;
+            if (stateTimer >= recoveryStart)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            if (stateTimer < currentAttack.Startup)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            float activeProgress = (stateTimer - currentAttack.Startup) / Mathf.Max(0.01f, currentAttack.Active);
+            int progressBucket = Mathf.Clamp(Mathf.FloorToInt(Mathf.Clamp01(activeProgress) * 8f), 0, 7);
             bool faceRight = facing >= 0f;
             float facingSign = faceRight ? 1f : -1f;
 
@@ -916,10 +961,10 @@ namespace FightingGame
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
                 float startAngle = faceRight ? -95f : 95f;
                 float endAngle = faceRight ? 35f : -35f;
-                float angle = Mathf.Lerp(startAngle, endAngle, progress);
+                float angle = Mathf.Lerp(startAngle, endAngle, activeProgress);
                 attackEffectRoot.localRotation = Quaternion.Euler(0f, 0f, angle);
                 attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.15f + progress * 0.35f),
+                    facingSign * (0.15f + activeProgress * 0.35f),
                     1.05f + bob,
                     0f);
                 attackEffectRoot.localScale = Vector3.one * 1.1f;
@@ -935,7 +980,7 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(progress * Mathf.PI) * 0.75f;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.75f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
                     facingSign * (0.45f + extend),
@@ -956,7 +1001,7 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(progress * Mathf.PI) * 0.55f;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.55f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
                     facingSign * (0.42f + extend),
