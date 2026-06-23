@@ -360,6 +360,11 @@ namespace FightingGame
                 return;
             }
 
+            if (!attacker.IsAttackActive())
+            {
+                return;
+            }
+
             if (invulnTimer > 0f)
             {
                 return;
@@ -376,7 +381,7 @@ namespace FightingGame
                 return;
             }
 
-            if (!attacker.IsInHitWindow())
+            if (!attacker.IsAttackActive())
             {
                 return;
             }
@@ -384,25 +389,18 @@ namespace FightingGame
             ReceiveMeleeHit(attacker, attack);
         }
 
-        public bool IsInHitWindow()
+        public bool IsInHitWindow() => IsAttackActive();
+
+        public bool IsAttackActive()
         {
             if (!IsAttackState(State) || currentAttack == null)
             {
                 return false;
             }
 
-            float hitEnd = currentAttack.Startup + currentAttack.Active + 0.05f;
-            return stateTimer >= 0f && stateTimer <= hitEnd;
-        }
-
-        public bool IsAttackActive()
-        {
-            if (currentAttack == null)
-            {
-                return false;
-            }
-
-            return IsInHitWindow() && stateTimer >= currentAttack.Startup;
+            float activeStart = currentAttack.Startup;
+            float activeEnd = currentAttack.Startup + currentAttack.Active;
+            return stateTimer >= activeStart && stateTimer < activeEnd;
         }
 
         public Bounds GetActiveHitboxBounds()
