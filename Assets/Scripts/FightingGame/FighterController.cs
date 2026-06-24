@@ -65,6 +65,11 @@ namespace FightingGame
         public float Lifetime;
         public bool HasHit;
         public bool IsPoisonArrow;
+        public bool IsMeleeArrow;
+        public float Knockback;
+        public float Hitstun;
+        public AttackType SourceAttackType;
+        public FighterController Owner;
         public SpriteRenderer Renderer;
     }
 
@@ -115,6 +120,7 @@ namespace FightingGame
         private SkillId castingSkill = SkillId.None;
         private bool grounded = true;
         private bool hasHitThisAttack;
+        private bool hasSpawnedIzMeleeArrow;
         private int playerIndex;
         private FighterArchetypeId archetypeId = FighterArchetypeId.Default;
         private Color primaryColor;
@@ -237,6 +243,7 @@ namespace FightingGame
             poisonTickTimer = 0f;
             grounded = true;
             hasHitThisAttack = false;
+            hasSpawnedIzMeleeArrow = false;
             currentAttack = null;
             castingSkill = SkillId.None;
             transform.localScale = Vector3.one * VisualScale;
@@ -561,7 +568,6 @@ namespace FightingGame
 
         private void BeginSkill1()
         {
-            SnapFacingTowardOpponent();
             castingSkill = archetypeId == FighterArchetypeId.Iz ? SkillId.PoisonArrow : SkillId.FlameSlashWave;
             stateTimer = 0f;
             SetState(FighterState.Skill1Cast);
@@ -569,7 +575,6 @@ namespace FightingGame
 
         private void BeginSkill2()
         {
-            SnapFacingTowardOpponent();
             castingSkill = SkillId.MoltenGuard;
             stateTimer = 0f;
             SetState(FighterState.Skill2Cast);
@@ -653,20 +658,58 @@ namespace FightingGame
                 IsPoisonArrow = true,
                 Renderer = renderer
             });
-            ApplyPoisonArrowVisual(projectiles[projectiles.Count - 1]);
+            ApplyIzArrowVisual(projectiles[projectiles.Count - 1], IzSkills.PoisonArrowVisualScale);
         }
 
-        private static void ApplyPoisonArrowVisual(FlameProjectile projectile)
+        private void SpawnIzMeleeArrow()
+        {
+            if (currentAttack == null)
+            {
+                return;
+            }
+
+            GameObject projectileObject = new GameObject("IzMeleeArrow");
+            projectileObject.transform.SetParent(null, true);
+            SpriteRenderer renderer = projectileObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralArt.CreateIzMeleeArrowSprite();
+            renderer.sortingOrder = 18 + playerIndex;
+            renderer.flipX = false;
+
+            float spawnY = currentAttack.Type == AttackType.Kick ? 0.62f : 0.86f;
+            Vector3 spawnPosition = transform.position + new Vector3(facing * 0.72f, spawnY + visualGroundOffset, 0f);
+            renderer.transform.position = spawnPosition;
+            projectiles.Add(new FlameProjectile
+            {
+                Position = spawnPosition,
+                Facing = facing,
+                Damage = currentAttack.Damage,
+                Speed = IzSkills.GetMeleeArrowSpeed(currentAttack.Type),
+                Lifetime = IzSkills.GetMeleeArrowLifetime(currentAttack.Type),
+                IsMeleeArrow = true,
+                Knockback = currentAttack.Knockback,
+                Hitstun = currentAttack.Hitstun,
+                SourceAttackType = currentAttack.Type,
+                Owner = this,
+                Renderer = renderer
+            });
+            ApplyIzArrowVisual(projectiles[projectiles.Count - 1], IzSkills.MeleeArrowVisualScale);
+        }
+
+        private static void ApplyIzArrowVisual(FlameProjectile projectile, float scale)
         {
             if (projectile.Renderer == null)
             {
                 return;
             }
 
-            float scale = IzSkills.PoisonArrowVisualScale;
             float direction = projectile.Facing >= 0f ? 1f : -1f;
             projectile.Renderer.flipX = false;
             projectile.Renderer.transform.localScale = new Vector3(direction * scale, scale, 1f);
+        }
+
+        private static void ApplyPoisonArrowVisual(FlameProjectile projectile)
+        {
+            ApplyIzArrowVisual(projectile, IzSkills.PoisonArrowVisualScale);
         }
 
         private void SpawnFlameSlashProjectile()
@@ -708,6 +751,10 @@ namespace FightingGame
                     {
                         ApplyPoisonArrowVisual(projectile);
                     }
+                    else if (projectile.IsMeleeArrow)
+                    {
+                        ApplyIzArrowVisual(projectile, IzSkills.MeleeArrowVisualScale);
+                    }
                     else
                     {
                         float slashScale = FlameSwordsmanSkills.FlameSlashVisualScale;
@@ -721,12 +768,24 @@ namespace FightingGame
 
                 if (!projectile.HasHit && opponent != null && opponent.IsAlive)
                 {
-                    Vector3 hitCenter = projectile.IsPoisonArrow
-                        ? projectile.Position + new Vector3(projectile.Facing * 0.16f, 0f, 0f)
-                        : projectile.Position;
-                    Vector3 hitSize = projectile.IsPoisonArrow
-                        ? new Vector3(0.46f, 0.16f, 0.1f)
-                        : new Vector3(1.1f, 0.55f, 0.1f);
+                    Vector3 hitCenter;
+                    Vector3 hitSize;
+                    if (projectile.IsPoisonArrow)
+                    {
+                        hitCenter = projectile.Position + new Vector3(projectile.Facing * 0.16f, 0f, 0f);
+                        hitSize = new Vector3(0.46f, 0.16f, 0.1f);
+                    }
+                    else if (projectile.IsMeleeArrow)
+                    {
+                        hitCenter = projectile.Position + new Vector3(projectile.Facing * 0.12f, 0f, 0f);
+                        hitSize = new Vector3(0.34f, 0.14f, 0.1f);
+                    }
+                    else
+                    {
+                        hitCenter = projectile.Position;
+                        hitSize = new Vector3(1.1f, 0.55f, 0.1f);
+                    }
+
                     Bounds projectileBounds = new Bounds(hitCenter, hitSize);
                     if (projectileBounds.Intersects(opponent.GetHurtboxBounds()))
                     {
@@ -735,6 +794,17 @@ namespace FightingGame
                         {
                             opponent.ApplyDamage(this, projectile.Damage, 0.95f, 0.22f, AttackType.PoisonArrow);
                             opponent.AddPoisonStacks(IzSkills.SkillPoisonStacks);
+                        }
+                        else if (projectile.IsMeleeArrow && projectile.Owner != null)
+                        {
+                            opponent.ApplyDamage(
+                                projectile.Owner,
+                                projectile.Damage,
+                                projectile.Knockback,
+                                projectile.Hitstun,
+                                projectile.SourceAttackType);
+                            opponent.AddPoisonStacks(IzSkills.MeleePoisonStacks);
+                            projectile.Owner.LandedHit?.Invoke(projectile.Owner, opponent, projectile.SourceAttackType);
                         }
                         else
                         {
@@ -904,6 +974,7 @@ namespace FightingGame
 
             currentAttack = attack;
             hasHitThisAttack = false;
+            hasSpawnedIzMeleeArrow = false;
             stateTimer = 0f;
             if (!grounded)
             {
@@ -929,7 +1000,16 @@ namespace FightingGame
                     transform.position += new Vector3(facing * 0.32f * deltaTime, 0f, 0f);
                 }
 
-                ResolveAttackHit();
+                if (archetypeId == FighterArchetypeId.Iz && !hasSpawnedIzMeleeArrow)
+                {
+                    hasSpawnedIzMeleeArrow = true;
+                    SpawnIzMeleeArrow();
+                }
+
+                if (archetypeId != FighterArchetypeId.Iz)
+                {
+                    ResolveAttackHit();
+                }
             }
 
             if (stateTimer >= currentAttack.TotalDuration)
@@ -942,7 +1022,7 @@ namespace FightingGame
 
         private void ResolveAttackHit()
         {
-            if (opponent == null || hasHitThisAttack || currentAttack == null || !IsAttackActive())
+            if (archetypeId == FighterArchetypeId.Iz || opponent == null || hasHitThisAttack || currentAttack == null || !IsAttackActive())
             {
                 return;
             }
@@ -1194,6 +1274,43 @@ namespace FightingGame
             attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.95f);
         }
 
+        private void UpdateIzNormalAttackEffectVisuals(float bob)
+        {
+            float recoveryStart = currentAttack.Startup + currentAttack.Active;
+            if (stateTimer >= recoveryStart)
+            {
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
+                return;
+            }
+
+            bool faceRight = facing >= 0f;
+            float facingSign = faceRight ? 1f : -1f;
+
+            if (stateTimer < currentAttack.Startup)
+            {
+                float windUp = currentAttack.Startup <= 0f ? 1f : stateTimer / currentAttack.Startup;
+                int effectKey = 6100 + (int)currentAttack.Type * 10 + Mathf.Clamp(Mathf.FloorToInt(windUp * 4f), 0, 3);
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(windUp * 0.78f);
+                }
+
+                attackEffectRenderer.enabled = true;
+                attackEffectRenderer.flipX = !faceRight;
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(facingSign * 0.36f, 0.82f + bob, 0f);
+                attackEffectRoot.localScale = Vector3.one * 1.05f;
+                attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.9f);
+                return;
+            }
+
+            attackEffectRenderer.enabled = false;
+            cachedAttackEffectKey = int.MinValue;
+        }
+
         private void UpdateAttackEffectVisuals(float bob)
         {
             if (attackEffectRenderer == null || attackEffectRoot == null)
@@ -1216,6 +1333,12 @@ namespace FightingGame
             if (currentAttack.Type == AttackType.Heavy)
             {
                 UpdateHeavyAttackEffectVisuals(bob);
+                return;
+            }
+
+            if (archetypeId == FighterArchetypeId.Iz)
+            {
+                UpdateIzNormalAttackEffectVisuals(bob);
                 return;
             }
 
@@ -1242,26 +1365,7 @@ namespace FightingGame
             attackEffectRenderer.enabled = true;
             attackEffectRenderer.flipX = !faceRight;
 
-            if (archetypeId == FighterArchetypeId.Iz)
-            {
-                int effectKey = 6000 + (int)currentAttack.Type * 10 + progressBucket;
-                if (effectKey != cachedAttackEffectKey)
-                {
-                    cachedAttackEffectKey = effectKey;
-                    cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(activeProgress);
-                }
-
-                attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.35f;
-                attackEffectRoot.localRotation = Quaternion.identity;
-                attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.38f + extend),
-                    0.82f + bob,
-                    0f);
-                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.25f : 1.05f);
-                attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.92f);
-            }
-            else if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            if (archetypeId == FighterArchetypeId.FlameSwordsman)
             {
                 int effectKey = 1000 + (int)currentAttack.Type * 10 + progressBucket;
                 if (effectKey != cachedAttackEffectKey)
@@ -1393,23 +1497,8 @@ namespace FightingGame
 
             if (archetypeId == FighterArchetypeId.Iz)
             {
-                int strikeKey = 7200 + strikeBucket;
-                float drawProgress = 0.45f + activeProgress * 0.55f;
-                if (strikeKey != cachedAttackEffectKey)
-                {
-                    cachedAttackEffectKey = strikeKey;
-                    cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(drawProgress);
-                }
-
-                attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.52f;
-                attackEffectRoot.localRotation = Quaternion.identity;
-                attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.34f + extend),
-                    0.8f + bob,
-                    0f);
-                attackEffectRoot.localScale = Vector3.one * (1.05f + activeProgress * 0.35f);
-                attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.95f);
+                attackEffectRenderer.enabled = false;
+                cachedAttackEffectKey = int.MinValue;
             }
             else if (archetypeId == FighterArchetypeId.FlameSwordsman)
             {

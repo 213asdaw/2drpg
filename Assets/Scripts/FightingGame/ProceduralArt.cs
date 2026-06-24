@@ -44,6 +44,42 @@ namespace FightingGame
             return CreateIzSpriteInternal(facingRight);
         }
 
+        public static Sprite CreateIzMeleeArrowSprite()
+        {
+            const int width = 22;
+            const int height = 6;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "IzMeleeArrow_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color shaft = new Color(0.58f, 0.42f, 0.68f, 0.95f);
+            Color fletching = new Color(0.42f, 0.28f, 0.52f, 0.9f);
+            Color tip = new Color(0.82f, 0.82f, 0.88f, 1f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    texture.SetPixel(x, y, clear);
+                }
+            }
+
+            FillRect(texture, width, height, 2, 2, 14, 2, shaft);
+            FillRect(texture, width, height, 0, 1, 4, 4, fletching);
+            FillRect(texture, width, height, 15, 1, 6, 4, tip);
+
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.5f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
         public static Sprite CreatePoisonArrowProjectileSprite()
         {
             const int width = 28;

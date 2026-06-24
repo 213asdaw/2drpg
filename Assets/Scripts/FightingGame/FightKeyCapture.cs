@@ -24,6 +24,7 @@ namespace FightingGame
         private static bool guiP2KickPressed;
         private static bool guiP2HeavyPressed;
         private static bool guiP2Skill1Pressed;
+        private static bool guiP2Skill2Pressed;
 
         private static bool guiArrowUpPressed;
         private static bool frameEnded;
@@ -142,6 +143,10 @@ namespace FightingGame
                         guiP2Skill1Pressed = true;
                         current.Use();
                         break;
+                    case KeyCode.Alpha5:
+                        guiP2Skill2Pressed = true;
+                        current.Use();
+                        break;
                     case KeyCode.PageUp:
                     case KeyCode.Keypad8:
                         guiP2JumpPressed = true;
@@ -193,6 +198,7 @@ namespace FightingGame
             guiP2KickPressed = false;
             guiP2HeavyPressed = false;
             guiP2Skill1Pressed = false;
+            guiP2Skill2Pressed = false;
         }
 
         public static void BeginFrame()
@@ -326,6 +332,13 @@ namespace FightingGame
             return guiP2Skill1Pressed
                 || ReadModernKeyDown(Key.Digit4)
                 || ReadLegacyKeyDown(KeyCode.Alpha4);
+        }
+
+        public static bool ReadPlayerTwoSkill2Pressed()
+        {
+            return guiP2Skill2Pressed
+                || ReadModernKeyDown(Key.Digit5)
+                || ReadLegacyKeyDown(KeyCode.Alpha5);
         }
 
         public static bool ReadPlayerTwoBlockHeld()

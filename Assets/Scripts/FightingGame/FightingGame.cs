@@ -471,9 +471,17 @@ namespace FightingGame
                 return "P1 " + fighter.DisplayName + ": A/D W S J/K/L" + skillHint;
             }
 
-            string p2SkillHint = definition.HasPoisonArrow
-                ? " | 4 독화살(공중 가능)"
-                : string.Empty;
+            string p2SkillHint = string.Empty;
+            if (definition.HasFlameSlash || definition.HasPoisonArrow)
+            {
+                p2SkillHint += " | 4 스킬1";
+            }
+
+            if (definition.HasMoltenGuard)
+            {
+                p2SkillHint += " | 5 스킬2";
+            }
+
             return "P2 " + fighter.DisplayName + ": E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격" + p2SkillHint;
         }
 
