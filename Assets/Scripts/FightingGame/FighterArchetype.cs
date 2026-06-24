@@ -153,7 +153,7 @@ namespace FightingGame
         public const float PoisonArrowLifetime = 2.65f;
 
         public const float MeleeArrowVisualScale = 0.94f;
-        public const float MeleeArrowDamageMultiplier = 0.78f;
+        public const float MeleeArrowFlatDamage = 1f;
         public const float MeleeArrowKnockbackMultiplier = 0.42f;
         public const float MeleeArrowHitstunMultiplier = 0.55f;
         public const float MeleeArrowSpeedLight = 13f;
@@ -165,6 +165,7 @@ namespace FightingGame
 
         public const int MaxPoisonStacks = 5;
         public const int MeleePoisonStacks = 1;
+        public const int HeavyMeleePoisonStacks = 2;
         public const int SkillPoisonStacks = 2;
         public const float PoisonStackDecayTime = 4f;
         public const float PoisonTickInterval = 0.65f;
@@ -182,6 +183,11 @@ namespace FightingGame
                 default: return 0f;
             }
         }
+        public static int GetMeleePoisonStacks(AttackType attackType)
+        {
+            return attackType == AttackType.Heavy ? HeavyMeleePoisonStacks : MeleePoisonStacks;
+        }
+
         public static float GetMeleeArrowSpeed(AttackType attackType)
         {
             switch (attackType)

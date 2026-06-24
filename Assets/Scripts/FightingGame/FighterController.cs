@@ -694,7 +694,7 @@ namespace FightingGame
             {
                 Position = spawnPosition,
                 Facing = facing,
-                Damage = currentAttack.Damage * IzSkills.MeleeArrowDamageMultiplier,
+                Damage = IzSkills.MeleeArrowFlatDamage,
                 Speed = IzSkills.GetMeleeArrowSpeed(currentAttack.Type),
                 Lifetime = IzSkills.GetMeleeArrowLifetime(currentAttack.Type),
                 IsMeleeArrow = true,
@@ -815,7 +815,7 @@ namespace FightingGame
                                 projectile.Knockback,
                                 projectile.Hitstun,
                                 projectile.SourceAttackType);
-                            opponent.AddPoisonStacks(IzSkills.MeleePoisonStacks);
+                            opponent.AddPoisonStacks(IzSkills.GetMeleePoisonStacks(projectile.SourceAttackType));
                             projectile.Owner.LandedHit?.Invoke(projectile.Owner, opponent, projectile.SourceAttackType);
                         }
                         else
