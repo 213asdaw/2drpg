@@ -120,7 +120,7 @@ namespace FightingGame
             }
 
             y += 52f;
-            if (GUI.Button(new Rect(buttonX, y, buttonWidth, 44f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
+            if (GUI.Button(new Rect(buttonX, y, buttonWidth, 44f), "온라인 — 빠른 매칭 (대기열)", buttonStyle) && !isConnecting)
             {
                 OpenCharacterSelect(GameLaunchMode.QuickMatch, false);
             }
@@ -366,8 +366,9 @@ namespace FightingGame
             try
             {
                 NetworkManager networkManager = FightingNetworkBootstrap.EnsureNetworkManager();
-                statusMessage = "열린 방 검색 중...";
-                RelayLobbySession session = await FightingRelayLobbyService.QuickMatchAsync(networkManager);
+                RelayLobbySession session = await FightingRelayLobbyService.QuickMatchAsync(
+                    networkManager,
+                    message => statusMessage = message);
 
                 if (session.IsHost)
                 {

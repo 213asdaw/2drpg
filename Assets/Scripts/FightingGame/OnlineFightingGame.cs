@@ -187,10 +187,14 @@ namespace FightingGame
 
             if (waitingForOpponent)
             {
-                string lobbyHint = relaySession != null
-                    ? "로비 코드: " + relaySession.LobbyCode
-                    : statusText;
-                DrawLeavePanel(lobbyHint, "방 나가기");
+                bool isQuickMatch = relaySession != null && relaySession.IsQuickMatch;
+                string waitingMessage = isQuickMatch
+                    ? "빠른 매칭 대기 중...\n상대가 빠른 매칭을 누르면 자동으로 연결됩니다."
+                    : relaySession != null
+                        ? "로비 코드: " + relaySession.LobbyCode
+                        : statusText;
+                string cancelLabel = isQuickMatch ? "매칭 취소" : "방 나가기";
+                DrawLeavePanel(waitingMessage, cancelLabel);
                 return;
             }
 
@@ -247,7 +251,14 @@ namespace FightingGame
             }
 
             int playerCount = networkManager.ConnectedClientsIds.Count;
-            if (relaySession != null && networkManager.IsHost && playerCount < 2)
+            bool isQuickMatch = relaySession != null && relaySession.IsQuickMatch;
+            if (isQuickMatch && playerCount < 2)
+            {
+                statusText = networkManager.IsHost
+                    ? "빠른 매칭 대기 중... (상대를 찾는 중)"
+                    : "빠른 매칭 상대와 연결됨 — 시작 대기 중";
+            }
+            else if (relaySession != null && networkManager.IsHost && playerCount < 2)
             {
                 statusText = "로비 코드: " + relaySession.LobbyCode + "  (상대에게 공유하세요)";
             }

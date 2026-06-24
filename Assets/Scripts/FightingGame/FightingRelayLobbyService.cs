@@ -19,6 +19,7 @@ namespace FightingGame
         public string LobbyId { get; set; }
         public string LobbyCode { get; set; }
         public bool IsHost { get; set; }
+        public bool IsQuickMatch { get; set; }
     }
 
     public static class FightingRelayLobbyService
@@ -26,8 +27,13 @@ namespace FightingGame
         public const string RelayJoinCodeKey = "RelayJoinCode";
         public const string GameFilterKey = "S1";
         public const string GameFilterValue = "2DFight";
+        public const string MatchModeKey = "S2";
+        public const string MatchModeCustom = "Custom";
+        public const string MatchModeQuickQueue = "QuickQueue";
         public const int MaxPlayers = 2;
         private const string ConnectionType = "dtls";
+        private const int QuickMatchSearchAttempts = 10;
+        private const int QuickMatchSearchDelayMs = 1200;
 
         private const string UgsEnvironmentOptionKey = "com.unity.services.core.environment-name";
 
@@ -90,17 +96,7 @@ namespace FightingGame
             CreateLobbyOptions options = new CreateLobbyOptions
             {
                 IsPrivate = false,
-                Data = new Dictionary<string, DataObject>
-                {
-                    {
-                        GameFilterKey,
-                        new DataObject(DataObject.VisibilityOptions.Public, GameFilterValue)
-                    },
-                    {
-                        RelayJoinCodeKey,
-                        new DataObject(DataObject.VisibilityOptions.Member, relayJoinCode)
-                    }
-                }
+                Data = BuildLobbyData(relayJoinCode, MatchModeCustom)
             };
 
             Lobby lobby = await LobbyService.Instance.CreateLobbyAsync("2D Fight", MaxPlayers, options);
@@ -108,7 +104,8 @@ namespace FightingGame
             {
                 LobbyId = lobby.Id,
                 LobbyCode = lobby.LobbyCode,
-                IsHost = true
+                IsHost = true,
+                IsQuickMatch = false
             };
 
             return currentSession;
@@ -122,35 +119,113 @@ namespace FightingGame
             return currentSession;
         }
 
-        public static async Task<RelayLobbySession> QuickMatchAsync(NetworkManager networkManager)
+        public static async Task<RelayLobbySession> QuickMatchAsync(
+            NetworkManager networkManager,
+            Action<string> statusCallback = null)
         {
             await InitializeAsync();
 
+            for (int attempt = 0; attempt < QuickMatchSearchAttempts; attempt++)
+            {
+                statusCallback?.Invoke("빠른 매칭 상대 검색 중... (" + (attempt + 1) + "/" + QuickMatchSearchAttempts + ")");
+
+                RelayLobbySession joinedSession = await TryJoinQuickMatchLobbyAsync(networkManager);
+                if (joinedSession != null)
+                {
+                    statusCallback?.Invoke("상대를 찾았습니다!");
+                    return joinedSession;
+                }
+
+                if (attempt < QuickMatchSearchAttempts - 1)
+                {
+                    await Task.Delay(QuickMatchSearchDelayMs);
+                }
+            }
+
+            statusCallback?.Invoke("대기열 등록 중...");
+
+            RelayLobbySession lastChanceJoin = await TryJoinQuickMatchLobbyAsync(networkManager);
+            if (lastChanceJoin != null)
+            {
+                statusCallback?.Invoke("상대를 찾았습니다!");
+                return lastChanceJoin;
+            }
+
+            await Task.Delay(UnityEngine.Random.Range(250, 900));
+
+            lastChanceJoin = await TryJoinQuickMatchLobbyAsync(networkManager);
+            if (lastChanceJoin != null)
+            {
+                statusCallback?.Invoke("상대를 찾았습니다!");
+                return lastChanceJoin;
+            }
+
+            statusCallback?.Invoke("빠른 매칭 대기열 등록 완료");
+            return await HostQuickMatchWaitingLobbyAsync(networkManager);
+        }
+
+        private static async Task<RelayLobbySession> TryJoinQuickMatchLobbyAsync(NetworkManager networkManager)
+        {
             QueryLobbiesOptions queryOptions = new QueryLobbiesOptions
             {
-                Count = 1,
+                Count = 5,
                 Filters = new List<QueryFilter>
                 {
                     new QueryFilter(
                         QueryFilter.FieldOptions.AvailableSlots,
                         "1",
-                        QueryFilter.OpOptions.GE),
+                        QueryFilter.OpOptions.EQ),
                     new QueryFilter(
                         QueryFilter.FieldOptions.S1,
                         GameFilterValue,
+                        QueryFilter.OpOptions.EQ),
+                    new QueryFilter(
+                        QueryFilter.FieldOptions.S2,
+                        MatchModeQuickQueue,
                         QueryFilter.OpOptions.EQ)
                 }
             };
 
             QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync(queryOptions);
-            if (response.Results.Count > 0)
+            foreach (Lobby lobbySummary in response.Results)
             {
-                Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(response.Results[0].Id);
-                await JoinLobbyInternalAsync(networkManager, lobby);
-                return currentSession;
+                try
+                {
+                    Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbySummary.Id);
+                    await JoinLobbyInternalAsync(networkManager, lobby, true);
+                    return currentSession;
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("Quick match join skipped: " + exception.Message);
+                }
             }
 
-            return await HostLobbyAsync(networkManager);
+            return null;
+        }
+
+        private static async Task<RelayLobbySession> HostQuickMatchWaitingLobbyAsync(NetworkManager networkManager)
+        {
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(MaxPlayers - 1);
+            string relayJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            ConfigureRelayTransport(networkManager, AllocationUtils.ToRelayServerData(allocation, ConnectionType));
+
+            CreateLobbyOptions options = new CreateLobbyOptions
+            {
+                IsPrivate = false,
+                Data = BuildLobbyData(relayJoinCode, MatchModeQuickQueue)
+            };
+
+            Lobby lobby = await LobbyService.Instance.CreateLobbyAsync("Quick Match", MaxPlayers, options);
+            currentSession = new RelayLobbySession
+            {
+                LobbyId = lobby.Id,
+                LobbyCode = lobby.LobbyCode,
+                IsHost = true,
+                IsQuickMatch = true
+            };
+
+            return currentSession;
         }
 
         public static async Task SendHeartbeatAsync()
@@ -233,7 +308,10 @@ namespace FightingGame
                 + "오류: " + message;
         }
 
-        private static async Task JoinLobbyInternalAsync(NetworkManager networkManager, Lobby lobby)
+        private static async Task JoinLobbyInternalAsync(
+            NetworkManager networkManager,
+            Lobby lobby,
+            bool isQuickMatch = false)
         {
             if (lobby.Data == null || !lobby.Data.ContainsKey(RelayJoinCodeKey))
             {
@@ -248,7 +326,27 @@ namespace FightingGame
             {
                 LobbyId = lobby.Id,
                 LobbyCode = lobby.LobbyCode,
-                IsHost = false
+                IsHost = false,
+                IsQuickMatch = isQuickMatch
+            };
+        }
+
+        private static Dictionary<string, DataObject> BuildLobbyData(string relayJoinCode, string matchMode)
+        {
+            return new Dictionary<string, DataObject>
+            {
+                {
+                    GameFilterKey,
+                    new DataObject(DataObject.VisibilityOptions.Public, GameFilterValue)
+                },
+                {
+                    MatchModeKey,
+                    new DataObject(DataObject.VisibilityOptions.Public, matchMode)
+                },
+                {
+                    RelayJoinCodeKey,
+                    new DataObject(DataObject.VisibilityOptions.Member, relayJoinCode)
+                }
             };
         }
 
