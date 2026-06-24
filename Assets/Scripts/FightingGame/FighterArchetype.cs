@@ -141,14 +141,15 @@ namespace FightingGame
 
     public static class IzSkills
     {
-        public const float MeleeReachScale = 1.32f;
+        public const float MeleeReachScale = 1.14f;
+        public const float PoisonArrowVisualScale = 0.72f;
 
         public const float PoisonArrowCooldown = 4.5f;
         public const float PoisonArrowStartup = 0.32f;
         public const float PoisonArrowRecovery = 0.24f;
         public const float PoisonArrowDamage = 5f;
-        public const float PoisonArrowSpeed = 18f;
-        public const float PoisonArrowLifetime = 2.0f;
+        public const float PoisonArrowSpeed = 19f;
+        public const float PoisonArrowLifetime = 2.65f;
 
         public const int MaxPoisonStacks = 5;
         public const int MeleePoisonStacks = 1;

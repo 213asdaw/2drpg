@@ -457,27 +457,27 @@ namespace FightingGame
                 float reachScale = IzSkills.MeleeReachScale;
                 if (currentAttack.Type == AttackType.Kick)
                 {
-                    reachMin = 0.68f;
-                    reachMax = 1.48f;
-                    hitWidth = 0.82f;
-                    hitHeight = 0.58f;
+                    reachMin = 0.62f;
+                    reachMax = 1.18f;
+                    hitWidth = 0.58f;
+                    hitHeight = 0.46f;
                     centerY = 0.42f;
                 }
                 else if (currentAttack.Type == AttackType.Heavy)
                 {
-                    reachMin = 0.78f;
-                    reachMax = 1.42f;
-                    hitWidth = 0.86f;
-                    hitHeight = 0.82f;
-                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+                    reachMin = 0.68f;
+                    reachMax = 1.08f;
+                    hitWidth = 0.52f;
+                    hitHeight = 0.58f;
+                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.78f;
                 }
                 else
                 {
-                    reachMin = 0.72f;
-                    reachMax = 1.02f;
-                    hitWidth = 0.78f;
-                    hitHeight = 0.72f;
-                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+                    reachMin = 0.64f;
+                    reachMax = 0.88f;
+                    hitWidth = 0.48f;
+                    hitHeight = 0.5f;
+                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.78f;
                 }
 
                 float bowReach = Mathf.Lerp(reachMin, reachMax, activeProgress) * reachScale;
@@ -635,12 +635,14 @@ namespace FightingGame
         private void SpawnPoisonArrowProjectile()
         {
             GameObject projectileObject = new GameObject("PoisonArrow");
-            projectileObject.transform.SetParent(projectileRoot, false);
+            projectileObject.transform.SetParent(null, true);
             SpriteRenderer renderer = projectileObject.AddComponent<SpriteRenderer>();
             renderer.sprite = ProceduralArt.CreatePoisonArrowProjectileSprite();
             renderer.sortingOrder = 20 + playerIndex;
+            renderer.flipX = false;
 
             Vector3 spawnPosition = transform.position + new Vector3(facing * 0.85f, 0.92f + visualGroundOffset, 0f);
+            renderer.transform.position = spawnPosition;
             projectiles.Add(new FlameProjectile
             {
                 Position = spawnPosition,
@@ -651,6 +653,20 @@ namespace FightingGame
                 IsPoisonArrow = true,
                 Renderer = renderer
             });
+            ApplyPoisonArrowVisual(projectiles[projectiles.Count - 1]);
+        }
+
+        private static void ApplyPoisonArrowVisual(FlameProjectile projectile)
+        {
+            if (projectile.Renderer == null)
+            {
+                return;
+            }
+
+            float scale = IzSkills.PoisonArrowVisualScale;
+            float direction = projectile.Facing >= 0f ? 1f : -1f;
+            projectile.Renderer.flipX = false;
+            projectile.Renderer.transform.localScale = new Vector3(direction * scale, scale, 1f);
         }
 
         private void SpawnFlameSlashProjectile()
@@ -684,14 +700,25 @@ namespace FightingGame
                 if (projectile.Renderer != null)
                 {
                     projectile.Renderer.transform.position = projectile.Position;
-                    projectile.Renderer.flipX = projectile.Facing < 0f;
+                    if (projectile.IsPoisonArrow)
+                    {
+                        ApplyPoisonArrowVisual(projectile);
+                    }
+                    else
+                    {
+                        projectile.Renderer.flipX = projectile.Facing < 0f;
+                    }
                 }
 
                 if (!projectile.HasHit && opponent != null && opponent.IsAlive)
                 {
-                    Bounds projectileBounds = new Bounds(
-                        projectile.Position,
-                        projectile.IsPoisonArrow ? new Vector3(0.95f, 0.35f, 0.1f) : new Vector3(1.1f, 0.55f, 0.1f));
+                    Vector3 hitCenter = projectile.IsPoisonArrow
+                        ? projectile.Position + new Vector3(projectile.Facing * 0.16f, 0f, 0f)
+                        : projectile.Position;
+                    Vector3 hitSize = projectile.IsPoisonArrow
+                        ? new Vector3(0.46f, 0.16f, 0.1f)
+                        : new Vector3(1.1f, 0.55f, 0.1f);
+                    Bounds projectileBounds = new Bounds(hitCenter, hitSize);
                     if (projectileBounds.Intersects(opponent.GetHurtboxBounds()))
                     {
                         projectile.HasHit = true;
@@ -1310,23 +1337,38 @@ namespace FightingGame
             {
                 float windUp = currentAttack.Startup <= 0f ? 1f : stateTimer / currentAttack.Startup;
                 int progressBucket = Mathf.Clamp(Mathf.FloorToInt(windUp * 4f), 0, 3);
-                int effectKey = 4000 + progressBucket;
+                int effectKey = archetypeId == FighterArchetypeId.Iz ? 7100 + progressBucket : 4000 + progressBucket;
                 if (effectKey != cachedAttackEffectKey)
                 {
                     cachedAttackEffectKey = effectKey;
-                    cachedAttackEffectSprite = archetypeId == FighterArchetypeId.FlameSwordsman
-                        ? ProceduralArt.CreateSwordWindUpEffect(progressBucket / 3f)
-                        : ProceduralArt.CreatePunchWindUpEffect(progressBucket / 3f);
+                    cachedAttackEffectSprite = archetypeId == FighterArchetypeId.Iz
+                        ? ProceduralArt.CreateBowDrawEffect(windUp * 0.42f)
+                        : archetypeId == FighterArchetypeId.FlameSwordsman
+                            ? ProceduralArt.CreateSwordWindUpEffect(progressBucket / 3f)
+                            : ProceduralArt.CreatePunchWindUpEffect(progressBucket / 3f);
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
                 attackEffectRoot.localRotation = Quaternion.identity;
-                attackEffectRoot.localPosition = new Vector3(
-                    -facingSign * (0.12f + windUp * 0.18f),
-                    (archetypeId == FighterArchetypeId.FlameSwordsman ? KaronSwordVisualY - 0.04f : 0.98f) + bob,
-                    0f);
-                attackEffectRoot.localScale = Vector3.one * (0.85f + windUp * 0.15f);
-                attackEffectRenderer.color = new Color(0.85f, 0.78f, 0.72f, 0.65f + windUp * 0.2f);
+                if (archetypeId == FighterArchetypeId.Iz)
+                {
+                    attackEffectRoot.localPosition = new Vector3(
+                        -facingSign * (0.08f + windUp * 0.12f),
+                        0.84f + bob,
+                        0f);
+                    attackEffectRoot.localScale = Vector3.one * (0.95f + windUp * 0.2f);
+                    attackEffectRenderer.color = new Color(0.72f, 0.95f, 0.68f, 0.7f + windUp * 0.25f);
+                }
+                else
+                {
+                    attackEffectRoot.localPosition = new Vector3(
+                        -facingSign * (0.12f + windUp * 0.18f),
+                        (archetypeId == FighterArchetypeId.FlameSwordsman ? KaronSwordVisualY - 0.04f : 0.98f) + bob,
+                        0f);
+                    attackEffectRoot.localScale = Vector3.one * (0.85f + windUp * 0.15f);
+                    attackEffectRenderer.color = new Color(0.85f, 0.78f, 0.72f, 0.65f + windUp * 0.2f);
+                }
+
                 return;
             }
 
@@ -1339,10 +1381,30 @@ namespace FightingGame
 
             float activeProgress = (stateTimer - currentAttack.Startup) / Mathf.Max(0.01f, currentAttack.Active);
             int strikeBucket = Mathf.Clamp(Mathf.FloorToInt(activeProgress * 8f), 0, 7);
-            int strikeKey = 5000 + strikeBucket;
 
-            if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            if (archetypeId == FighterArchetypeId.Iz)
             {
+                int strikeKey = 7200 + strikeBucket;
+                float drawProgress = 0.45f + activeProgress * 0.55f;
+                if (strikeKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = strikeKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(drawProgress);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.52f;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.34f + extend),
+                    0.8f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * (1.05f + activeProgress * 0.35f);
+                attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.95f);
+            }
+            else if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            {
+                int strikeKey = 5000 + strikeBucket;
                 if (strikeKey != cachedAttackEffectKey)
                 {
                     cachedAttackEffectKey = strikeKey;
@@ -1365,6 +1427,7 @@ namespace FightingGame
             }
             else
             {
+                int strikeKey = 5000 + strikeBucket;
                 if (strikeKey != cachedAttackEffectKey)
                 {
                     cachedAttackEffectKey = strikeKey;

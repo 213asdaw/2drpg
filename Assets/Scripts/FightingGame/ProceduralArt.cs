@@ -46,8 +46,8 @@ namespace FightingGame
 
         public static Sprite CreatePoisonArrowProjectileSprite()
         {
-            const int width = 36;
-            const int height = 10;
+            const int width = 28;
+            const int height = 8;
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -69,18 +69,18 @@ namespace FightingGame
                 }
             }
 
-            FillRect(texture, width, height, 2, 4, 22, 2, shaft);
-            FillRect(texture, width, height, 0, 3, 5, 4, fletching);
-            FillRect(texture, width, height, 24, 3, 10, 4, tip);
-            SetPixelSafe(texture, width, height, 32, 4, tipGlow);
-            SetPixelSafe(texture, width, height, 33, 5, tipGlow);
-            SetPixelSafe(texture, width, height, 34, 4, tip);
+            FillRect(texture, width, height, 2, 3, 17, 2, shaft);
+            FillRect(texture, width, height, 0, 2, 4, 4, fletching);
+            FillRect(texture, width, height, 18, 2, 8, 4, tip);
+            SetPixelSafe(texture, width, height, 24, 3, tipGlow);
+            SetPixelSafe(texture, width, height, 25, 4, tipGlow);
+            SetPixelSafe(texture, width, height, 26, 3, tip);
 
             texture.Apply(false, true);
             return Sprite.Create(
                 texture,
                 new Rect(0f, 0f, width, height),
-                new Vector2(0.15f, 0.5f),
+                new Vector2(0.5f, 0.5f),
                 FightConstants.PixelsPerUnit);
         }
 
