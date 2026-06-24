@@ -213,8 +213,8 @@ namespace FightingGame
 
         public static Sprite CreateFlameSlashProjectileSprite()
         {
-            const int width = 48;
-            const int height = 20;
+            const int width = 58;
+            const int height = 26;
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -561,8 +561,8 @@ namespace FightingGame
 
         public static Sprite CreateSwordSwingEffect(AttackType attackType, float progress)
         {
-            const int width = 40;
-            const int height = 40;
+            const int width = 48;
+            const int height = 48;
             Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 filterMode = FilterMode.Point,
@@ -581,9 +581,9 @@ namespace FightingGame
             }
 
             float arcEnd = Mathf.Lerp(-0.35f, 1.75f, progress);
-            float trailSpan = Mathf.Lerp(0.28f, 0.62f, progress) * Mathf.Lerp(1f, 0.72f, progress);
+            float trailSpan = Mathf.Lerp(0.32f, 0.72f, progress) * Mathf.Lerp(1f, 0.72f, progress);
             float arcStart = arcEnd - trailSpan;
-            float thickness = attackType == AttackType.Heavy ? 3.0f : 2.4f;
+            float thickness = attackType == AttackType.Heavy ? 3.4f : 2.8f;
             Vector2 pivot = new Vector2(width * 0.28f, height * 0.14f);
 
             for (int y = 0; y < height; y++)
@@ -594,12 +594,12 @@ namespace FightingGame
                     Vector2 dir = point - pivot;
                     float angle = Mathf.Atan2(dir.y, dir.x);
                     float radius = dir.magnitude;
-                    if (angle >= arcStart && angle <= arcEnd && radius >= 8f && radius <= 20f + progress * 4f)
+                    if (angle >= arcStart && angle <= arcEnd && radius >= 10f && radius <= 26f + progress * 5f)
                     {
                         float edgeBlend = Mathf.InverseLerp(arcStart, arcEnd, angle);
                         float trailFade = Mathf.SmoothStep(0f, 1f, edgeBlend);
                         Color pixel = Color.Lerp(trail, blade, edgeBlend);
-                        if (radius > 16f)
+                        if (radius > 20f)
                         {
                             pixel = Color.Lerp(pixel, edge, 0.55f);
                         }

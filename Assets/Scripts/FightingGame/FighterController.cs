@@ -676,8 +676,12 @@ namespace FightingGame
             SpriteRenderer renderer = projectileObject.AddComponent<SpriteRenderer>();
             renderer.sprite = ProceduralArt.CreateFlameSlashProjectileSprite();
             renderer.sortingOrder = 20 + playerIndex;
+            float slashScale = FlameSwordsmanSkills.FlameSlashVisualScale;
+            renderer.transform.localScale = new Vector3(facing * slashScale, slashScale, 1f);
+            renderer.flipX = false;
 
             Vector3 spawnPosition = transform.position + new Vector3(facing * 1.1f, 1.05f, 0f);
+            renderer.transform.position = spawnPosition;
             projectiles.Add(new FlameProjectile
             {
                 Position = spawnPosition,
@@ -706,7 +710,12 @@ namespace FightingGame
                     }
                     else
                     {
-                        projectile.Renderer.flipX = projectile.Facing < 0f;
+                        float slashScale = FlameSwordsmanSkills.FlameSlashVisualScale;
+                        projectile.Renderer.flipX = false;
+                        projectile.Renderer.transform.localScale = new Vector3(
+                            projectile.Facing * slashScale,
+                            slashScale,
+                            1f);
                     }
                 }
 
@@ -1272,7 +1281,7 @@ namespace FightingGame
                     facingSign * (0.15f + activeProgress * 0.35f),
                     KaronSwordVisualY + bob,
                     0f);
-                attackEffectRoot.localScale = Vector3.one * 1.1f;
+                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.48f : 1.38f);
                 attackEffectRenderer.color = new Color(1f, 0.88f, 0.55f, 0.92f);
             }
             else if (currentAttack.Type == AttackType.Kick)
@@ -1422,7 +1431,7 @@ namespace FightingGame
                     facingSign * (0.15f + activeProgress * 0.45f),
                     KaronSwordVisualY + bob,
                     0f);
-                attackEffectRoot.localScale = Vector3.one * 1.35f;
+                attackEffectRoot.localScale = Vector3.one * 1.62f;
                 attackEffectRenderer.color = new Color(1f, 0.72f, 0.38f, 0.95f);
             }
             else

@@ -132,6 +132,7 @@ namespace FightingGame
         public const float FlameSlashProjectileDamage = 16f;
         public const float FlameSlashProjectileSpeed = 13f;
         public const float FlameSlashProjectileLifetime = 1.4f;
+        public const float FlameSlashVisualScale = 1.38f;
 
         public const float MoltenGuardCooldown = 10f;
         public const float MoltenGuardStartup = 0.24f;
