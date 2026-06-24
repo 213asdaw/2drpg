@@ -1,3 +1,4 @@
+using System.Reflection;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace FightingGame
         private static GameObject fighterPrefabTemplate;
         private static GameObject matchCoordinatorPrefabTemplate;
         private static NetworkManager registeredNetworkManager;
+        private static FieldInfo globalObjectIdHashField;
 
         public static NetworkManager EnsureNetworkManager()
         {
@@ -103,10 +105,21 @@ namespace FightingGame
                 return;
             }
 
+            uint prefabHash = GetPrefabGlobalObjectIdHash(networkObject);
             foreach (NetworkPrefab registeredPrefab in networkManager.NetworkConfig.Prefabs.PrefabsList)
             {
-                if (registeredPrefab.Prefab == prefab
-                    || registeredPrefab.Prefab != null && registeredPrefab.Prefab.GlobalObjectIdHash == networkObject.GlobalObjectIdHash)
+                if (registeredPrefab.Prefab == prefab)
+                {
+                    return;
+                }
+
+                if (registeredPrefab.Prefab == null)
+                {
+                    continue;
+                }
+
+                NetworkObject registeredObject = registeredPrefab.Prefab.GetComponent<NetworkObject>();
+                if (registeredObject != null && GetPrefabGlobalObjectIdHash(registeredObject) == prefabHash)
                 {
                     return;
                 }
@@ -141,11 +154,54 @@ namespace FightingGame
         {
             GameObject prefab = new GameObject(name);
             NetworkObject networkObject = prefab.AddComponent<NetworkObject>();
-            networkObject.GlobalObjectIdHash = globalObjectIdHash;
+            SetPrefabGlobalObjectIdHash(networkObject, globalObjectIdHash);
             prefab.AddComponent(behaviourType);
             prefab.SetActive(false);
             Object.DontDestroyOnLoad(prefab);
             return prefab;
+        }
+
+        private static FieldInfo GetGlobalObjectIdHashField()
+        {
+            if (globalObjectIdHashField != null)
+            {
+                return globalObjectIdHashField;
+            }
+
+            globalObjectIdHashField = typeof(NetworkObject).GetField(
+                "GlobalObjectIdHash",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (globalObjectIdHashField == null)
+            {
+                globalObjectIdHashField = typeof(NetworkObject).GetField(
+                    "NetworkObjectIdHash",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+
+            return globalObjectIdHashField;
+        }
+
+        private static uint GetPrefabGlobalObjectIdHash(NetworkObject networkObject)
+        {
+            FieldInfo field = GetGlobalObjectIdHashField();
+            if (field == null || networkObject == null)
+            {
+                return 0;
+            }
+
+            return (uint)field.GetValue(networkObject);
+        }
+
+        private static void SetPrefabGlobalObjectIdHash(NetworkObject networkObject, uint hash)
+        {
+            FieldInfo field = GetGlobalObjectIdHashField();
+            if (field == null || networkObject == null)
+            {
+                Debug.LogError("FightingNetworkBootstrap: failed to assign runtime NetworkObject hash.");
+                return;
+            }
+
+            field.SetValue(networkObject, hash);
         }
     }
 }
