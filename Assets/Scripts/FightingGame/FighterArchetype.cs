@@ -152,10 +152,11 @@ namespace FightingGame
         public const float PoisonArrowSpeed = 19f;
         public const float PoisonArrowLifetime = 2.65f;
 
-        public const float MeleeArrowVisualScale = 0.62f;
-        public const float MeleeArrowSpeedLight = 21f;
-        public const float MeleeArrowSpeedKick = 19f;
-        public const float MeleeArrowSpeedHeavy = 18f;
+        public const float MeleeArrowVisualScale = 0.76f;
+        public const float MeleeArrowDamageMultiplier = 0.78f;
+        public const float MeleeArrowSpeedLight = 18f;
+        public const float MeleeArrowSpeedKick = 16f;
+        public const float MeleeArrowSpeedHeavy = 15f;
         public const float MeleeArrowLifetimeLight = 0.42f;
         public const float MeleeArrowLifetimeKick = 0.52f;
         public const float MeleeArrowLifetimeHeavy = 0.62f;

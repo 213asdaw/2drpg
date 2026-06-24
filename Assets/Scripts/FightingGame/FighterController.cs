@@ -682,7 +682,7 @@ namespace FightingGame
             {
                 Position = spawnPosition,
                 Facing = facing,
-                Damage = currentAttack.Damage,
+                Damage = currentAttack.Damage * IzSkills.MeleeArrowDamageMultiplier,
                 Speed = IzSkills.GetMeleeArrowSpeed(currentAttack.Type),
                 Lifetime = IzSkills.GetMeleeArrowLifetime(currentAttack.Type),
                 IsMeleeArrow = true,
