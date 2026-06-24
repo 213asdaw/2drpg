@@ -106,7 +106,7 @@ namespace FightingGame
             }
 
             uint prefabHash = GetPrefabGlobalObjectIdHash(networkObject);
-            foreach (NetworkPrefab registeredPrefab in networkManager.NetworkConfig.Prefabs.PrefabsList)
+            foreach (NetworkPrefab registeredPrefab in networkManager.NetworkConfig.Prefabs.Prefabs)
             {
                 if (registeredPrefab.Prefab == prefab)
                 {
