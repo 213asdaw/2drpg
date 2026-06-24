@@ -12,7 +12,7 @@ namespace FightingGame
             }
 
             FighterArchetypeDefinition definition = FighterArchetypes.Get(fighter.ArchetypeId);
-            if (!definition.HasFlameSlash && !definition.HasMoltenGuard)
+            if (!definition.HasFlameSlash && !definition.HasMoltenGuard && !definition.HasPoisonArrow)
             {
                 return;
             }
@@ -27,7 +27,7 @@ namespace FightingGame
             float y = Screen.height - screenPoint.y - 28f;
             float x = screenPoint.x - 42f;
 
-            if (definition.HasFlameSlash)
+            if (definition.HasFlameSlash || definition.HasPoisonArrow)
             {
                 DrawSkillSlot(new Rect(x, y, 84f, 22f), "U", fighter.Skill1CooldownRemaining, cooldownStyle, labelStyle);
                 x += 88f;

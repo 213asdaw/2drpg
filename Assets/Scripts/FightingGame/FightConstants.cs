@@ -46,7 +46,8 @@ namespace FightingGame
         Kick,
         Heavy,
         FlameSlash,
-        MoltenGuard
+        MoltenGuard,
+        PoisonArrow
     }
 
     public enum MatchPhase

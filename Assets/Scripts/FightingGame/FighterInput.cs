@@ -131,6 +131,11 @@ namespace FightingGame
                 parts.Add("P23");
             }
 
+            if (p2.Skill1Pressed)
+            {
+                parts.Add("P24");
+            }
+
             return parts.Count == 0 ? string.Empty : string.Join(" ", parts);
         }
 
@@ -174,7 +179,7 @@ namespace FightingGame
                 FightKeyCapture.ReadPlayerTwoLightPressed(),
                 FightKeyCapture.ReadPlayerTwoKickPressed(),
                 FightKeyCapture.ReadPlayerTwoHeavyPressed(),
-                false,
+                FightKeyCapture.ReadPlayerTwoSkill1Pressed(),
                 false);
         }
 

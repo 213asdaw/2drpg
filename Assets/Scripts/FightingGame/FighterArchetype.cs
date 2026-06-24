@@ -3,14 +3,16 @@ namespace FightingGame
     public enum FighterArchetypeId
     {
         Default,
-        FlameSwordsman
+        FlameSwordsman,
+        Iz
     }
 
     public enum SkillId
     {
         None,
         FlameSlashWave,
-        MoltenGuard
+        MoltenGuard,
+        PoisonArrow
     }
 
     public sealed class FighterArchetypeDefinition
@@ -23,6 +25,7 @@ namespace FightingGame
         public float DamageMultiplier { get; }
         public bool HasFlameSlash { get; }
         public bool HasMoltenGuard { get; }
+        public bool HasPoisonArrow { get; }
         public float VisualGroundOffset { get; }
 
         public FighterArchetypeDefinition(
@@ -34,6 +37,7 @@ namespace FightingGame
             float damageMultiplier,
             bool hasFlameSlash,
             bool hasMoltenGuard,
+            bool hasPoisonArrow = false,
             float visualGroundOffset = 0f)
         {
             Id = id;
@@ -44,6 +48,7 @@ namespace FightingGame
             DamageMultiplier = damageMultiplier;
             HasFlameSlash = hasFlameSlash;
             HasMoltenGuard = hasMoltenGuard;
+            HasPoisonArrow = hasPoisonArrow;
             VisualGroundOffset = visualGroundOffset;
         }
     }
@@ -59,6 +64,7 @@ namespace FightingGame
             1.1f,
             false,
             false,
+            false,
             0.25f);
 
         public static readonly FighterArchetypeDefinition FlameSwordsman = new FighterArchetypeDefinition(
@@ -70,7 +76,20 @@ namespace FightingGame
             0.9f,
             true,
             true,
+            false,
             0f);
+
+        public static readonly FighterArchetypeDefinition Iz = new FighterArchetypeDefinition(
+            FighterArchetypeId.Iz,
+            "이즈",
+            108f,
+            5.6f,
+            1.08f,
+            0.95f,
+            false,
+            false,
+            true,
+            0.1f);
 
         public static FighterArchetypeDefinition Get(FighterArchetypeId id)
         {
@@ -78,6 +97,8 @@ namespace FightingGame
             {
                 case FighterArchetypeId.FlameSwordsman:
                     return FlameSwordsman;
+                case FighterArchetypeId.Iz:
+                    return Iz;
                 default:
                     return Default;
             }
@@ -90,6 +111,12 @@ namespace FightingGame
             {
                 return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
                     + " | U/I 스킬 (화염 베기, 용암 가드)";
+            }
+
+            if (definition.HasPoisonArrow)
+            {
+                return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
+                    + " | U 독화살 (지속 피해)";
             }
 
             return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
@@ -110,5 +137,18 @@ namespace FightingGame
         public const float MoltenGuardStartup = 0.24f;
         public const float MoltenGuardDuration = 3.5f;
         public const float MoltenGuardDamageMultiplier = 0.38f;
+    }
+
+    public static class IzSkills
+    {
+        public const float PoisonArrowCooldown = 4.5f;
+        public const float PoisonArrowStartup = 0.32f;
+        public const float PoisonArrowRecovery = 0.24f;
+        public const float PoisonArrowDamage = 9f;
+        public const float PoisonArrowSpeed = 16f;
+        public const float PoisonArrowLifetime = 1.5f;
+        public const float PoisonDuration = 2.8f;
+        public const float PoisonTickDamage = 4f;
+        public const float PoisonTickInterval = 0.7f;
     }
 }

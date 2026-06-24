@@ -444,14 +444,19 @@ namespace FightingGame
             FighterArchetypeDefinition definition = FighterArchetypes.Get(fighter.ArchetypeId);
             string skillHint = definition.HasFlameSlash || definition.HasMoltenGuard
                 ? " | U/I 스킬(공중 가능)"
-                : string.Empty;
+                : definition.HasPoisonArrow
+                    ? " | U 독화살(공중 가능)"
+                    : string.Empty;
 
             if (playerIndex == 0)
             {
                 return "P1 " + fighter.DisplayName + ": A/D W S J/K/L" + skillHint;
             }
 
-            return "P2 " + fighter.DisplayName + ": E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격";
+            string p2SkillHint = definition.HasPoisonArrow
+                ? " | 4 독화살(공중 가능)"
+                : string.Empty;
+            return "P2 " + fighter.DisplayName + ": E/O 또는 ,/. 이동 | PageUp/Down 점프/가드 | 1/2/3 공격" + p2SkillHint;
         }
 
         private struct FloatingCombatText

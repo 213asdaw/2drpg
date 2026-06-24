@@ -64,6 +64,7 @@ namespace FightingGame
         public float Speed;
         public float Lifetime;
         public bool HasHit;
+        public bool IsPoisonArrow;
         public SpriteRenderer Renderer;
     }
 
@@ -107,6 +108,10 @@ namespace FightingGame
         private float skill2Cooldown;
         private float defenseBuffTimer;
         private bool defenseBuffVisual;
+        private float poisonTimer;
+        private float poisonTickTimer;
+        private float poisonTickDamage;
+        private float poisonTickInterval;
         private AttackDefinition currentAttack;
         private SkillId castingSkill = SkillId.None;
         private bool grounded = true;
@@ -137,11 +142,18 @@ namespace FightingGame
         public float Facing => facing;
         public bool IsAlive => health > 0f;
         public bool IsDefenseBuffActive => defenseBuffTimer > 0f || defenseBuffVisual;
+        public bool IsPoisoned => poisonTimer > 0f;
         public bool CanAct => IsAlive && State != FighterState.Victory && State != FighterState.Defeat;
         public float Skill1CooldownRemaining => skill1Cooldown;
         public float Skill2CooldownRemaining => skill2Cooldown;
-        public float Skill1CooldownMax => FlameSwordsmanSkills.FlameSlashCooldown;
-        public float Skill2CooldownMax => FlameSwordsmanSkills.MoltenGuardCooldown;
+        public float Skill1CooldownMax => archetypeId == FighterArchetypeId.Iz
+            ? IzSkills.PoisonArrowCooldown
+            : archetypeId == FighterArchetypeId.FlameSwordsman
+                ? FlameSwordsmanSkills.FlameSlashCooldown
+                : 0f;
+        public float Skill2CooldownMax => archetypeId == FighterArchetypeId.FlameSwordsman
+            ? FlameSwordsmanSkills.MoltenGuardCooldown
+            : 0f;
 
         public event Action<FighterController, float> Damaged;
         public event Action<FighterController, FighterController, AttackType> LandedHit;
@@ -158,10 +170,14 @@ namespace FightingGame
             visualGroundOffset = definition.VisualGroundOffset;
             primaryColor = archetype == FighterArchetypeId.FlameSwordsman
                 ? new Color(0.95f, 0.42f, 0.18f)
-                : index == 0 ? new Color(0.28f, 0.62f, 0.95f) : new Color(0.95f, 0.38f, 0.32f);
+                : archetype == FighterArchetypeId.Iz
+                    ? new Color(0.55f, 0.28f, 0.65f)
+                    : index == 0 ? new Color(0.28f, 0.62f, 0.95f) : new Color(0.95f, 0.38f, 0.32f);
             accentColor = archetype == FighterArchetypeId.FlameSwordsman
                 ? new Color(0.35f, 0.12f, 0.08f)
-                : index == 0 ? new Color(0.12f, 0.22f, 0.42f) : new Color(0.42f, 0.12f, 0.12f);
+                : archetype == FighterArchetypeId.Iz
+                    ? new Color(0.38f, 0.78f, 0.42f)
+                    : index == 0 ? new Color(0.12f, 0.22f, 0.42f) : new Color(0.42f, 0.12f, 0.12f);
 
             lightAttack = BaseLightAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
             kickAttack = BaseKickAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
@@ -213,6 +229,8 @@ namespace FightingGame
             skill2Cooldown = 0f;
             defenseBuffTimer = 0f;
             defenseBuffVisual = false;
+            poisonTimer = 0f;
+            poisonTickTimer = 0f;
             grounded = true;
             hasHitThisAttack = false;
             currentAttack = null;
@@ -248,6 +266,7 @@ namespace FightingGame
             }
 
             invulnTimer = Mathf.Max(0f, invulnTimer - deltaTime);
+            TickPoison(deltaTime);
             TickProjectiles(deltaTime);
 
             if (State == FighterState.Victory || State == FighterState.Defeat)
@@ -486,7 +505,7 @@ namespace FightingGame
         private bool CanUseSkill1()
         {
             FighterArchetypeDefinition def = FighterArchetypes.Get(archetypeId);
-            return def.HasFlameSlash && skill1Cooldown <= 0f && CanStartAttack();
+            return (def.HasFlameSlash || def.HasPoisonArrow) && skill1Cooldown <= 0f && CanStartAttack();
         }
 
         private bool CanUseSkill2()
@@ -498,7 +517,7 @@ namespace FightingGame
         private void BeginSkill1()
         {
             SnapFacingTowardOpponent();
-            castingSkill = SkillId.FlameSlashWave;
+            castingSkill = archetypeId == FighterArchetypeId.Iz ? SkillId.PoisonArrow : SkillId.FlameSlashWave;
             stateTimer = 0f;
             SetState(FighterState.Skill1Cast);
         }
@@ -549,6 +568,44 @@ namespace FightingGame
                     }
                 }
             }
+            else if (castingSkill == SkillId.PoisonArrow)
+            {
+                if (stateTimer >= IzSkills.PoisonArrowStartup)
+                {
+                    if (stateTimer - deltaTime < IzSkills.PoisonArrowStartup)
+                    {
+                        SpawnPoisonArrowProjectile();
+                        skill1Cooldown = IzSkills.PoisonArrowCooldown;
+                    }
+
+                    if (stateTimer >= IzSkills.PoisonArrowStartup + IzSkills.PoisonArrowRecovery)
+                    {
+                        castingSkill = SkillId.None;
+                        SetState(grounded ? FighterState.Idle : FighterState.Fall);
+                    }
+                }
+            }
+        }
+
+        private void SpawnPoisonArrowProjectile()
+        {
+            GameObject projectileObject = new GameObject("PoisonArrow");
+            projectileObject.transform.SetParent(projectileRoot, false);
+            SpriteRenderer renderer = projectileObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = ProceduralArt.CreatePoisonArrowProjectileSprite();
+            renderer.sortingOrder = 20 + playerIndex;
+
+            Vector3 spawnPosition = transform.position + new Vector3(facing * 0.85f, 0.92f + visualGroundOffset, 0f);
+            projectiles.Add(new FlameProjectile
+            {
+                Position = spawnPosition,
+                Facing = facing,
+                Damage = IzSkills.PoisonArrowDamage,
+                Speed = IzSkills.PoisonArrowSpeed,
+                Lifetime = IzSkills.PoisonArrowLifetime,
+                IsPoisonArrow = true,
+                Renderer = renderer
+            });
         }
 
         private void SpawnFlameSlashProjectile()
@@ -587,11 +644,21 @@ namespace FightingGame
 
                 if (!projectile.HasHit && opponent != null && opponent.IsAlive)
                 {
-                    Bounds projectileBounds = new Bounds(projectile.Position, new Vector3(1.1f, 0.55f, 0.1f));
+                    Bounds projectileBounds = new Bounds(
+                        projectile.Position,
+                        projectile.IsPoisonArrow ? new Vector3(0.95f, 0.35f, 0.1f) : new Vector3(1.1f, 0.55f, 0.1f));
                     if (projectileBounds.Intersects(opponent.GetHurtboxBounds()))
                     {
                         projectile.HasHit = true;
-                        opponent.ApplyDamage(this, projectile.Damage, 2.2f, 0.35f, AttackType.FlameSlash);
+                        if (projectile.IsPoisonArrow)
+                        {
+                            opponent.ApplyDamage(this, projectile.Damage, 1.4f, 0.28f, AttackType.PoisonArrow);
+                            opponent.ApplyPoison(IzSkills.PoisonDuration, IzSkills.PoisonTickDamage, IzSkills.PoisonTickInterval);
+                        }
+                        else
+                        {
+                            opponent.ApplyDamage(this, projectile.Damage, 2.2f, 0.35f, AttackType.FlameSlash);
+                        }
                     }
                 }
 
@@ -653,6 +720,46 @@ namespace FightingGame
             if (health <= 0f)
             {
                 SetState(FighterState.Defeat);
+            }
+        }
+
+        public void ApplyPoison(float duration, float tickDamage, float tickInterval)
+        {
+            poisonTimer = Mathf.Max(poisonTimer, duration);
+            poisonTickDamage = tickDamage;
+            poisonTickInterval = tickInterval;
+            if (poisonTickTimer <= 0f)
+            {
+                poisonTickTimer = tickInterval;
+            }
+        }
+
+        private void TickPoison(float deltaTime)
+        {
+            if (poisonTimer <= 0f || !IsAlive)
+            {
+                poisonTimer = 0f;
+                return;
+            }
+
+            poisonTimer -= deltaTime;
+            poisonTickTimer -= deltaTime;
+            while (poisonTickTimer <= 0f && poisonTimer > 0f && IsAlive)
+            {
+                health = Mathf.Max(0f, health - poisonTickDamage);
+                Damaged?.Invoke(this, poisonTickDamage);
+                poisonTickTimer += poisonTickInterval;
+                if (health <= 0f)
+                {
+                    SetState(FighterState.Defeat);
+                    poisonTimer = 0f;
+                    return;
+                }
+            }
+
+            if (poisonTimer <= 0f)
+            {
+                poisonTimer = 0f;
             }
         }
 
@@ -843,7 +950,9 @@ namespace FightingGame
             {
                 cachedBodySprite = archetypeId == FighterArchetypeId.FlameSwordsman
                     ? ProceduralArt.CreateFlameSwordsmanBody(faceRight)
-                    : ProceduralArt.CreateFighterBody(primaryColor, accentColor, faceRight);
+                    : archetypeId == FighterArchetypeId.Iz
+                        ? ProceduralArt.CreateIzBody(faceRight)
+                        : ProceduralArt.CreateFighterBody(primaryColor, accentColor, faceRight);
                 lastVisualFacingRight = faceRight;
             }
 
@@ -895,6 +1004,17 @@ namespace FightingGame
                 auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(1f, 0.78f, 0.52f, 1f);
             }
+            else if (archetypeId == FighterArchetypeId.Iz && State == FighterState.Skill1Cast)
+            {
+                auraRenderer.enabled = false;
+                bodyRenderer.color = new Color(0.82f, 1f, 0.72f, 1f);
+            }
+            else if (archetypeId == FighterArchetypeId.Iz && poisonTimer > 0f)
+            {
+                auraRenderer.enabled = false;
+                float pulse = 0.88f + Mathf.Sin(Time.time * 14f) * 0.12f;
+                bodyRenderer.color = new Color(0.72f, pulse, 0.58f, 1f);
+            }
             else if (archetypeId == FighterArchetypeId.FlameSwordsman && (State == FighterState.Idle || State == FighterState.Walk))
             {
                 auraRenderer.enabled = false;
@@ -931,11 +1051,55 @@ namespace FightingGame
             }
 
             UpdateAttackEffectVisuals(bob);
+            UpdateSkillCastVisuals(bob);
+        }
+
+        private void UpdateSkillCastVisuals(float bob)
+        {
+            if (attackEffectRenderer == null || attackEffectRoot == null)
+            {
+                return;
+            }
+
+            if (State != FighterState.Skill1Cast || archetypeId != FighterArchetypeId.Iz || castingSkill != SkillId.PoisonArrow)
+            {
+                if (!IsAttackState(State))
+                {
+                    attackEffectRenderer.enabled = false;
+                    cachedAttackEffectKey = int.MinValue;
+                }
+
+                return;
+            }
+
+            float progress = Mathf.Clamp01(stateTimer / Mathf.Max(0.01f, IzSkills.PoisonArrowStartup));
+            int progressBucket = Mathf.Clamp(Mathf.FloorToInt(progress * 8f), 0, 7);
+            int effectKey = 5000 + progressBucket;
+            if (effectKey != cachedAttackEffectKey)
+            {
+                cachedAttackEffectKey = effectKey;
+                cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(progress);
+            }
+
+            bool faceRight = facing >= 0f;
+            float facingSign = faceRight ? 1f : -1f;
+            attackEffectRenderer.enabled = true;
+            attackEffectRenderer.sprite = cachedAttackEffectSprite;
+            attackEffectRenderer.flipX = !faceRight;
+            attackEffectRoot.localRotation = Quaternion.identity;
+            attackEffectRoot.localPosition = new Vector3(facingSign * 0.42f, 0.88f + bob, 0f);
+            attackEffectRoot.localScale = Vector3.one * 1.15f;
+            attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.95f);
         }
 
         private void UpdateAttackEffectVisuals(float bob)
         {
             if (attackEffectRenderer == null || attackEffectRoot == null)
+            {
+                return;
+            }
+
+            if (State == FighterState.Skill1Cast && archetypeId == FighterArchetypeId.Iz)
             {
                 return;
             }
@@ -976,7 +1140,26 @@ namespace FightingGame
             attackEffectRenderer.enabled = true;
             attackEffectRenderer.flipX = !faceRight;
 
-            if (archetypeId == FighterArchetypeId.FlameSwordsman)
+            if (archetypeId == FighterArchetypeId.Iz)
+            {
+                int effectKey = 6000 + (int)currentAttack.Type * 10 + progressBucket;
+                if (effectKey != cachedAttackEffectKey)
+                {
+                    cachedAttackEffectKey = effectKey;
+                    cachedAttackEffectSprite = ProceduralArt.CreateBowDrawEffect(activeProgress);
+                }
+
+                attackEffectRenderer.sprite = cachedAttackEffectSprite;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.35f;
+                attackEffectRoot.localRotation = Quaternion.identity;
+                attackEffectRoot.localPosition = new Vector3(
+                    facingSign * (0.38f + extend),
+                    0.82f + bob,
+                    0f);
+                attackEffectRoot.localScale = Vector3.one * (currentAttack.Type == AttackType.Heavy ? 1.25f : 1.05f);
+                attackEffectRenderer.color = new Color(0.78f, 1f, 0.72f, 0.92f);
+            }
+            else if (archetypeId == FighterArchetypeId.FlameSwordsman)
             {
                 int effectKey = 1000 + (int)currentAttack.Type * 10 + progressBucket;
                 if (effectKey != cachedAttackEffectKey)

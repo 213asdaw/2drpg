@@ -156,7 +156,7 @@ namespace FightingGame
         private void DrawCharacterSelect()
         {
             const float panelWidth = 620f;
-            const float panelHeight = 420f;
+            const float panelHeight = 440f;
             Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
 
             GUI.Box(panel, GUIContent.none);
@@ -216,9 +216,11 @@ namespace FightingGame
 
         private FighterArchetypeId DrawArchetypePicker(Rect area, FighterArchetypeId current)
         {
-            float halfWidth = (area.width - 12f) * 0.5f;
-            Rect karonButton = new Rect(area.x, area.y, halfWidth, area.height);
-            Rect brawlerButton = new Rect(area.x + halfWidth + 12f, area.y, halfWidth, area.height);
+            float gap = 10f;
+            float buttonWidth = (area.width - gap * 2f) / 3f;
+            Rect karonButton = new Rect(area.x, area.y, buttonWidth, area.height);
+            Rect brawlerButton = new Rect(area.x + buttonWidth + gap, area.y, buttonWidth, area.height);
+            Rect izButton = new Rect(area.x + (buttonWidth + gap) * 2f, area.y, buttonWidth, area.height);
 
             if (DrawArchetypeChoiceButton(karonButton, "카론", current == FighterArchetypeId.FlameSwordsman))
             {
@@ -228,6 +230,11 @@ namespace FightingGame
             if (DrawArchetypeChoiceButton(brawlerButton, "격투가", current == FighterArchetypeId.Default))
             {
                 return FighterArchetypeId.Default;
+            }
+
+            if (DrawArchetypeChoiceButton(izButton, "이즈", current == FighterArchetypeId.Iz))
+            {
+                return FighterArchetypeId.Iz;
             }
 
             return current;

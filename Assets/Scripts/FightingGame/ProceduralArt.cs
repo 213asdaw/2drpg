@@ -39,6 +39,173 @@ namespace FightingGame
             return CreateKaronSprite(facingRight);
         }
 
+        public static Sprite CreateIzBody(bool facingRight)
+        {
+            return CreateIzSpriteInternal(facingRight);
+        }
+
+        public static Sprite CreatePoisonArrowProjectileSprite()
+        {
+            const int width = 36;
+            const int height = 10;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "PoisonArrow_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color shaft = new Color(0.42f, 0.22f, 0.52f, 0.95f);
+            Color fletching = new Color(0.28f, 0.72f, 0.38f, 0.9f);
+            Color tip = new Color(0.55f, 0.95f, 0.32f, 1f);
+            Color tipGlow = new Color(0.78f, 1f, 0.55f, 0.85f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    texture.SetPixel(x, y, clear);
+                }
+            }
+
+            FillRect(texture, width, height, 2, 4, 22, 2, shaft);
+            FillRect(texture, width, height, 0, 3, 5, 4, fletching);
+            FillRect(texture, width, height, 24, 3, 10, 4, tip);
+            SetPixelSafe(texture, width, height, 32, 4, tipGlow);
+            SetPixelSafe(texture, width, height, 33, 5, tipGlow);
+            SetPixelSafe(texture, width, height, 34, 4, tip);
+
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.15f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
+        public static Sprite CreateBowDrawEffect(float progress)
+        {
+            const int width = 28;
+            const int height = 28;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "BowDraw_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color bow = new Color(0.48f, 0.28f, 0.58f, 0.95f);
+            Color stringColor = new Color(0.82f, 0.92f, 0.78f, 0.9f);
+            Color[] pixels = new Color[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            int pull = Mathf.RoundToInt(Mathf.Lerp(2f, 8f, progress));
+            FillRect(pixels, width, height, 4, 6, 3, 16, bow);
+            FillRect(pixels, width, height, 20, 6, 3, 16, bow);
+            FillRect(pixels, width, height, pull + 10, 7, 10 - pull, 1, stringColor);
+            FillRect(pixels, width, height, 18, 12, 4, 4, new Color(0.55f, 0.95f, 0.32f, 0.95f));
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.35f, 0.5f),
+                FightConstants.PixelsPerUnit);
+        }
+
+        private static void FillRect(Texture2D texture, int width, int height, int x, int y, int w, int h, Color color)
+        {
+            Color[] pixels = texture.GetPixels();
+            FillRect(pixels, width, height, x, y, w, h, color);
+            texture.SetPixels(pixels);
+        }
+
+        private static void SetPixelSafe(Texture2D texture, int width, int height, int x, int y, Color color)
+        {
+            if (x >= 0 && x < width && y >= 0 && y < height)
+            {
+                texture.SetPixel(x, y, color);
+            }
+        }
+
+        private static Sprite CreateIzSpriteInternal(bool facingRight)
+        {
+            const int width = 52;
+            const int height = 76;
+            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "Iz_Tex"
+            };
+
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color[] pixels = new Color[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = clear;
+            }
+
+            Color skin = new Color(0.9f, 0.78f, 0.72f);
+            Color skinShadow = new Color(0.68f, 0.56f, 0.52f);
+            Color hair = new Color(0.18f, 0.12f, 0.22f);
+            Color hairHighlight = new Color(0.32f, 0.22f, 0.38f);
+            Color hood = new Color(0.22f, 0.14f, 0.32f);
+            Color cloak = new Color(0.38f, 0.18f, 0.48f);
+            Color cloakTrim = new Color(0.48f, 0.82f, 0.42f);
+            Color tunic = new Color(0.28f, 0.2f, 0.34f);
+            Color boot = new Color(0.16f, 0.12f, 0.18f);
+            Color bow = new Color(0.52f, 0.32f, 0.58f);
+            Color eye = new Color(0.62f, 0.92f, 0.48f);
+
+            FillRect(pixels, width, height, 19, 10, 8, 10, skin);
+            FillRect(pixels, width, height, 20, 8, 6, 3, skinShadow);
+            FillRect(pixels, width, height, 16, 2, 14, 10, hood);
+            FillRect(pixels, width, height, 18, 0, 10, 4, hair);
+            FillRect(pixels, width, height, 15, 4, 3, 8, hairHighlight);
+            FillRect(pixels, width, height, 26, 5, 3, 7, hair);
+            SetPixelSafe(pixels, width, height, 21, 13, eye);
+            SetPixelSafe(pixels, width, height, 24, 13, eye);
+
+            FillRect(pixels, width, height, 17, 20, 12, 28, cloak);
+            FillRect(pixels, width, height, 15, 24, 2, 20, cloakTrim);
+            FillRect(pixels, width, height, 29, 26, 2, 18, cloakTrim);
+            FillRect(pixels, width, height, 18, 22, 10, 12, tunic);
+
+            FillRect(pixels, width, height, 16, 48, 5, 14, cloak);
+            FillRect(pixels, width, height, 25, 48, 5, 14, cloak);
+            FillRect(pixels, width, height, 15, 60, 7, 8, boot);
+            FillRect(pixels, width, height, 24, 60, 7, 8, boot);
+
+            FillRect(pixels, width, height, 8, 26, 4, 16, skin);
+            FillRect(pixels, width, height, 30, 28, 4, 14, skin);
+
+            FillRect(pixels, width, height, 32, 24, 3, 18, bow);
+            FillRect(pixels, width, height, 36, 26, 2, 14, bow);
+            FillRect(pixels, width, height, 34, 30, 6, 1, cloakTrim);
+            FillRect(pixels, width, height, 6, 30, 8, 3, new Color(0.42f, 0.22f, 0.52f, 0.9f));
+
+            if (!facingRight)
+            {
+                MirrorHorizontal(pixels, width, height);
+            }
+
+            FlipPixelsVertical(pixels, width, height);
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(
+                texture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.5f, 0f),
+                FightConstants.PixelsPerUnit);
+        }
+
         public static Sprite CreateKaronSprite(bool facingRight)
         {
             return CreateKaronSpriteInternal(facingRight);
