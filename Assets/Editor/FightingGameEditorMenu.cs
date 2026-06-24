@@ -25,18 +25,26 @@ namespace FightingGame.Editor
             bool linked = !string.IsNullOrEmpty(cloudProjectId);
             string message = linked
                 ? "Unity Cloud 연결됨\n\nProject ID: " + cloudProjectId + "\n\n"
-                  + "Dashboard(dashboard.unity.com)에서 아래 3개가 켜져 있는지 확인하세요:\n"
-                  + "- Authentication (익명 로그인)\n"
+                  + "코드 환경 이름: " + FightingRelayLobbyService.UgsEnvironmentName + "\n"
+                  + "(Dashboard 환경과 다르면 FightingRelayLobbyService.cs 의\n"
+                  + " UgsEnvironmentName 을 Dashboard 환경 이름과 맞추세요)\n\n"
+                  + "Dashboard에서 확인:\n"
+                  + "- Authentication (Anonymous)\n"
                   + "- Lobby\n"
-                  + "- Relay\n\n"
-                  + "환경: 개발(Development)"
+                  + "- Relay"
                 : "Unity Cloud가 연결되지 않았습니다.\n\n"
+                  + "Environment 목록이 '기다려 달라'에서 멈춰도\n"
+                  + "Services 상단에서 ALPHA 프로젝트 Link 는 가능합니다.\n\n"
                   + "1) Unity Hub 로그인\n"
-                  + "2) Edit > Project Settings > Services\n"
-                  + "3) 새/기존 클라우드 프로젝트 연결\n"
-                  + "4) Dashboard에서 Authentication, Lobby, Relay 활성화\n"
-                  + "5) Editor 재시작\n\n"
-                  + "연결 전에는 오프라인(로컬 2P)만 가능합니다.";
+                  + "2) Edit > Project Settings > Services (General)\n"
+                  + "3) 기존 클라우드 프로젝트 > ALPHA > Link\n"
+                  + "4) Environment UI는 무시해도 됨 (코드에서 환경 지정)\n"
+                  + "5) Dashboard: Anonymous + Lobby + Relay\n"
+                  + "6) Editor 재시작\n\n"
+                  + "Environment UI가 계속 멈추면:\n"
+                  + "- Hub 로그아웃/로그인, VPN 끄기\n"
+                  + "- Unity 완전 종료 후 재실행\n"
+                  + "- 그래도 안 되면 Library 폴더 삭제 후 재열기";
 
             EditorUtility.DisplayDialog("온라인(UGS) 설정 확인", message, "OK");
         }

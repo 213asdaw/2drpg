@@ -6,6 +6,7 @@ using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Core.Environments;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
@@ -28,6 +29,13 @@ namespace FightingGame
         public const string GameFilterValue = "2DFight";
         public const int MaxPlayers = 2;
         private const string ConnectionType = "dtls";
+
+        /// <summary>
+        /// Dashboard에서 API를 켠 환경 이름과 같아야 합니다.
+        /// Editor의 Environment 목록이 "기다려 달라"에서 멈추면 여기 값으로 대신 맞춥니다.
+        /// (기본: production — Dashboard 상단 환경이 "알파"면 보통 alpha 또는 production)
+        /// </summary>
+        public const string UgsEnvironmentName = "production";
 
         private static RelayLobbySession currentSession;
 
@@ -59,7 +67,9 @@ namespace FightingGame
 
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
-                await UnityServices.InitializeAsync();
+                InitializationOptions options = new InitializationOptions()
+                    .SetEnvironmentName(UgsEnvironmentName);
+                await UnityServices.InitializeAsync(options);
             }
 
             if (!AuthenticationService.Instance.IsSignedIn)
