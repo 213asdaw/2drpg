@@ -85,7 +85,7 @@ namespace FightingGame
             108f,
             5.6f,
             1.08f,
-            0.95f,
+            0.76f,
             false,
             false,
             true,
@@ -116,7 +116,7 @@ namespace FightingGame
             if (definition.HasPoisonArrow)
             {
                 return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
-                    + " | U 독화살 (지속 피해)";
+                    + " | 사거리 ↑ · 순간 딜 ↓ | U 독화살 (DOT 상성)";
             }
 
             return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
@@ -141,14 +141,20 @@ namespace FightingGame
 
     public static class IzSkills
     {
+        public const float MeleeReachScale = 1.32f;
+
         public const float PoisonArrowCooldown = 4.5f;
         public const float PoisonArrowStartup = 0.32f;
         public const float PoisonArrowRecovery = 0.24f;
-        public const float PoisonArrowDamage = 9f;
-        public const float PoisonArrowSpeed = 16f;
-        public const float PoisonArrowLifetime = 1.5f;
-        public const float PoisonDuration = 2.8f;
-        public const float PoisonTickDamage = 4f;
-        public const float PoisonTickInterval = 0.7f;
+        public const float PoisonArrowDamage = 5f;
+        public const float PoisonArrowSpeed = 18f;
+        public const float PoisonArrowLifetime = 2.0f;
+        public const float PoisonDuration = 4.8f;
+        public const float PoisonTickDamage = 3.5f;
+        public const float PoisonTickInterval = 0.65f;
+
+        public const float MeleePoisonDuration = 2.4f;
+        public const float MeleePoisonTickDamage = 2f;
+        public const float MeleePoisonTickInterval = 0.65f;
     }
 }

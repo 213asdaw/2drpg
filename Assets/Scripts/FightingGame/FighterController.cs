@@ -40,7 +40,7 @@ namespace FightingGame
 
         public float TotalDuration => Startup + Active + Recovery;
 
-        public AttackDefinition Scale(float attackSpeedMultiplier, float damageMultiplier)
+        public AttackDefinition Scale(float attackSpeedMultiplier, float damageMultiplier, float knockbackMultiplier = 1f)
         {
             float speed = Mathf.Max(0.01f, attackSpeedMultiplier);
             return new AttackDefinition(
@@ -49,7 +49,7 @@ namespace FightingGame
                 Active / speed,
                 Recovery / speed,
                 Damage * damageMultiplier,
-                Knockback,
+                Knockback * knockbackMultiplier,
                 Hitstun / speed,
                 HitboxSize,
                 HitboxOffset);
@@ -179,9 +179,10 @@ namespace FightingGame
                     ? new Color(0.38f, 0.78f, 0.42f)
                     : index == 0 ? new Color(0.12f, 0.22f, 0.42f) : new Color(0.42f, 0.12f, 0.12f);
 
-            lightAttack = BaseLightAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
-            kickAttack = BaseKickAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
-            heavyAttack = BaseHeavyAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier);
+            float knockbackScale = archetype == FighterArchetypeId.Iz ? 0.72f : 1f;
+            lightAttack = BaseLightAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
+            kickAttack = BaseKickAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
+            heavyAttack = BaseHeavyAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
 
             transform.position = startPosition;
             facing = index == 0 ? 1f : -1f;
@@ -231,6 +232,7 @@ namespace FightingGame
             defenseBuffVisual = false;
             poisonTimer = 0f;
             poisonTickTimer = 0f;
+            poisonTickDamage = 0f;
             grounded = true;
             hasHitThisAttack = false;
             currentAttack = null;
@@ -393,6 +395,13 @@ namespace FightingGame
 
             attacker.hasHitThisAttack = true;
             ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
+            if (attacker.archetypeId == FighterArchetypeId.Iz)
+            {
+                ApplyPoison(
+                    IzSkills.MeleePoisonDuration,
+                    IzSkills.MeleePoisonTickDamage,
+                    IzSkills.MeleePoisonTickInterval);
+            }
         }
 
         public void TryApplyHitFrom(FighterController attacker, AttackDefinition attack)
@@ -438,6 +447,47 @@ namespace FightingGame
             }
 
             float bodyCenterY = 0.95f + visualGroundOffset * 0.45f;
+            if (archetypeId == FighterArchetypeId.Iz)
+            {
+                float reachScale = IzSkills.MeleeReachScale;
+                float reachMin;
+                float reachMax;
+                float hitWidth;
+                float hitHeight;
+                float centerY;
+                if (currentAttack.Type == AttackType.Kick)
+                {
+                    reachMin = 0.68f;
+                    reachMax = 1.48f;
+                    hitWidth = 0.82f;
+                    hitHeight = 0.58f;
+                    centerY = 0.42f;
+                }
+                else if (currentAttack.Type == AttackType.Heavy)
+                {
+                    reachMin = 0.78f;
+                    reachMax = 1.42f;
+                    hitWidth = 0.86f;
+                    hitHeight = 0.82f;
+                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+                }
+                else
+                {
+                    reachMin = 0.72f;
+                    reachMax = 1.02f;
+                    hitWidth = 0.78f;
+                    hitHeight = 0.72f;
+                    centerY = currentAttack.HitboxOffset.y * HitboxScale * 0.85f;
+                }
+
+                float bowReach = Mathf.Lerp(reachMin, reachMax, activeProgress) * reachScale;
+                Vector3 center = transform.position + new Vector3(
+                    facing * bowReach,
+                    bodyCenterY - 0.95f + centerY,
+                    0f);
+                return new Bounds(center, new Vector3(hitWidth, hitHeight, 0.1f));
+            }
+
             if (archetypeId == FighterArchetypeId.FlameSwordsman)
             {
                 float reachScale = currentAttack.Type == AttackType.Heavy ? 1.05f : currentAttack.Type == AttackType.Kick ? 0.92f : 0.88f;
@@ -652,7 +702,7 @@ namespace FightingGame
                         projectile.HasHit = true;
                         if (projectile.IsPoisonArrow)
                         {
-                            opponent.ApplyDamage(this, projectile.Damage, 1.4f, 0.28f, AttackType.PoisonArrow);
+                            opponent.ApplyDamage(this, projectile.Damage, 0.95f, 0.22f, AttackType.PoisonArrow);
                             opponent.ApplyPoison(IzSkills.PoisonDuration, IzSkills.PoisonTickDamage, IzSkills.PoisonTickInterval);
                         }
                         else
@@ -726,7 +776,7 @@ namespace FightingGame
         public void ApplyPoison(float duration, float tickDamage, float tickInterval)
         {
             poisonTimer = Mathf.Max(poisonTimer, duration);
-            poisonTickDamage = tickDamage;
+            poisonTickDamage = Mathf.Max(poisonTickDamage, tickDamage);
             poisonTickInterval = tickInterval;
             if (poisonTickTimer <= 0f)
             {
