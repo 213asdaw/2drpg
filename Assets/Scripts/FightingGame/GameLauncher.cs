@@ -80,7 +80,7 @@ namespace FightingGame
         private void DrawMainMenu()
         {
             const float panelWidth = 560f;
-            const float panelHeight = 420f;
+            const float panelHeight = 460f;
             Rect panel = new Rect((Screen.width - panelWidth) * 0.5f, (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
 
             GUI.Box(panel, GUIContent.none);
@@ -123,6 +123,14 @@ namespace FightingGame
             if (GUI.Button(new Rect(buttonX, y, buttonWidth, 44f), "온라인 — 빠른 매칭", buttonStyle) && !isConnecting)
             {
                 OpenCharacterSelect(GameLaunchMode.QuickMatch, false);
+            }
+
+            if (!FightingRelayLobbyService.IsCloudProjectLinked())
+            {
+                GUI.Label(
+                    new Rect(panel.x + 20f, panel.y + panel.height - 88f, panel.width - 40f, 40f),
+                    "온라인: Unity Cloud 미연결 — Edit > Project Settings > Services",
+                    statusStyle);
             }
 
             if (!string.IsNullOrEmpty(statusMessage))

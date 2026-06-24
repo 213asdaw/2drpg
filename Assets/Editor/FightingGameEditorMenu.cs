@@ -18,6 +18,29 @@ namespace FightingGame.Editor
                 "OK");
         }
 
+        [MenuItem("Fighting Game/Online Setup Check")]
+        private static void ShowOnlineSetupCheck()
+        {
+            string cloudProjectId = PlayerSettings.cloudProjectId;
+            bool linked = !string.IsNullOrEmpty(cloudProjectId);
+            string message = linked
+                ? "Unity Cloud 연결됨\n\nProject ID: " + cloudProjectId + "\n\n"
+                  + "Dashboard(dashboard.unity.com)에서 아래 3개가 켜져 있는지 확인하세요:\n"
+                  + "- Authentication (익명 로그인)\n"
+                  + "- Lobby\n"
+                  + "- Relay\n\n"
+                  + "환경: 개발(Development)"
+                : "Unity Cloud가 연결되지 않았습니다.\n\n"
+                  + "1) Unity Hub 로그인\n"
+                  + "2) Edit > Project Settings > Services\n"
+                  + "3) 새/기존 클라우드 프로젝트 연결\n"
+                  + "4) Dashboard에서 Authentication, Lobby, Relay 활성화\n"
+                  + "5) Editor 재시작\n\n"
+                  + "연결 전에는 오프라인(로컬 2P)만 가능합니다.";
+
+            EditorUtility.DisplayDialog("온라인(UGS) 설정 확인", message, "OK");
+        }
+
         [MenuItem("Fighting Game/Input Not Working?")]
         private static void ShowInputTroubleshooting()
         {

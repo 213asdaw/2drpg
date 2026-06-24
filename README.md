@@ -14,14 +14,42 @@ Unity **6000.4.11f1** 로 만든 **2D 격투 게임** 프로토타입입니다.
 
 ## Unity Gaming Services 설정 (온라인 필수, 1회)
 
-온라인 매칭(Relay + Lobby)을 쓰려면 Unity 프로젝트를 UGS에 연결해야 합니다.
+온라인 매칭(Relay + Lobby)을 쓰려면 Unity 프로젝트를 UGS에 연결해야 합니다.  
+**연결이 안 되어 있으면** 메인 메뉴에 `Unity Cloud 미연결` 안내가 뜨고, 온라인 버튼은 실패합니다.
 
-1. [Unity Dashboard](https://dashboard.unity3d.com/) 에서 프로젝트 생성/선택
-2. **Multiplayer > Lobby**, **Multiplayer > Relay** API 활성화
-3. Unity Editor: **Edit > Project Settings > Services** 에서 같은 프로젝트 연결
-4. Play 후 익명 로그인으로 자동 인증 (별도 계정 UI 없음)
+### 1) Unity Editor에서 Cloud 프로젝트 연결
 
-설정이 안 되어 있으면 메뉴에서 연결 오류 메시지가 표시됩니다.
+1. **Unity Hub**에 본인 계정으로 로그인
+2. 프로젝트를 Unity Editor로 연다
+3. **Edit > Project Settings > Services**
+4. **새 클라우드 프로젝트 만들기** 또는 **기존 클라우드 프로젝트 사용** 선택 후 연결
+5. 연결되면 `ProjectSettings/ProjectSettings.asset` 의 `cloudProjectId` 가 채워짐
+6. **Editor 재시작** 권장
+
+에디터 메뉴 **Fighting Game > Online Setup Check** 로 연결 여부를 확인할 수 있습니다.
+
+### 2) Dashboard에서 API 활성화 (무료 티어로 2인 테스트 가능)
+
+1. [Unity Dashboard](https://dashboard.unity3d.com/) 접속
+2. 위에서 연결한 **같은 프로젝트** 선택
+3. 상단 **개발(Development)** 환경 선택 (Production 아님)
+4. 아래 **Products** 에서 각각 **Set up** / **Enable**:
+   - **Authentication** — 익명(Anonymous) 로그인 허용
+   - **Lobby**
+   - **Relay**
+
+> 예전 메뉴 이름 `Multiplayer > Lobby` 가 아니라, 지금은 Dashboard 좌측/Products 에서 **Lobby**, **Relay** 를 따로 켭니다.
+
+5. Play 후 익명 로그인으로 자동 인증 (별도 계정 UI 없음)
+
+### 자주 나는 오류
+
+| 증상 | 해결 |
+|------|------|
+| `Unity Cloud 미연결` / `InvalidProjectId` | Edit > Project Settings > Services 에서 프로젝트 연결 |
+| Authentication 오류 | Dashboard > Authentication 활성화 + Anonymous 허용 |
+| Lobby / Relay 오류 | Dashboard > 해당 Product Enable |
+| 친구 exe에서만 안 됨 | **방장 PC에서 UGS 연결 후 다시 Build** (연결 정보가 빌드에 포함됨) |
 
 ## 친구와 같이 하는 방법 (중요)
 
