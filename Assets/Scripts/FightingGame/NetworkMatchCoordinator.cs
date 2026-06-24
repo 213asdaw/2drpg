@@ -184,7 +184,7 @@ namespace FightingGame
                 NetworkFighter networkFighter = fighterObject.GetComponent<NetworkFighter>();
                 networkFighter.Configure(i, archetypes[i], spawnPositions[i]);
                 networkObject.SpawnWithOwnership(clientIds[i]);
-                networkFighter.SyncSpawnConfigurationClientRpc(i, archetypes[i], spawnPositions[i]);
+                networkFighter.NotifySpawnConfigurationToClients(i, archetypes[i], spawnPositions[i]);
             }
         }
 

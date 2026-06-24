@@ -68,6 +68,11 @@ namespace FightingGame
             fighter.Initialize(slotIndex, archetype, startPosition);
         }
 
+        public void NotifySpawnConfigurationToClients(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            SyncSpawnConfigurationClientRpc(index, archetype, startPosition);
+        }
+
         private void EnsureFighterComponent()
         {
             if (fighter != null)
