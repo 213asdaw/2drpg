@@ -116,7 +116,7 @@ namespace FightingGame
             if (definition.HasPoisonArrow)
             {
                 return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
-                    + " | 사거리 ↑ · 순간 딜 ↓ | U 독화살 (DOT 상성)";
+                    + " | 사거리 ↑ · 순간 딜 ↓ | U 독화살 (독 스택 DOT)";
             }
 
             return definition.DisplayName + " — HP " + definition.MaxHealth.ToString("0")
@@ -149,12 +149,12 @@ namespace FightingGame
         public const float PoisonArrowDamage = 5f;
         public const float PoisonArrowSpeed = 18f;
         public const float PoisonArrowLifetime = 2.0f;
-        public const float PoisonDuration = 4.8f;
-        public const float PoisonTickDamage = 3.5f;
-        public const float PoisonTickInterval = 0.65f;
 
-        public const float MeleePoisonDuration = 2.4f;
-        public const float MeleePoisonTickDamage = 2f;
-        public const float MeleePoisonTickInterval = 0.65f;
+        public const int MaxPoisonStacks = 5;
+        public const int MeleePoisonStacks = 1;
+        public const int SkillPoisonStacks = 2;
+        public const float PoisonStackDecayTime = 4f;
+        public const float PoisonTickInterval = 0.65f;
+        public const float PoisonTickDamagePerStack = 1.6f;
     }
 }

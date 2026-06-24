@@ -108,10 +108,9 @@ namespace FightingGame
         private float skill2Cooldown;
         private float defenseBuffTimer;
         private bool defenseBuffVisual;
-        private float poisonTimer;
+        private int poisonStacks;
+        private float poisonDecayTimer;
         private float poisonTickTimer;
-        private float poisonTickDamage;
-        private float poisonTickInterval;
         private AttackDefinition currentAttack;
         private SkillId castingSkill = SkillId.None;
         private bool grounded = true;
@@ -142,7 +141,8 @@ namespace FightingGame
         public float Facing => facing;
         public bool IsAlive => health > 0f;
         public bool IsDefenseBuffActive => defenseBuffTimer > 0f || defenseBuffVisual;
-        public bool IsPoisoned => poisonTimer > 0f;
+        public bool IsPoisoned => poisonStacks > 0;
+        public int PoisonStacks => poisonStacks;
         public bool CanAct => IsAlive && State != FighterState.Victory && State != FighterState.Defeat;
         public float Skill1CooldownRemaining => skill1Cooldown;
         public float Skill2CooldownRemaining => skill2Cooldown;
@@ -230,9 +230,9 @@ namespace FightingGame
             skill2Cooldown = 0f;
             defenseBuffTimer = 0f;
             defenseBuffVisual = false;
-            poisonTimer = 0f;
+            poisonStacks = 0;
+            poisonDecayTimer = 0f;
             poisonTickTimer = 0f;
-            poisonTickDamage = 0f;
             grounded = true;
             hasHitThisAttack = false;
             currentAttack = null;
@@ -397,10 +397,7 @@ namespace FightingGame
             ApplyDamage(attacker, attack.Damage, attack.Knockback, attack.Hitstun, attack.Type);
             if (attacker.archetypeId == FighterArchetypeId.Iz)
             {
-                ApplyPoison(
-                    IzSkills.MeleePoisonDuration,
-                    IzSkills.MeleePoisonTickDamage,
-                    IzSkills.MeleePoisonTickInterval);
+                AddPoisonStacks(IzSkills.MeleePoisonStacks);
             }
         }
 
@@ -703,7 +700,7 @@ namespace FightingGame
                         if (projectile.IsPoisonArrow)
                         {
                             opponent.ApplyDamage(this, projectile.Damage, 0.95f, 0.22f, AttackType.PoisonArrow);
-                            opponent.ApplyPoison(IzSkills.PoisonDuration, IzSkills.PoisonTickDamage, IzSkills.PoisonTickInterval);
+                            opponent.AddPoisonStacks(IzSkills.SkillPoisonStacks);
                         }
                         else
                         {
@@ -773,43 +770,57 @@ namespace FightingGame
             }
         }
 
-        public void ApplyPoison(float duration, float tickDamage, float tickInterval)
+        public void AddPoisonStacks(int stackGain)
         {
-            poisonTimer = Mathf.Max(poisonTimer, duration);
-            poisonTickDamage = Mathf.Max(poisonTickDamage, tickDamage);
-            poisonTickInterval = tickInterval;
-            if (poisonTickTimer <= 0f)
+            if (stackGain <= 0)
             {
-                poisonTickTimer = tickInterval;
+                return;
+            }
+
+            if (poisonStacks < IzSkills.MaxPoisonStacks)
+            {
+                poisonStacks = Mathf.Min(IzSkills.MaxPoisonStacks, poisonStacks + stackGain);
+            }
+
+            poisonDecayTimer = IzSkills.PoisonStackDecayTime;
+            if (poisonTickTimer <= 0f && poisonStacks > 0)
+            {
+                poisonTickTimer = IzSkills.PoisonTickInterval;
             }
         }
 
         private void TickPoison(float deltaTime)
         {
-            if (poisonTimer <= 0f || !IsAlive)
+            if (poisonStacks <= 0 || !IsAlive)
             {
-                poisonTimer = 0f;
+                poisonStacks = 0;
+                poisonDecayTimer = 0f;
                 return;
             }
 
-            poisonTimer -= deltaTime;
-            poisonTickTimer -= deltaTime;
-            while (poisonTickTimer <= 0f && poisonTimer > 0f && IsAlive)
+            poisonDecayTimer -= deltaTime;
+            if (poisonDecayTimer <= 0f)
             {
-                health = Mathf.Max(0f, health - poisonTickDamage);
-                Damaged?.Invoke(this, poisonTickDamage);
-                poisonTickTimer += poisonTickInterval;
+                poisonStacks = 0;
+                poisonDecayTimer = 0f;
+                poisonTickTimer = 0f;
+                return;
+            }
+
+            poisonTickTimer -= deltaTime;
+            while (poisonTickTimer <= 0f && poisonStacks > 0 && IsAlive)
+            {
+                float tickDamage = poisonStacks * IzSkills.PoisonTickDamagePerStack;
+                health = Mathf.Max(0f, health - tickDamage);
+                Damaged?.Invoke(this, tickDamage);
+                poisonTickTimer += IzSkills.PoisonTickInterval;
                 if (health <= 0f)
                 {
                     SetState(FighterState.Defeat);
-                    poisonTimer = 0f;
+                    poisonStacks = 0;
+                    poisonDecayTimer = 0f;
                     return;
                 }
-            }
-
-            if (poisonTimer <= 0f)
-            {
-                poisonTimer = 0f;
             }
         }
 
@@ -1059,11 +1070,16 @@ namespace FightingGame
                 auraRenderer.enabled = false;
                 bodyRenderer.color = new Color(0.82f, 1f, 0.72f, 1f);
             }
-            else if (archetypeId == FighterArchetypeId.Iz && poisonTimer > 0f)
+            else if (archetypeId == FighterArchetypeId.Iz && poisonStacks > 0)
             {
                 auraRenderer.enabled = false;
-                float pulse = 0.88f + Mathf.Sin(Time.time * 14f) * 0.12f;
-                bodyRenderer.color = new Color(0.72f, pulse, 0.58f, 1f);
+                float stackRatio = poisonStacks / (float)IzSkills.MaxPoisonStacks;
+                float pulse = 0.88f + Mathf.Sin(Time.time * (10f + stackRatio * 6f)) * 0.12f;
+                bodyRenderer.color = new Color(
+                    0.78f - stackRatio * 0.18f,
+                    pulse + stackRatio * 0.08f,
+                    0.52f - stackRatio * 0.08f,
+                    1f);
             }
             else if (archetypeId == FighterArchetypeId.FlameSwordsman && (State == FighterState.Idle || State == FighterState.Walk))
             {
