@@ -1,0 +1,90 @@
+namespace FightingGame
+{
+    public static class FightConstants
+    {
+        public const float PixelsPerUnit = 64f;
+        public const float ArenaHalfWidth = 6f;
+        public const float GroundY = -2.5f;
+        public const float Gravity = -28f;
+        public const float JumpVelocity = 9.5f;
+        public const float BaseMoveSpeed = 5.5f;
+        public const float BaseMaxHealth = 100f;
+        public const float MaxHealth = BaseMaxHealth;
+        public const float MoveSpeed = BaseMoveSpeed;
+        public const float RoundDuration = 99f;
+        public const int RoundsToWin = 2;
+        public const float BlockDamageMultiplier = 0.12f;
+        public const float MoltenGuardBlockDamageMultiplier = 0.06f;
+        public const float HitInvulnTime = 0.15f;
+        public const float HeavyAttackStunBonus = 0.18f;
+        public const float HeavyAttackKnockbackDelay = 0.12f;
+        public const float RoundEndDelay = 2.5f;
+        public const float MatchEndDelay = 3f;
+    }
+
+    public enum FighterState
+    {
+        Idle,
+        Walk,
+        Jump,
+        Fall,
+        LightAttack,
+        KickAttack,
+        HeavyAttack,
+        Block,
+        Skill1Cast,
+        Skill2Cast,
+        Hitstun,
+        Victory,
+        Defeat
+    }
+
+    public enum AttackType
+    {
+        None,
+        Light,
+        Kick,
+        Heavy,
+        FlameSlash,
+        MoltenGuard,
+        PoisonArrow
+    }
+
+    public enum MatchPhase
+    {
+        Intro,
+        Fighting,
+        RoundEnd,
+        MatchEnd
+    }
+
+    public static class OnlinePlayerLabels
+    {
+        public static string GetSlotLabel(int slotIndex)
+        {
+            return slotIndex == 0 ? "1P" : "2P";
+        }
+
+        public static string GetHeadLabel(int slotIndex, bool isLocalPlayer)
+        {
+            return isLocalPlayer
+                ? GetSlotLabel(slotIndex) + " (나)"
+                : GetSlotLabel(slotIndex);
+        }
+
+        public static string GetMatchWinMessage(int slotIndex)
+        {
+            return GetSlotLabel(slotIndex) + "가 이겼습니다!";
+        }
+
+        public static string GetRoundKoMessage(int slotIndex)
+        {
+            return GetSlotLabel(slotIndex) + " KO!";
+        }
+
+        public static string GetRoundTimeWinMessage(int slotIndex)
+        {
+            return "시간 종료 — " + GetSlotLabel(slotIndex) + " 승리";
+        }
+    }
+}

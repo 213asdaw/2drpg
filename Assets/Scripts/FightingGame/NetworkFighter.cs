@@ -1,0 +1,242 @@
+using Unity.Netcode;
+using UnityEngine;
+
+namespace FightingGame
+{
+    public sealed class NetworkFighter : NetworkBehaviour
+    {
+        private readonly NetworkVariable<Vector3> netPosition = new NetworkVariable<Vector3>(
+            Vector3.zero,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(
+            FightConstants.BaseMaxHealth,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private readonly NetworkVariable<int> netState = new NetworkVariable<int>(
+            (int)FighterState.Idle,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private readonly NetworkVariable<float> netFacing = new NetworkVariable<float>(
+            1f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private readonly NetworkVariable<bool> netDefenseBuff = new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private FighterController fighter;
+        private NetworkFighterInput latestInput;
+        private int slotIndex = -1;
+
+        public FighterController Fighter => fighter;
+        public int SlotIndex => slotIndex;
+        public bool HasSubmittedInput { get; private set; }
+
+        public void Configure(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            slotIndex = index;
+            EnsureFighterComponent();
+            fighter.Initialize(index, archetype, startPosition);
+            latestInput = default;
+            HasSubmittedInput = false;
+        }
+
+        public void SyncSpawnConfigurationClient(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            if (IsServer)
+            {
+                return;
+            }
+
+            Configure(index, archetype, startPosition);
+        }
+
+        public void SyncArchetypeClient(FighterArchetypeId archetype)
+        {
+            if (IsServer || fighter == null || slotIndex < 0)
+            {
+                return;
+            }
+
+            Vector3 startPosition = fighter.transform.position;
+            fighter.Initialize(slotIndex, archetype, startPosition);
+        }
+
+        public void NotifySpawnConfigurationToClients(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            SyncSpawnConfigurationClientRpc(index, archetype, startPosition);
+        }
+
+        private void EnsureFighterComponent()
+        {
+            if (fighter != null)
+            {
+                return;
+            }
+
+            fighter = GetComponent<FighterController>();
+            if (fighter == null)
+            {
+                fighter = gameObject.AddComponent<FighterController>();
+            }
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            netPosition.OnValueChanged += HandleNetPositionChanged;
+            netHealth.OnValueChanged += HandleNetHealthChanged;
+            netState.OnValueChanged += HandleNetStateChanged;
+            netFacing.OnValueChanged += HandleNetFacingChanged;
+            netDefenseBuff.OnValueChanged += HandleNetDefenseBuffChanged;
+            ApplyAllNetworkValues();
+            NetworkMatchCoordinator.Instance?.RegisterFighter(this);
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            NetworkMatchCoordinator.Instance?.UnregisterFighter(this);
+            netPosition.OnValueChanged -= HandleNetPositionChanged;
+            netHealth.OnValueChanged -= HandleNetHealthChanged;
+            netState.OnValueChanged -= HandleNetStateChanged;
+            netFacing.OnValueChanged -= HandleNetFacingChanged;
+            netDefenseBuff.OnValueChanged -= HandleNetDefenseBuffChanged;
+            base.OnNetworkDespawn();
+        }
+
+        private void Update()
+        {
+            if (!IsSpawned)
+            {
+                return;
+            }
+
+            if (IsOwner)
+            {
+                NetworkFighterInput input = NetworkFighterInput.ReadLocal();
+                if (IsServer)
+                {
+                    latestInput = input;
+                    HasSubmittedInput = true;
+                }
+                else
+                {
+                    SubmitInputServerRpc(input);
+                }
+            }
+
+            if (!IsServer)
+            {
+                ApplyAllNetworkValues();
+            }
+        }
+
+        public bool TryConsumeInput(out NetworkFighterInput input)
+        {
+            input = latestInput;
+            if (!HasSubmittedInput)
+            {
+                return false;
+            }
+
+            HasSubmittedInput = false;
+            return true;
+        }
+
+        public void ServerTick(float deltaTime, FighterInputSnapshot input, bool controlsEnabled)
+        {
+            if (fighter == null)
+            {
+                return;
+            }
+
+            fighter.Tick(deltaTime, input, controlsEnabled);
+            PublishState();
+        }
+
+        public void ServerApplyRoundReset(Vector3 startPosition)
+        {
+            if (fighter == null)
+            {
+                return;
+            }
+
+            fighter.ResetForRound(startPosition);
+            PublishState();
+        }
+
+        public void ServerReconfigureArchetype(FighterArchetypeId archetype)
+        {
+            if (fighter == null || slotIndex < 0)
+            {
+                return;
+            }
+
+            Vector3 startPosition = fighter.transform.position;
+            fighter.Initialize(slotIndex, archetype, startPosition);
+            PublishState();
+            ReconfigureArchetypeClientRpc(archetype);
+        }
+
+        [ClientRpc]
+        private void ReconfigureArchetypeClientRpc(FighterArchetypeId archetype)
+        {
+            SyncArchetypeClient(archetype);
+        }
+
+        [ClientRpc]
+        private void SyncSpawnConfigurationClientRpc(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            SyncSpawnConfigurationClient(index, archetype, startPosition);
+        }
+
+        public void ServerApplyMatchResult(bool won)
+        {
+            fighter?.SetMatchResult(won);
+            PublishState();
+        }
+
+        [ServerRpc(RequireOwnership = true)]
+        private void SubmitInputServerRpc(NetworkFighterInput input)
+        {
+            latestInput = input;
+            HasSubmittedInput = true;
+        }
+
+        private void PublishState()
+        {
+            netPosition.Value = fighter.transform.position;
+            netHealth.Value = fighter.Health;
+            netState.Value = (int)fighter.State;
+            netFacing.Value = fighter.Facing;
+            netDefenseBuff.Value = fighter.IsDefenseBuffActive;
+        }
+
+        private void ApplyAllNetworkValues()
+        {
+            if (fighter == null || IsServer)
+            {
+                return;
+            }
+
+            fighter.ApplyNetworkDisplayState(
+                netPosition.Value,
+                netHealth.Value,
+                (FighterState)netState.Value,
+                netFacing.Value,
+                netDefenseBuff.Value);
+        }
+
+        private void HandleNetPositionChanged(Vector3 previous, Vector3 current) => ApplyAllNetworkValues();
+        private void HandleNetHealthChanged(float previous, float current) => ApplyAllNetworkValues();
+        private void HandleNetStateChanged(int previous, int current) => ApplyAllNetworkValues();
+        private void HandleNetFacingChanged(float previous, float current) => ApplyAllNetworkValues();
+        private void HandleNetDefenseBuffChanged(bool previous, bool current) => ApplyAllNetworkValues();
+    }
+}
