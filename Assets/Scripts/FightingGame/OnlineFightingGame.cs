@@ -17,6 +17,8 @@ namespace FightingGame
         private GUIStyle buttonStyle;
         private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
         private bool submittedLocalArchetype;
+        private bool aloneInSession;
+        private bool wasConnectedToSession;
 
         public void Begin(NetworkManager manager, RelayLobbySession relayLobbySession = null)
         {
@@ -71,7 +73,22 @@ namespace FightingGame
 
             if (coordinator != null && coordinator.Phase == MatchPhase.MatchEnd && Input.GetKeyDown(KeyCode.M))
             {
-                FightSessionCleanup.ReturnToMainMenu();
+                LeaveOnlineSession();
+            }
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                LeaveOnlineSession();
+            }
+
+            if (networkManager != null && networkManager.IsConnectedClient)
+            {
+                wasConnectedToSession = true;
+            }
+            else if (wasConnectedToSession && networkManager != null && !networkManager.IsConnectedClient)
+            {
+                aloneInSession = true;
+                statusText = "연결이 끊어졌습니다.";
             }
 
             TrySubmitLocalArchetype(coordinator);
@@ -94,6 +111,7 @@ namespace FightingGame
             FightKeyCapture.ProcessGuiEvent(Event.current);
             EnsureStyles();
             DrawConnectionStatus();
+            DrawLeaveSessionControls();
 
             NetworkMatchCoordinator coordinator = NetworkMatchCoordinator.Instance;
             if (coordinator == null || coordinator.Fighters.Count < 2)
@@ -130,7 +148,81 @@ namespace FightingGame
 
         private void HandleClientDisconnected(ulong clientId)
         {
-            statusText = "상대가 연결을 종료했습니다.";
+            if (networkManager == null)
+            {
+                return;
+            }
+
+            if (networkManager.ConnectedClientsIds.Count < 2)
+            {
+                aloneInSession = true;
+                statusText = "상대가 연결을 종료했습니다.";
+            }
+        }
+
+        private void LeaveOnlineSession()
+        {
+            FightSessionCleanup.ReturnToMainMenu();
+        }
+
+        private void DrawLeaveSessionControls()
+        {
+            if (networkManager == null)
+            {
+                return;
+            }
+
+            EnsureStyles();
+
+            NetworkMatchCoordinator coordinator = NetworkMatchCoordinator.Instance;
+            bool waitingForOpponent = networkManager.ConnectedClientsIds.Count < 2
+                || coordinator == null
+                || coordinator.Fighters.Count < 2;
+
+            if (aloneInSession)
+            {
+                DrawLeavePanel("상대가 나갔거나 연결이 끊어졌습니다.", "메인 메뉴");
+                return;
+            }
+
+            if (waitingForOpponent)
+            {
+                string lobbyHint = relaySession != null
+                    ? "로비 코드: " + relaySession.LobbyCode
+                    : statusText;
+                DrawLeavePanel(lobbyHint, "방 나가기");
+                return;
+            }
+
+            if (GUI.Button(new Rect(Screen.width - 168f, 12f, 144f, 34f), "나가기 (Esc)", buttonStyle))
+            {
+                LeaveOnlineSession();
+            }
+        }
+
+        private void DrawLeavePanel(string message, string buttonLabel)
+        {
+            Color previous = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = previous;
+
+            const float panelWidth = 460f;
+            const float panelHeight = 220f;
+            Rect panel = new Rect(
+                (Screen.width - panelWidth) * 0.5f,
+                (Screen.height - panelHeight) * 0.5f,
+                panelWidth,
+                panelHeight);
+            GUI.Box(panel, GUIContent.none);
+
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 28f, panel.width - 48f, 72f), message, labelStyle);
+            GUI.Label(new Rect(panel.x + 24f, panel.y + 96f, panel.width - 48f, 24f), statusText, labelStyle);
+
+            if (GUI.Button(new Rect(panel.x + (panel.width - 200f) * 0.5f, panel.y + 148f, 200f, 44f), buttonLabel + " (Esc)", buttonStyle))
+            {
+                LeaveOnlineSession();
+            }
         }
 
         private void TrySpawnCoordinator()
@@ -246,7 +338,7 @@ namespace FightingGame
 
             if (GUI.Button(new Rect(centerX + 10f, y, 160f, 42f), "메인 메뉴 (M)", buttonStyle))
             {
-                FightSessionCleanup.ReturnToMainMenu();
+                LeaveOnlineSession();
             }
         }
 
@@ -265,13 +357,12 @@ namespace FightingGame
 
         private void DrawConnectionStatus()
         {
-            float y = Screen.height - 36f;
-            if (relaySession != null && networkManager != null && networkManager.IsHost && networkManager.ConnectedClientsIds.Count < 2)
+            if (networkManager == null || networkManager.ConnectedClientsIds.Count < 2)
             {
-                GUI.Label(new Rect(Screen.width * 0.5f - 160f, 96f, 320f, 32f), "로비 코드: " + relaySession.LobbyCode, titleStyle);
+                return;
             }
 
-            GUI.Label(new Rect(24f, y, Screen.width - 48f, 24f), statusText, labelStyle);
+            GUI.Label(new Rect(24f, Screen.height - 36f, Screen.width - 48f, 24f), statusText, labelStyle);
         }
 
         private void DrawHealthBar(Rect frame, FighterController fighter, bool alignRight)

@@ -14,6 +14,8 @@ namespace FightingGame
 
         public static void ReturnToMainMenu()
         {
+            _ = FightingRelayLobbyService.LeaveLobbyAsync();
+
             foreach (FighterController fighter in Object.FindObjectsByType<FighterController>(FindObjectsSortMode.None))
             {
                 if (fighter != null)
