@@ -7,14 +7,18 @@ namespace FightingGame
     public static class FightingNetworkBootstrap
     {
         public const ushort DefaultPort = 7777;
+        private const string NetworkFighterPrefabId = "FightingGame.NetworkFighterPrefab";
+        private const string NetworkMatchCoordinatorPrefabId = "FightingGame.NetworkMatchCoordinatorPrefab";
 
         private static GameObject fighterPrefabTemplate;
         private static GameObject matchCoordinatorPrefabTemplate;
+        private static NetworkManager registeredNetworkManager;
 
         public static NetworkManager EnsureNetworkManager()
         {
             if (NetworkManager.Singleton != null)
             {
+                RegisterRuntimeNetworkPrefabs(NetworkManager.Singleton);
                 return NetworkManager.Singleton;
             }
 
@@ -63,11 +67,52 @@ namespace FightingGame
             transport.SetConnectionData(address, port);
         }
 
+        public static void ResetRegistrationState()
+        {
+            registeredNetworkManager = null;
+        }
+
         private static void RegisterRuntimeNetworkPrefabs(NetworkManager networkManager)
         {
+            if (networkManager == null)
+            {
+                return;
+            }
+
+            if (registeredNetworkManager == networkManager)
+            {
+                return;
+            }
+
             EnsurePrefabTemplates();
-            networkManager.AddNetworkPrefab(fighterPrefabTemplate);
-            networkManager.AddNetworkPrefab(matchCoordinatorPrefabTemplate);
+            TryAddNetworkPrefab(networkManager, fighterPrefabTemplate);
+            TryAddNetworkPrefab(networkManager, matchCoordinatorPrefabTemplate);
+            registeredNetworkManager = networkManager;
+        }
+
+        private static void TryAddNetworkPrefab(NetworkManager networkManager, GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return;
+            }
+
+            NetworkObject networkObject = prefab.GetComponent<NetworkObject>();
+            if (networkObject == null)
+            {
+                return;
+            }
+
+            foreach (NetworkPrefab registeredPrefab in networkManager.NetworkConfig.Prefabs.PrefabsList)
+            {
+                if (registeredPrefab.Prefab == prefab
+                    || registeredPrefab.Prefab != null && registeredPrefab.Prefab.GlobalObjectIdHash == networkObject.GlobalObjectIdHash)
+                {
+                    return;
+                }
+            }
+
+            networkManager.AddNetworkPrefab(prefab);
         }
 
         private static void EnsurePrefabTemplates()
@@ -77,14 +122,26 @@ namespace FightingGame
                 return;
             }
 
-            fighterPrefabTemplate = CreateHiddenPrefab("NetworkFighterPrefab", typeof(NetworkFighter));
-            matchCoordinatorPrefabTemplate = CreateHiddenPrefab("NetworkMatchCoordinatorPrefab", typeof(NetworkMatchCoordinator));
+            fighterPrefabTemplate = CreateHiddenPrefab(
+                "NetworkFighterPrefab",
+                typeof(NetworkFighter),
+                GetStablePrefabHash(NetworkFighterPrefabId));
+            matchCoordinatorPrefabTemplate = CreateHiddenPrefab(
+                "NetworkMatchCoordinatorPrefab",
+                typeof(NetworkMatchCoordinator),
+                GetStablePrefabHash(NetworkMatchCoordinatorPrefabId));
         }
 
-        private static GameObject CreateHiddenPrefab(string name, System.Type behaviourType)
+        private static uint GetStablePrefabHash(string stableId)
+        {
+            return unchecked((uint)Animator.StringToHash(stableId));
+        }
+
+        private static GameObject CreateHiddenPrefab(string name, System.Type behaviourType, uint globalObjectIdHash)
         {
             GameObject prefab = new GameObject(name);
-            prefab.AddComponent<NetworkObject>();
+            NetworkObject networkObject = prefab.AddComponent<NetworkObject>();
+            networkObject.GlobalObjectIdHash = globalObjectIdHash;
             prefab.AddComponent(behaviourType);
             prefab.SetActive(false);
             Object.DontDestroyOnLoad(prefab);

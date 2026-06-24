@@ -62,6 +62,8 @@ namespace FightingGame
                 Object.Destroy(networkManager.gameObject);
             }
 
+            FightingNetworkBootstrap.ResetRegistrationState();
+
             if (Object.FindFirstObjectByType<GameLauncher>() == null)
             {
                 GameObject launcher = new GameObject("Game Launcher");
