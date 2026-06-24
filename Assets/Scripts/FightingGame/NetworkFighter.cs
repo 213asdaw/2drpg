@@ -41,14 +41,45 @@ namespace FightingGame
         public void Configure(int index, FighterArchetypeId archetype, Vector3 startPosition)
         {
             slotIndex = index;
+            EnsureFighterComponent();
+            fighter.Initialize(index, archetype, startPosition);
+            latestInput = default;
+            HasSubmittedInput = false;
+        }
+
+        public void SyncSpawnConfigurationClient(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            if (IsServer)
+            {
+                return;
+            }
+
+            Configure(index, archetype, startPosition);
+        }
+
+        public void SyncArchetypeClient(FighterArchetypeId archetype)
+        {
+            if (IsServer || fighter == null || slotIndex < 0)
+            {
+                return;
+            }
+
+            Vector3 startPosition = fighter.transform.position;
+            fighter.Initialize(slotIndex, archetype, startPosition);
+        }
+
+        private void EnsureFighterComponent()
+        {
+            if (fighter != null)
+            {
+                return;
+            }
+
+            fighter = GetComponent<FighterController>();
             if (fighter == null)
             {
                 fighter = gameObject.AddComponent<FighterController>();
             }
-
-            fighter.Initialize(index, archetype, startPosition);
-            latestInput = default;
-            HasSubmittedInput = false;
         }
 
         public override void OnNetworkSpawn()
@@ -145,6 +176,19 @@ namespace FightingGame
             Vector3 startPosition = fighter.transform.position;
             fighter.Initialize(slotIndex, archetype, startPosition);
             PublishState();
+            ReconfigureArchetypeClientRpc(archetype);
+        }
+
+        [ClientRpc]
+        private void ReconfigureArchetypeClientRpc(FighterArchetypeId archetype)
+        {
+            SyncArchetypeClient(archetype);
+        }
+
+        [ClientRpc]
+        private void SyncSpawnConfigurationClientRpc(int index, FighterArchetypeId archetype, Vector3 startPosition)
+        {
+            SyncSpawnConfigurationClient(index, archetype, startPosition);
         }
 
         public void ServerApplyMatchResult(bool won)

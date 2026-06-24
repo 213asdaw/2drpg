@@ -156,6 +156,11 @@ namespace FightingGame
             NetworkObject networkObject = prefab.AddComponent<NetworkObject>();
             SetPrefabGlobalObjectIdHash(networkObject, globalObjectIdHash);
             prefab.AddComponent(behaviourType);
+            if (behaviourType == typeof(NetworkFighter))
+            {
+                prefab.AddComponent<FighterController>();
+            }
+
             prefab.SetActive(false);
             Object.DontDestroyOnLoad(prefab);
             return prefab;
