@@ -40,7 +40,11 @@ namespace FightingGame
 
         public float TotalDuration => Startup + Active + Recovery;
 
-        public AttackDefinition Scale(float attackSpeedMultiplier, float damageMultiplier, float knockbackMultiplier = 1f)
+        public AttackDefinition Scale(
+            float attackSpeedMultiplier,
+            float damageMultiplier,
+            float knockbackMultiplier = 1f,
+            float hitstunMultiplier = 1f)
         {
             float speed = Mathf.Max(0.01f, attackSpeedMultiplier);
             return new AttackDefinition(
@@ -50,7 +54,7 @@ namespace FightingGame
                 Recovery / speed,
                 Damage * damageMultiplier,
                 Knockback * knockbackMultiplier,
-                Hitstun / speed,
+                Hitstun * hitstunMultiplier / speed,
                 HitboxSize,
                 HitboxOffset);
         }
@@ -80,8 +84,8 @@ namespace FightingGame
             new Vector2(0.92f, 0.88f), new Vector2(0.62f, 0.80f));
 
         private static readonly AttackDefinition BaseKickAttack = new AttackDefinition(
-            AttackType.Kick, 0.16f, 0.24f, 0.26f, 12f, 1.65f, 0.32f,
-            new Vector2(1.15f, 0.66f), new Vector2(0.95f, 0.42f));
+            AttackType.Kick, 0.09f, 0.18f, 0.12f, 6.5f, 0.48f, 0.14f,
+            new Vector2(0.88f, 0.52f), new Vector2(0.68f, 0.36f));
 
         private static readonly AttackDefinition BaseHeavyAttack = new AttackDefinition(
             AttackType.Heavy, 0.55f, 0.38f, 0.52f, 20f, 3.0f, 0.45f,
@@ -136,6 +140,10 @@ namespace FightingGame
         private const float KnockbackDeceleration = 16f;
         private const float KaronSwordVisualY = 0.64f;
         private const float KaronSwordHitboxY = 0.50f;
+        private const float KickAttackSpeedBonus = 1.34f;
+        private const float KickDamageScale = 0.58f;
+        private const float KickKnockbackScale = 0.28f;
+        private const float KickHitstunScale = 0.62f;
         private float visualGroundOffset;
 
         public string DisplayName { get; private set; }
@@ -189,7 +197,11 @@ namespace FightingGame
 
             float knockbackScale = archetype == FighterArchetypeId.Iz ? 0.72f : 1f;
             lightAttack = BaseLightAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
-            kickAttack = BaseKickAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
+            kickAttack = BaseKickAttack.Scale(
+                definition.AttackSpeedMultiplier * KickAttackSpeedBonus,
+                definition.DamageMultiplier * KickDamageScale,
+                knockbackScale * KickKnockbackScale,
+                KickHitstunScale);
             heavyAttack = BaseHeavyAttack.Scale(definition.AttackSpeedMultiplier, definition.DamageMultiplier, knockbackScale);
 
             transform.position = startPosition;
@@ -464,11 +476,11 @@ namespace FightingGame
                 float reachScale = IzSkills.MeleeReachScale;
                 if (currentAttack.Type == AttackType.Kick)
                 {
-                    reachMin = 0.62f;
-                    reachMax = 1.18f;
-                    hitWidth = 0.58f;
-                    hitHeight = 0.46f;
-                    centerY = 0.42f;
+                    reachMin = 0.52f;
+                    reachMax = 0.92f;
+                    hitWidth = 0.48f;
+                    hitHeight = 0.4f;
+                    centerY = 0.4f;
                 }
                 else if (currentAttack.Type == AttackType.Heavy)
                 {
@@ -511,11 +523,11 @@ namespace FightingGame
             float extendScale = currentAttack.Type == AttackType.Kick ? 1.0f : 0.92f;
             if (currentAttack.Type == AttackType.Kick)
             {
-                reachMin = 0.58f;
-                reachMax = 1.22f;
-                hitWidth = 0.88f;
-                hitHeight = 0.62f;
-                centerY = 0.42f;
+                reachMin = 0.44f;
+                reachMax = 0.86f;
+                hitWidth = 0.62f;
+                hitHeight = 0.5f;
+                centerY = 0.4f;
             }
             else if (currentAttack.Type == AttackType.Heavy)
             {
@@ -686,8 +698,8 @@ namespace FightingGame
                 Speed = IzSkills.GetMeleeArrowSpeed(currentAttack.Type),
                 Lifetime = IzSkills.GetMeleeArrowLifetime(currentAttack.Type),
                 IsMeleeArrow = true,
-                Knockback = currentAttack.Knockback,
-                Hitstun = currentAttack.Hitstun,
+                Knockback = currentAttack.Knockback * IzSkills.MeleeArrowKnockbackMultiplier,
+                Hitstun = currentAttack.Hitstun * IzSkills.MeleeArrowHitstunMultiplier,
                 SourceAttackType = currentAttack.Type,
                 Owner = this,
                 Renderer = renderer
@@ -792,7 +804,7 @@ namespace FightingGame
                         projectile.HasHit = true;
                         if (projectile.IsPoisonArrow)
                         {
-                            opponent.ApplyDamage(this, projectile.Damage, 0.95f, 0.22f, AttackType.PoisonArrow);
+                            opponent.ApplyDamage(this, projectile.Damage, 0.55f, 0.14f, AttackType.PoisonArrow);
                             opponent.AddPoisonStacks(IzSkills.SkillPoisonStacks);
                         }
                         else if (projectile.IsMeleeArrow && projectile.Owner != null)
@@ -1398,13 +1410,13 @@ namespace FightingGame
                 }
 
                 attackEffectRenderer.sprite = cachedAttackEffectSprite;
-                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.88f;
+                float extend = Mathf.Sin(activeProgress * Mathf.PI) * 0.48f;
                 attackEffectRoot.localRotation = Quaternion.identity;
                 attackEffectRoot.localPosition = new Vector3(
-                    facingSign * (0.52f + extend),
+                    facingSign * (0.36f + extend),
                     0.45f + bob,
                     0f);
-                attackEffectRoot.localScale = Vector3.one * 1.15f;
+                attackEffectRoot.localScale = Vector3.one * 0.92f;
                 attackEffectRenderer.color = new Color(1f, 0.92f, 0.82f, 0.95f);
             }
             else

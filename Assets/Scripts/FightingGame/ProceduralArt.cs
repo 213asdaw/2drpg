@@ -709,9 +709,9 @@ namespace FightingGame
                 pixels[i] = clear;
             }
 
-            int offsetX = Mathf.RoundToInt(Mathf.Lerp(2f, width - 11f, progress));
-            FillRect(pixels, width, height, offsetX, 4, 10, 6, boot);
-            FillRect(pixels, width, height, offsetX + 8, 3, 3, 8, sole);
+            int offsetX = Mathf.RoundToInt(Mathf.Lerp(2f, width - 14f, progress));
+            FillRect(pixels, width, height, offsetX, 4, 8, 6, boot);
+            FillRect(pixels, width, height, offsetX + 6, 3, 3, 8, sole);
 
             texture.SetPixels(pixels);
             texture.Apply(false, true);

@@ -152,14 +152,16 @@ namespace FightingGame
         public const float PoisonArrowSpeed = 19f;
         public const float PoisonArrowLifetime = 2.65f;
 
-        public const float MeleeArrowVisualScale = 0.76f;
+        public const float MeleeArrowVisualScale = 0.94f;
         public const float MeleeArrowDamageMultiplier = 0.78f;
-        public const float MeleeArrowSpeedLight = 18f;
-        public const float MeleeArrowSpeedKick = 16f;
-        public const float MeleeArrowSpeedHeavy = 15f;
-        public const float MeleeArrowLifetimeLight = 0.42f;
-        public const float MeleeArrowLifetimeKick = 0.52f;
-        public const float MeleeArrowLifetimeHeavy = 0.62f;
+        public const float MeleeArrowKnockbackMultiplier = 0.42f;
+        public const float MeleeArrowHitstunMultiplier = 0.55f;
+        public const float MeleeArrowSpeedLight = 13f;
+        public const float MeleeArrowSpeedKick = 11f;
+        public const float MeleeArrowSpeedHeavy = 7.5f;
+        public const float MeleeArrowLifetimeLight = 0.44f;
+        public const float MeleeArrowLifetimeKick = 0.5f;
+        public const float MeleeArrowLifetimeHeavy = 0.72f;
 
         public const int MaxPoisonStacks = 5;
         public const int MeleePoisonStacks = 1;
@@ -172,10 +174,10 @@ namespace FightingGame
         {
             switch (stacks)
             {
-                case 5: return 10f;
-                case 4: return 8f;
-                case 3: return 6f;
-                case 2: return 4f;
+                case 5: return 8f;
+                case 4: return 7f;
+                case 3: return 5f;
+                case 2: return 3f;
                 case 1: return 2f;
                 default: return 0f;
             }
