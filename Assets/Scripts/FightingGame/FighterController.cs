@@ -446,14 +446,15 @@ namespace FightingGame
             }
 
             float bodyCenterY = 0.95f + visualGroundOffset * 0.45f;
+            float reachMin;
+            float reachMax;
+            float hitWidth;
+            float hitHeight;
+            float centerY;
+
             if (archetypeId == FighterArchetypeId.Iz)
             {
                 float reachScale = IzSkills.MeleeReachScale;
-                float reachMin;
-                float reachMax;
-                float hitWidth;
-                float hitHeight;
-                float centerY;
                 if (currentAttack.Type == AttackType.Kick)
                 {
                     reachMin = 0.68f;
@@ -501,11 +502,6 @@ namespace FightingGame
             }
 
             float extendScale = currentAttack.Type == AttackType.Kick ? 1.0f : 0.92f;
-            float reachMin;
-            float reachMax;
-            float hitWidth;
-            float hitHeight;
-            float centerY;
             if (currentAttack.Type == AttackType.Kick)
             {
                 reachMin = 0.58f;
