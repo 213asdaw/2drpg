@@ -60,10 +60,12 @@ namespace FightingGame
             netFacing.OnValueChanged += HandleNetFacingChanged;
             netDefenseBuff.OnValueChanged += HandleNetDefenseBuffChanged;
             ApplyAllNetworkValues();
+            NetworkMatchCoordinator.Instance?.RegisterFighter(this);
         }
 
         public override void OnNetworkDespawn()
         {
+            NetworkMatchCoordinator.Instance?.UnregisterFighter(this);
             netPosition.OnValueChanged -= HandleNetPositionChanged;
             netHealth.OnValueChanged -= HandleNetHealthChanged;
             netState.OnValueChanged -= HandleNetStateChanged;
@@ -81,7 +83,16 @@ namespace FightingGame
 
             if (IsOwner)
             {
-                SubmitInputServerRpc(NetworkFighterInput.ReadLocal());
+                NetworkFighterInput input = NetworkFighterInput.ReadLocal();
+                if (IsServer)
+                {
+                    latestInput = input;
+                    HasSubmittedInput = true;
+                }
+                else
+                {
+                    SubmitInputServerRpc(input);
+                }
             }
 
             if (!IsServer)
@@ -142,7 +153,7 @@ namespace FightingGame
             PublishState();
         }
 
-        [ServerRpc]
+        [ServerRpc(RequireOwnership = true)]
         private void SubmitInputServerRpc(NetworkFighterInput input)
         {
             latestInput = input;

@@ -52,7 +52,30 @@ namespace FightingGame
         public string StatusMessage => netStatusMessage.Value.ToString();
         public bool ControlsEnabled =>
             Phase == MatchPhase.Intro || Phase == MatchPhase.Fighting;
+        public bool IsMatchActive => matchInitialized;
         public IReadOnlyList<NetworkFighter> Fighters => fighters;
+
+        public void RegisterFighter(NetworkFighter fighter)
+        {
+            if (fighter == null || fighters.Contains(fighter))
+            {
+                return;
+            }
+
+            fighters.Add(fighter);
+            fighters.Sort((left, right) => left.SlotIndex.CompareTo(right.SlotIndex));
+
+            if (fighters.Count >= 2)
+            {
+                fighters[0].Fighter.SetOpponent(fighters[1].Fighter);
+                fighters[1].Fighter.SetOpponent(fighters[0].Fighter);
+            }
+        }
+
+        public void UnregisterFighter(NetworkFighter fighter)
+        {
+            fighters.Remove(fighter);
+        }
 
         public static NetworkMatchCoordinator Instance { get; private set; }
 
@@ -111,6 +134,13 @@ namespace FightingGame
                 return;
             }
 
+            EnsureLocalHostArchetypeRegistered(networkManager);
+            if (!HasArchetypeChoicesForAllClients(networkManager))
+            {
+                netStatusMessage.Value = "캐릭터 동기화 중...";
+                return;
+            }
+
             SpawnFighters(networkManager);
             if (fighters.Count < 2)
             {
@@ -154,14 +184,34 @@ namespace FightingGame
                 NetworkFighter networkFighter = fighterObject.GetComponent<NetworkFighter>();
                 networkFighter.Configure(i, archetypes[i], spawnPositions[i]);
                 networkObject.SpawnWithOwnership(clientIds[i]);
-                fighters.Add(networkFighter);
+            }
+        }
+
+        private void EnsureLocalHostArchetypeRegistered(NetworkManager networkManager)
+        {
+            if (!IsServer)
+            {
+                return;
             }
 
-            if (fighters.Count == 2)
+            ulong localClientId = networkManager.LocalClientId;
+            if (!clientArchetypeChoices.ContainsKey(localClientId))
             {
-                fighters[0].Fighter.SetOpponent(fighters[1].Fighter);
-                fighters[1].Fighter.SetOpponent(fighters[0].Fighter);
+                RegisterClientArchetype(localClientId, FightSessionConfig.LocalPlayerArchetype);
             }
+        }
+
+        private bool HasArchetypeChoicesForAllClients(NetworkManager networkManager)
+        {
+            foreach (ulong clientId in networkManager.ConnectedClientsIds)
+            {
+                if (!clientArchetypeChoices.ContainsKey(clientId))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void SubmitLocalArchetype(FighterArchetypeId archetype)

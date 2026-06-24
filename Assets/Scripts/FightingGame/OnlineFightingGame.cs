@@ -177,7 +177,7 @@ namespace FightingGame
             NetworkMatchCoordinator coordinator = NetworkMatchCoordinator.Instance;
             bool waitingForOpponent = networkManager.ConnectedClientsIds.Count < 2
                 || coordinator == null
-                || coordinator.Fighters.Count < 2;
+                || !coordinator.IsMatchActive;
 
             if (aloneInSession)
             {
