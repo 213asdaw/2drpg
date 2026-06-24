@@ -6,7 +6,6 @@ using Unity.Netcode.Transports.UTP;
 using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
-using Unity.Services.Core.Environments;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
@@ -29,6 +28,8 @@ namespace FightingGame
         public const string GameFilterValue = "2DFight";
         public const int MaxPlayers = 2;
         private const string ConnectionType = "dtls";
+
+        private const string UgsEnvironmentOptionKey = "com.unity.services.core.environment-name";
 
         /// <summary>
         /// Dashboard에서 API를 켠 환경 이름과 같아야 합니다.
@@ -68,7 +69,7 @@ namespace FightingGame
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
                 InitializationOptions options = new InitializationOptions()
-                    .SetEnvironmentName(UgsEnvironmentName);
+                    .SetOption(UgsEnvironmentOptionKey, UgsEnvironmentName);
                 await UnityServices.InitializeAsync(options);
             }
 
