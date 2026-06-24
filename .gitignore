@@ -22,3 +22,11 @@
 .vscode/
 .idea/
 .DS_Store
+
+# Launcher (.NET, separate from Unity)
+!Launcher/
+!Launcher/**
+!Launcher/*.csproj
+!Launcher/*.sln
+Launcher/bin/
+Launcher/obj/
