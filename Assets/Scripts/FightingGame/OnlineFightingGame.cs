@@ -15,7 +15,8 @@ namespace FightingGame
         private GUIStyle bannerStyle;
         private GUIStyle cooldownStyle;
         private GUIStyle buttonStyle;
-        private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
+        private GUIStyle slotLabelStyle;
+        private GUIStyle localSlotLabelStyle;
         private bool submittedLocalArchetype;
         private bool aloneInSession;
         private bool wasConnectedToSession;
@@ -127,6 +128,7 @@ namespace FightingGame
             DrawControlsHelp(coordinator);
             DrawBanner(coordinator);
             DrawFloatingTexts();
+            DrawPlayerSlotLabels(playerOne, playerTwo);
             DrawSkillCooldowns(playerOne.Fighter, playerTwo.Fighter);
             DrawMatchEndMenu(coordinator);
         }
@@ -397,7 +399,34 @@ namespace FightingGame
             GUI.DrawTexture(fill, Texture2D.whiteTexture);
             GUI.color = previous;
 
-            GUI.Label(new Rect(frame.x + 8f, frame.y - 2f, frame.width, frame.height + 4f), fighter.DisplayName, titleStyle);
+            GUI.Label(new Rect(frame.x + 8f, frame.y - 2f, frame.width, frame.height + 4f),
+                OnlinePlayerLabels.GetSlotLabel(alignRight ? 1 : 0) + " · " + fighter.DisplayName,
+                titleStyle);
+        }
+
+        private void DrawPlayerSlotLabels(NetworkFighter playerOne, NetworkFighter playerTwo)
+        {
+            Camera camera = mainCamera != null ? mainCamera : Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+
+            EnsureStyles();
+            FightHudDrawer.DrawPlayerSlotLabel(
+                camera,
+                playerOne.Fighter,
+                playerOne.SlotIndex,
+                playerOne.IsOwner,
+                slotLabelStyle,
+                localSlotLabelStyle);
+            FightHudDrawer.DrawPlayerSlotLabel(
+                camera,
+                playerTwo.Fighter,
+                playerTwo.SlotIndex,
+                playerTwo.IsOwner,
+                slotLabelStyle,
+                localSlotLabelStyle);
         }
 
         private void DrawRoundInfo(NetworkMatchCoordinator coordinator)

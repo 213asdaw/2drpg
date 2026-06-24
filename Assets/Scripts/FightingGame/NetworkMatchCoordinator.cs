@@ -289,7 +289,7 @@ namespace FightingGame
                     if (!playerOne.Fighter.IsAlive || !playerTwo.Fighter.IsAlive)
                     {
                         NetworkFighter winner = playerOne.Fighter.IsAlive ? playerOne : playerTwo;
-                        FinishRound(winner, winner.Fighter.DisplayName + " KO!");
+                        FinishRound(winner, OnlinePlayerLabels.GetRoundKoMessage(winner.SlotIndex));
                     }
                     else if (netRoundTimer.Value <= 0f)
                     {
@@ -300,7 +300,7 @@ namespace FightingGame
                         else
                         {
                             NetworkFighter winner = playerOne.Fighter.Health > playerTwo.Fighter.Health ? playerOne : playerTwo;
-                            FinishRound(winner, "TIME — " + winner.Fighter.DisplayName + " WINS");
+                            FinishRound(winner, OnlinePlayerLabels.GetRoundTimeWinMessage(winner.SlotIndex));
                         }
                     }
 
@@ -380,8 +380,8 @@ namespace FightingGame
             netPhase.Value = (int)MatchPhase.MatchEnd;
             phaseTimer = FightConstants.MatchEndDelay;
             netStatusMessage.Value = winner != null
-                ? winner.Fighter.DisplayName + " MATCH WIN!"
-                : "MATCH DRAW";
+                ? OnlinePlayerLabels.GetMatchWinMessage(winner.SlotIndex)
+                : "무승부";
 
             if (winner == fighters[0])
             {

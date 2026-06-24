@@ -57,4 +57,34 @@ namespace FightingGame
         RoundEnd,
         MatchEnd
     }
+
+    public static class OnlinePlayerLabels
+    {
+        public static string GetSlotLabel(int slotIndex)
+        {
+            return slotIndex == 0 ? "1P" : "2P";
+        }
+
+        public static string GetHeadLabel(int slotIndex, bool isLocalPlayer)
+        {
+            return isLocalPlayer
+                ? GetSlotLabel(slotIndex) + " (나)"
+                : GetSlotLabel(slotIndex);
+        }
+
+        public static string GetMatchWinMessage(int slotIndex)
+        {
+            return GetSlotLabel(slotIndex) + "가 이겼습니다!";
+        }
+
+        public static string GetRoundKoMessage(int slotIndex)
+        {
+            return GetSlotLabel(slotIndex) + " KO!";
+        }
+
+        public static string GetRoundTimeWinMessage(int slotIndex)
+        {
+            return "시간 종료 — " + GetSlotLabel(slotIndex) + " 승리";
+        }
+    }
 }
