@@ -17,6 +17,7 @@ namespace FightingGame
         private GUIStyle buttonStyle;
         private GUIStyle slotLabelStyle;
         private GUIStyle localSlotLabelStyle;
+        private readonly System.Collections.Generic.List<FloatingCombatText> floatingTexts = new System.Collections.Generic.List<FloatingCombatText>();
         private bool submittedLocalArchetype;
         private bool aloneInSession;
         private bool wasConnectedToSession;
@@ -322,6 +323,19 @@ namespace FightingGame
             {
                 fontSize = 16,
                 fontStyle = FontStyle.Bold
+            };
+
+            slotLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white }
+            };
+
+            localSlotLabelStyle = new GUIStyle(slotLabelStyle)
+            {
+                normal = { textColor = new Color(1f, 0.95f, 0.55f) }
             };
         }
 
