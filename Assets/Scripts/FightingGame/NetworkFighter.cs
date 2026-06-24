@@ -81,7 +81,7 @@ namespace FightingGame
 
             if (IsOwner)
             {
-                SubmitInputServerRpc(NetworkFighterInput.ReadLocal(slotIndex));
+                SubmitInputServerRpc(NetworkFighterInput.ReadLocal());
             }
 
             if (!IsServer)

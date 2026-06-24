@@ -407,10 +407,14 @@ namespace FightingGame
             }
 
             const float y = 78f;
-            NetworkFighter playerOne = coordinator.Fighters[0];
-            NetworkFighter playerTwo = coordinator.Fighters[1];
-            GUI.Label(new Rect(24f, y, 560f, 80f), FightingGame.BuildPlayerControlLine(0, playerOne.Fighter), labelStyle);
-            GUI.Label(new Rect(Screen.width - 584f, y, 560f, 80f), FightingGame.BuildPlayerControlLine(1, playerTwo.Fighter), labelStyle);
+            NetworkFighter localFighter = FindLocalFighter(coordinator);
+            if (localFighter != null && localFighter.Fighter != null)
+            {
+                GUI.Label(
+                    new Rect(Screen.width * 0.5f - 280f, y, 560f, 44f),
+                    FightingGame.BuildOnlineControlLine(localFighter.Fighter),
+                    labelStyle);
+            }
 
             if (coordinator.Phase == MatchPhase.MatchEnd)
             {
@@ -419,6 +423,19 @@ namespace FightingGame
                     : "M — 메인 메뉴";
                 GUI.Label(new Rect(Screen.width * 0.5f - 180f, Screen.height - 72f, 360f, 24f), restartHint, labelStyle);
             }
+        }
+
+        private NetworkFighter FindLocalFighter(NetworkMatchCoordinator coordinator)
+        {
+            foreach (NetworkFighter fighter in coordinator.Fighters)
+            {
+                if (fighter != null && fighter.IsOwner)
+                {
+                    return fighter;
+                }
+            }
+
+            return null;
         }
 
         private void DrawBanner(NetworkMatchCoordinator coordinator)

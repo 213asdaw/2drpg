@@ -54,12 +54,9 @@ namespace FightingGame
             };
         }
 
-        public static NetworkFighterInput ReadLocal(int playerSlot = 0)
+        public static NetworkFighterInput ReadLocal()
         {
-            FighterInputSnapshot snapshot = playerSlot == 0
-                ? FighterInputReader.ReadPlayerOne()
-                : FighterInputReader.ReadPlayerTwo();
-            return FromSnapshot(snapshot);
+            return FromSnapshot(FighterInputReader.ReadPlayerOne());
         }
     }
 }

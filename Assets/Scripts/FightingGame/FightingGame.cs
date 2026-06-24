@@ -452,6 +452,22 @@ namespace FightingGame
             }
         }
 
+        public static string BuildOnlineControlLine(FighterController fighter)
+        {
+            if (fighter == null)
+            {
+                return string.Empty;
+            }
+
+            string line = BuildPlayerControlLine(0, fighter);
+            if (line.StartsWith("P1 "))
+            {
+                return "내 캐릭터 — " + line.Substring(3);
+            }
+
+            return line;
+        }
+
         public static string BuildPlayerControlLine(int playerIndex, FighterController fighter)
         {
             if (fighter == null)
