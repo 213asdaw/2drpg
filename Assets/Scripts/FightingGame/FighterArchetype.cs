@@ -156,7 +156,7 @@ namespace FightingGame
         public const float MeleeArrowFlatDamage = 1f;
         public const float MeleeArrowKnockbackMultiplier = 0.42f;
         public const float MeleeArrowHitstunMultiplier = 0.55f;
-        public const float MeleeArrowSpeedLight = 13f;
+        public const float MeleeArrowSpeedLight = 11.5f;
         public const float MeleeArrowSpeedKick = 11f;
         public const float MeleeArrowSpeedHeavy = 7.5f;
         public const float MeleeArrowLifetimeLight = 0.44f;
