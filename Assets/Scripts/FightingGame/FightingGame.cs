@@ -173,6 +173,22 @@ namespace FightingGame
             playerTwo.SetOpponent(playerOne);
             playerOne.Damaged += (_, damage) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
             playerTwo.Damaged += (_, damage) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 1.8f, "-" + damage.ToString("0"), new Color(1f, 0.45f, 0.45f));
+            playerOne.PoisonTicked += (_, damage, stacks) => SpawnFloatingText(
+                playerOne.transform.position + Vector3.up * 1.95f,
+                "-" + damage.ToString("0") + " 독x" + stacks,
+                new Color(0.45f, 1f, 0.55f));
+            playerTwo.PoisonTicked += (_, damage, stacks) => SpawnFloatingText(
+                playerTwo.transform.position + Vector3.up * 1.95f,
+                "-" + damage.ToString("0") + " 독x" + stacks,
+                new Color(0.45f, 1f, 0.55f));
+            playerOne.PoisonStacksChanged += (fighter, stacks) => SpawnFloatingText(
+                fighter.transform.position + Vector3.up * 2.25f,
+                "독 x" + stacks,
+                new Color(0.55f, 1f, 0.65f));
+            playerTwo.PoisonStacksChanged += (fighter, stacks) => SpawnFloatingText(
+                fighter.transform.position + Vector3.up * 2.25f,
+                "독 x" + stacks,
+                new Color(0.55f, 1f, 0.65f));
             playerOne.LandedHit += (_, __, type) => SpawnFloatingText(playerTwo.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
             playerTwo.LandedHit += (_, __, type) => SpawnFloatingText(playerOne.transform.position + Vector3.up * 2.1f, type.ToString().ToUpper(), new Color(1f, 0.92f, 0.45f));
             playerOne.BuffActivated += fighter => SpawnFloatingText(
@@ -285,6 +301,8 @@ namespace FightingGame
             }
 
             EnsureStyles();
+            FightHudDrawer.DrawPoisonStacks(camera, playerOne, cooldownStyle);
+            FightHudDrawer.DrawPoisonStacks(camera, playerTwo, cooldownStyle);
             FightHudDrawer.DrawSkillCooldowns(camera, playerOne, cooldownStyle, cooldownStyle);
             FightHudDrawer.DrawSkillCooldowns(camera, playerTwo, cooldownStyle, cooldownStyle);
         }

@@ -11,6 +11,8 @@ namespace FightingGame
                 return;
             }
 
+            DrawPoisonStacks(camera, fighter, labelStyle);
+
             FighterArchetypeDefinition definition = FighterArchetypes.Get(fighter.ArchetypeId);
             if (!definition.HasFlameSlash && !definition.HasMoltenGuard && !definition.HasPoisonArrow)
             {
@@ -56,6 +58,30 @@ namespace FightingGame
             GUI.Box(frame, GUIContent.none);
             GUI.color = previous;
             GUI.Label(frame, keyLabel + " READY", readyStyle);
+        }
+
+        public static void DrawPoisonStacks(Camera camera, FighterController fighter, GUIStyle labelStyle)
+        {
+            if (camera == null || fighter == null || labelStyle == null || !fighter.IsPoisoned)
+            {
+                return;
+            }
+
+            Vector3 worldAnchor = fighter.transform.position + new Vector3(0f, 2.35f, 0f);
+            Vector3 screenPoint = camera.WorldToScreenPoint(worldAnchor);
+            if (screenPoint.z < 0f)
+            {
+                return;
+            }
+
+            int stacks = fighter.PoisonStacks;
+            float tickDamage = IzSkills.GetPoisonTickDamage(stacks);
+            Rect frame = new Rect(screenPoint.x - 52f, Screen.height - screenPoint.y - 18f, 104f, 22f);
+            Color previous = GUI.color;
+            GUI.color = new Color(0.35f, 0.92f, 0.48f, 0.88f);
+            GUI.Box(frame, GUIContent.none);
+            GUI.color = previous;
+            GUI.Label(frame, "독 x" + stacks + " (-" + tickDamage.ToString("0") + "/틱)", labelStyle);
         }
     }
 }

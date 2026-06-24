@@ -155,6 +155,19 @@ namespace FightingGame
         public const int SkillPoisonStacks = 2;
         public const float PoisonStackDecayTime = 4f;
         public const float PoisonTickInterval = 0.65f;
-        public const float PoisonTickDamagePerStack = 1.6f;
+
+        // stacks 1~5 — each step increases tick damage clearly (2/4/6/8/10).
+        public static float GetPoisonTickDamage(int stacks)
+        {
+            switch (stacks)
+            {
+                case 5: return 10f;
+                case 4: return 8f;
+                case 3: return 6f;
+                case 2: return 4f;
+                case 1: return 2f;
+                default: return 0f;
+            }
+        }
     }
 }

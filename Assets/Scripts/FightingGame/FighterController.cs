@@ -156,6 +156,8 @@ namespace FightingGame
             : 0f;
 
         public event Action<FighterController, float> Damaged;
+        public event Action<FighterController, float, int> PoisonTicked;
+        public event Action<FighterController, int> PoisonStacksChanged;
         public event Action<FighterController, FighterController, AttackType> LandedHit;
         public event Action<FighterController> BuffActivated;
 
@@ -787,6 +789,8 @@ namespace FightingGame
             {
                 poisonTickTimer = IzSkills.PoisonTickInterval;
             }
+
+            PoisonStacksChanged?.Invoke(this, poisonStacks);
         }
 
         private void TickPoison(float deltaTime)
@@ -810,9 +814,9 @@ namespace FightingGame
             poisonTickTimer -= deltaTime;
             while (poisonTickTimer <= 0f && poisonStacks > 0 && IsAlive)
             {
-                float tickDamage = poisonStacks * IzSkills.PoisonTickDamagePerStack;
+                float tickDamage = IzSkills.GetPoisonTickDamage(poisonStacks);
                 health = Mathf.Max(0f, health - tickDamage);
-                Damaged?.Invoke(this, tickDamage);
+                PoisonTicked?.Invoke(this, tickDamage, poisonStacks);
                 poisonTickTimer += IzSkills.PoisonTickInterval;
                 if (health <= 0f)
                 {
