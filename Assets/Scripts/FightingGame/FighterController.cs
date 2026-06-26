@@ -929,6 +929,11 @@ namespace FightingGame
             while (poisonTickTimer <= 0f && poisonStacks > 0 && IsAlive)
             {
                 float tickDamage = IzSkills.GetPoisonTickDamage(poisonStacks);
+                if (IsDefenseBuffActive)
+                {
+                    tickDamage *= FlameSwordsmanSkills.MoltenGuardDamageMultiplier;
+                }
+
                 health = Mathf.Max(0f, health - tickDamage);
                 PoisonTicked?.Invoke(this, tickDamage, poisonStacks);
                 poisonTickTimer += IzSkills.PoisonTickInterval;
