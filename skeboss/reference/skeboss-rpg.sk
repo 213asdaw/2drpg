@@ -1,4 +1,7 @@
-# SkeBoss RPG 스탯 — skeboss.sk 와 동일 (reference 복사본)
+# ============================================================
+# SkeBoss (인조인간) — RPG 스탯 + 드랍 Skript
+# 구버전 Skript 호환: 이벤트 if 에서 커스텀 함수 호출 안 함
+# ============================================================
 
 options:
 	boss-name: 인조인간
@@ -56,46 +59,25 @@ every 15 seconds:
 			initSkeBossStats(loop-zombie)
 
 on damage:
-	set {_pl} to null
-	if attacker is a player:
-		set {_pl} to attacker
-	else if damager is a player:
-		set {_pl} to damager
-	else if attacker is set:
-		if shooter of attacker is a player:
-			set {_pl} to shooter of attacker
-	else if damager is set:
-		if shooter of damager is a player:
-			set {_pl} to shooter of damager
+	if attacker is not set:
+		stop
 
-	set {_victimBoss} to false
-	if victim is a zombie:
-		if uncolored name of victim contains "{@boss-name}":
-			set {_victimBoss} to true
-
-	set {_atkBoss} to false
+	set {_isBoss} to false
 	if attacker is a zombie:
 		if uncolored name of attacker contains "{@boss-name}":
-			set {_atkBoss} to true
+			set {_isBoss} to true
 
-	if {_pl} is not set:
-		if {_atkBoss} is false:
-			stop
-
-	if {_atkBoss} is true:
-		set {_key} to attacker
-	else:
-		set {_key} to {_pl}
-
-	set {공격::%{_key}%} to damage
-	set {_stat} to getAttack({_key})
-	if {_atkBoss} is true:
+	if {_isBoss} is true:
+		set {공격::%attacker%} to damage
+		set {_atk} to getAttack(attacker)
 		if damage <= {@bmelee}:
-			if {_stat} > 0:
-				add {_stat} to {공격::%{_key}%}
+			if {_atk} > 0:
+				add {_atk} to {공격::%attacker%}
 	else:
-		if {_stat} > 0:
-			add {_stat} to {공격::%{_key}%}
+		set {공격::%attacker%} to damage
+		set {_atk} to getAttack(attacker)
+		if {_atk} > 0:
+			add {_atk} to {공격::%attacker%}
 
 	if victim is set:
 		set {막는량::%victim%} to 0
@@ -104,15 +86,13 @@ on damage:
 			set {막는량::%victim%} to {_def} / 4
 		if {막는량::%victim%} > 90:
 			set {막는량::%victim%} to 90
-		remove {공격::%{_key}%} * {막는량::%victim%} / 100 from {공격::%{_key}%}
+		remove {공격::%attacker%} * {막는량::%victim%} / 100 from {공격::%attacker%}
 
-	if {_victimBoss} is true:
-		set damage to {공격::%{_key}%}
-	else if {_atkBoss} is true:
-		set damage to {공격::%{_key}%}
-	else if {_pl} is set:
-		if scoreboard tags of {_pl} does not contain "using_skill":
-			set damage to {공격::%{_key}%}
+	if attacker is a player:
+		if scoreboard tags of attacker does not contain "using_skill":
+			set damage to {공격::%attacker%}
+	else:
+		set damage to {공격::%attacker%}
 
 on death of zombie:
 	if uncolored name of victim does not contain "{@boss-name}":
@@ -124,6 +104,7 @@ on death of zombie:
 	drop 1 netherite scrap at {_loc}
 	chance of 25%:
 		drop 1 emerald block at {_loc}
+	# 경험치 — death event 문법은 구버전 Skript 미지원
 	if attacker is a player:
 		give {@bexp} xp to attacker
 	else:
