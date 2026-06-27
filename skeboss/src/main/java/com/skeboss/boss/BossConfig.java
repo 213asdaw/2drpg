@@ -21,6 +21,7 @@ public final class BossConfig {
     private final double followRange;
     private final double meleeRange;
     private final double meleeDamage;
+    private final double movementSpeed;
     private final int aiIntervalTicks;
     private final int spawnDelayTicks;
     private final boolean hideBaseEntity;
@@ -30,9 +31,9 @@ public final class BossConfig {
     public BossConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
         modelId = config.getString("model-id", "ske");
-        idleAnimation = config.getString("animations.idle", "walk");
+        idleAnimation = config.getString("animations.idle", "none");
         walkAnimation = config.getString("animations.walk", "walk");
-        yawOffset = (float) config.getDouble("yaw-offset", 180.0);
+        yawOffset = (float) config.getDouble("yaw-offset", 0.0);
         blendIn = config.getDouble("blend-in", 0.15);
         blendOut = config.getDouble("blend-out", 0.25);
 
@@ -41,6 +42,7 @@ public final class BossConfig {
         followRange = config.getDouble("boss.follow-range", 32.0);
         meleeRange = config.getDouble("boss.melee-range", 3.5);
         meleeDamage = config.getDouble("boss.melee-damage", 8.0);
+        movementSpeed = config.getDouble("boss.movement-speed", 0.28);
         aiIntervalTicks = config.getInt("boss.ai-interval-ticks", 5);
         spawnDelayTicks = config.getInt("boss.spawn-delay-ticks", 2);
         hideBaseEntity = config.getBoolean("boss.hide-base-entity", true);
@@ -118,6 +120,10 @@ public final class BossConfig {
 
     public double getMeleeDamage() {
         return meleeDamage;
+    }
+
+    public double getMovementSpeed() {
+        return movementSpeed;
     }
 
     public int getAiIntervalTicks() {

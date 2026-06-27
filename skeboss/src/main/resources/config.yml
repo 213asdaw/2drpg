@@ -1,16 +1,16 @@
 # ske.bbmodel 기준 설정 (model-id: ske, model_identifier: ske)
 model-id: ske
 
-# bbmodel 애니메이션: walk, attack_laser (idle 없음 → 대기 시 walk 사용)
-animations:
-  idle: walk
-  walk: walk
-
-# right_arm bone이 Y -180° — 모델 facing 보정
-yaw-offset: 180
+# 모델 facing — 반대 보이면 0 ↔ 180 조절
+yaw-offset: 0
 
 blend-in: 0.15
 blend-out: 0.25
+
+# idle 애니 없음 → 가만히 있을 때는 애니 재생 안 함 (walk 루프 유지)
+animations:
+  idle: none
+  walk: walk
 
 boss:
   max-health: 500.0
@@ -18,6 +18,7 @@ boss:
   follow-range: 32.0
   melee-range: 3.5
   melee-damage: 8.0
+  movement-speed: 0.28
   ai-interval-ticks: 5
   spawn-delay-ticks: 2
   hide-base-entity: true

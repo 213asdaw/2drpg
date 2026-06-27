@@ -21,6 +21,7 @@ public final class SkeBoss {
 
     private boolean castingSkill;
     private String currentSkillId;
+    private String currentAnimation;
     private Player target;
 
     public SkeBoss(LivingEntity entity, ModelEngineBridge.BossModel model, BossConfig config) {
@@ -81,6 +82,14 @@ public final class SkeBoss {
 
     public void setTarget(Player target) {
         this.target = target;
+    }
+
+    public String getCurrentAnimation() {
+        return currentAnimation;
+    }
+
+    public void setCurrentAnimation(String currentAnimation) {
+        this.currentAnimation = currentAnimation;
     }
 
     public boolean isSkillReady(SkillDefinition skill) {

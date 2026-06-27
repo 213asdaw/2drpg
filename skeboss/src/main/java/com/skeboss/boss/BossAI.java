@@ -25,7 +25,7 @@ public final class BossAI implements Runnable {
 
         for (SkeBoss boss : manager.getBosses()) {
             LivingEntity entity = boss.getEntity();
-            if (!entity.isValid() || entity.isDead()) {
+            if (!entity.isValid() || entity.isDead() || !boss.isReady()) {
                 continue;
             }
 
@@ -38,13 +38,15 @@ public final class BossAI implements Runnable {
             Player target = findNearestPlayer(entity, config.getFollowRange());
             boss.setTarget(target);
             if (target == null) {
-                manager.playIdle(boss);
                 continue;
             }
+
+            manager.faceTarget(boss, target);
 
             double distance = entity.getLocation().distance(target.getLocation());
 
             if (entity instanceof Mob mob) {
+                mob.setAI(true);
                 mob.setTarget(target);
             }
 
@@ -54,12 +56,9 @@ public final class BossAI implements Runnable {
             }
 
             if (distance <= config.getMeleeRange()) {
-                manager.playIdle(boss);
                 manager.meleeAttack(boss, target);
             } else if (distance <= config.getFollowRange()) {
                 manager.playWalk(boss);
-            } else {
-                manager.playIdle(boss);
             }
         }
     }

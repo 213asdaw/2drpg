@@ -58,6 +58,11 @@ public final class BossManager {
             if (entity.getAttribute(follow) != null) {
                 entity.getAttribute(follow).setBaseValue(config.getFollowRange());
             }
+
+            Attribute speed = Attribute.GENERIC_MOVEMENT_SPEED;
+            if (entity.getAttribute(speed) != null) {
+                entity.getAttribute(speed).setBaseValue(config.getMovementSpeed());
+            }
         });
 
         SkeBoss boss = new SkeBoss(zombie, null, config);
@@ -83,12 +88,7 @@ public final class BossManager {
             );
             boss.setModel(bossModel);
 
-            modelEngine.playLoopAnimation(
-                    bossModel,
-                    config.getIdleAnimation(),
-                    config.getBlendIn(),
-                    config.getBlendOut()
-            );
+            playAnimation(boss, config.getWalkAnimation());
 
             modelEngine.syncNearbyPlayers(bossModel, entity, config.getViewerSyncRadius());
             registerBossBarViewers(boss);
@@ -120,27 +120,45 @@ public final class BossManager {
     }
 
     public void playIdle(SkeBoss boss) {
-        if (!boss.isReady()) {
-            return;
-        }
-        modelEngine.playLoopAnimation(
-                boss.getModel(),
-                config.getIdleAnimation(),
-                config.getBlendIn(),
-                config.getBlendOut()
-        );
+        playAnimation(boss, config.getIdleAnimation());
     }
 
     public void playWalk(SkeBoss boss) {
-        if (!boss.isReady()) {
+        playAnimation(boss, config.getWalkAnimation());
+    }
+
+    public void playAnimation(SkeBoss boss, String animation) {
+        if (!boss.isReady() || animation == null || animation.isBlank() || "none".equalsIgnoreCase(animation)) {
+            return;
+        }
+        if (animation.equals(boss.getCurrentAnimation())) {
             return;
         }
         modelEngine.playLoopAnimation(
                 boss.getModel(),
-                config.getWalkAnimation(),
+                animation,
                 config.getBlendIn(),
                 config.getBlendOut()
         );
+        boss.setCurrentAnimation(animation);
+    }
+
+    public void clearAnimationState(SkeBoss boss) {
+        boss.setCurrentAnimation(null);
+    }
+
+    public void faceTarget(SkeBoss boss, Player target) {
+        if (target == null || !boss.getEntity().isValid()) {
+            return;
+        }
+        LivingEntity entity = boss.getEntity();
+        double dx = target.getX() - entity.getX();
+        double dz = target.getZ() - entity.getZ();
+        if (dx * dx + dz * dz < 0.0001) {
+            return;
+        }
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        entity.setRotation(yaw, 0.0f);
     }
 
     public boolean castSkill(SkeBoss boss, SkillDefinition skill) {
@@ -164,6 +182,7 @@ public final class BossManager {
                 config.getBlendIn(),
                 config.getBlendOut()
         );
+        boss.setCurrentAnimation(skill.animation());
 
         int duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), skill.durationTicks());
 
@@ -204,7 +223,8 @@ public final class BossManager {
         }
 
         modelEngine.stopAnimation(boss.getModel(), skill.animation());
-        playIdle(boss);
+        clearAnimationState(boss);
+        playWalk(boss);
 
         LivingEntity entity = boss.getEntity();
         if (entity instanceof Mob mob) {
