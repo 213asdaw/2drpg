@@ -52,8 +52,11 @@ public final class BossAI implements Runnable {
             }
 
             SkillDefinition readySkill = pickSkill(boss, distance);
-            if (readySkill != null && manager.castSkill(boss, readySkill)) {
-                continue;
+            if (readySkill != null) {
+                Player skillTarget = manager.resolveSkillTarget(boss, readySkill.range());
+                if (skillTarget != null && manager.castSkill(boss, readySkill)) {
+                    continue;
+                }
             }
 
             if (distance <= config.getMeleeRange()) {

@@ -58,7 +58,7 @@ public final class ChainPullSkill {
                 Player target = manager.resolveSkillTarget(boss, skill.range());
                 if (target != null) {
                     boss.setTarget(target);
-                    manager.faceTarget(boss, target);
+                    manager.faceTarget(boss, target, true);
                 }
 
                 if (direction == null) {

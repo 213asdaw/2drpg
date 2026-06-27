@@ -42,11 +42,11 @@ public final class LaserBeamSkill {
                     return;
                 }
 
-                Player target = manager.resolveSkillTarget(boss, skill.range());
-                if (target != null) {
-                    boss.setTarget(target);
-                    manager.faceTarget(boss, target);
-                }
+            Player target = manager.resolveSkillTarget(boss, skill.range());
+            if (target != null) {
+                boss.setTarget(target);
+                manager.faceTarget(boss, target, true);
+            }
 
                 Vector direction = manager.getBeamDirection(boss, skill.range());
                 Location start = manager.getBeamOrigin(boss);

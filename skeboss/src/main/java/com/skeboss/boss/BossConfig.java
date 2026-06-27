@@ -15,6 +15,7 @@ public final class BossConfig {
     private final String walkAnimation;
     private final float yawOffset;
     private final float faceYawOffset;
+    private final float skillFaceYawOffset;
     private final double blendIn;
     private final double blendOut;
     private final double maxHealth;
@@ -30,6 +31,7 @@ public final class BossConfig {
     private final double modelScale;
     private final double hitboxScale;
     private final String targetMode;
+    private final String skillTargetMode;
     private final long aggroDropSeconds;
     private final String skriptAttackVariable;
     private final double beamAttackMultiplier;
@@ -43,6 +45,7 @@ public final class BossConfig {
         walkAnimation = config.getString("animations.walk", "walk");
         yawOffset = (float) config.getDouble("yaw-offset", 180.0);
         faceYawOffset = (float) config.getDouble("face-yaw-offset", 180.0);
+        skillFaceYawOffset = (float) config.getDouble("skill-face-yaw-offset", 0.0);
         blendIn = config.getDouble("blend-in", 0.15);
         blendOut = config.getDouble("blend-out", 0.25);
 
@@ -59,6 +62,7 @@ public final class BossConfig {
         modelScale = config.getDouble("boss.model-scale", 2.0);
         hitboxScale = config.getDouble("boss.hitbox-scale", 2.0);
         targetMode = config.getString("boss.target-mode", "aggro");
+        skillTargetMode = config.getString("boss.skill-target-mode", "aggro");
         aggroDropSeconds = config.getLong("boss.aggro-drop-seconds", 30L);
         skriptAttackVariable = config.getString("boss.rpg.skript-attack-variable", "공격력");
         beamAttackMultiplier = config.getDouble("boss.rpg.beam-attack-multiplier", 2.0);
@@ -165,6 +169,14 @@ public final class BossConfig {
 
     public String getWalkAnimation() {
         return walkAnimation;
+    }
+
+    public float getSkillFaceYawOffset() {
+        return skillFaceYawOffset;
+    }
+
+    public String getSkillTargetMode() {
+        return skillTargetMode;
     }
 
     public float getFaceYawOffset() {

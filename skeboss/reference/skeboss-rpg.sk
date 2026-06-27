@@ -1,17 +1,16 @@
 # ============================================================
 # SkeBoss (인조인간) — RPG 스탯 + 드랍 Skript
 #
-# SkeBoss 플러gin이 Skript 변수 {공격력::%uuid%} 를 읽어
-# 레이저 데미지 = 공격력 × 2 를 직접 적용합니다.
-# (빔 데미지는 on damage 에서 처리할 필요 없음)
+# ※ options 이름은 영문만 사용 ({@boss-공격력} 은 Skript 오류)
+# ※ 함수 안에서는 {_boss} 처럼 중괄호 필수
 # ============================================================
 
 options:
 	boss-name: 인조인간
-	boss-방어력: 240
-	boss-공격력: 80
-	boss-exp: 500
-	boss-melee-max: 10
+	bdef: 240
+	batk: 80
+	bexp: 500
+	bmelee: 10
 
 function isSkeBoss(e: entity) :: boolean:
 	if {_e} is not a zombie:
@@ -21,50 +20,53 @@ function isSkeBoss(e: entity) :: boolean:
 	return false
 
 function initSkeBossStats(boss: entity):
-	# UUID — SkeBoss Java가 {공격력::%uuid%} 읽음
-	set {방어력::%uuid of _boss%} to {@boss-방어력}
-	set {공격력::%uuid of _boss%} to {@boss-공격력}
-	# entity — on damage 의 {방어력::%victim%} 용 (둘 다 같은 값으로 유지)
-	set {방어력::%{_boss}%} to {@boss-방어력}
-	set {공격력::%{_boss}%} to {@boss-공격력}
-	set {boss.init::%uuid of _boss%} to true
+	set {_u} to uuid of {_boss}
+	set {방어력::%{_u}%} to {@bdef}
+	set {공격력::%{_u}%} to {@batk}
+	set {방어력::%{_boss}%} to {@bdef}
+	set {공격력::%{_boss}%} to {@batk}
+	set {boss.init::%{_u}%} to true
 
-# victim/attacker 조회 — entity 키 우선, 보스는 uuid 키도 확인
 function getDefense(e: entity) :: number:
 	if {방어력::%{_e}%} is set:
 		return {방어력::%{_e}%}
-	if isSkeBoss({_e}) and {방어력::%uuid of _e%} is set:
-		return {방어력::%uuid of _e%}
+	if isSkeBoss({_e}):
+		set {_u} to uuid of {_e}
+		if {방어력::%{_u}%} is set:
+			return {방어력::%{_u}%}
 	return 0
 
 function getAttack(e: entity) :: number:
 	if {공격력::%{_e}%} is set:
 		return {공격력::%{_e}%}
-	if isSkeBoss({_e}) and {공격력::%uuid of _e%} is set:
-		return {공격력::%uuid of _e%}
+	if isSkeBoss({_e}):
+		set {_u} to uuid of {_e}
+		if {공격력::%{_u}%} is set:
+			return {공격력::%{_u}%}
 	return 0
 
 function clearSkeBossStats(boss: entity):
+	set {_u} to uuid of {_boss}
 	delete {방어력::%{_boss}%}
 	delete {공격력::%{_boss}%}
-	delete {방어력::%uuid of _boss%}
-	delete {공격력::%uuid of _boss%}
-	delete {boss.init::%uuid of _boss%}
+	delete {방어력::%{_u}%}
+	delete {공격력::%{_u}%}
+	delete {boss.init::%{_u}%}
 
 on spawn of zombie:
 	wait 5 ticks
 	if isSkeBoss(event-entity):
-		if {boss.init::%uuid of event-entity%} is not set:
+		set {_u} to uuid of event-entity
+		if {boss.init::%{_u}%} is not set:
 			initSkeBossStats(event-entity)
 
 every 15 seconds:
 	loop all zombies:
 		if isSkeBoss(loop-zombie):
-			if {boss.init::%uuid of loop-zombie%} is not set:
+			set {_u} to uuid of loop-zombie
+			if {boss.init::%{_u}%} is not set:
 				initSkeBossStats(loop-zombie)
 
-# ---------- 데미지 ----------
-# 빔: SkeBoss가 Skript {공격력::%uuid%}×2 로 넣음 → 여기서 플레이어 방어력만 적용
 on damage:
 	if attacker is not set:
 		stop
@@ -72,7 +74,7 @@ on damage:
 	if isSkeBoss(attacker):
 		set {공격::%attacker%} to damage
 		set {_atk} to getAttack(attacker)
-		if damage <= {@boss-melee-max} and {_atk} > 0:
+		if damage <= {@bmelee} and {_atk} > 0:
 			add {_atk} to {공격::%attacker%}
 	else:
 		set {공격::%attacker%} to damage
@@ -104,6 +106,6 @@ on death of zombie:
 		drop 1 netherite scrap at {_loc}
 		chance of 25%:
 			drop 1 emerald block at {_loc}
-		set death event's dropped exp to {@boss-exp}
+		set death event's dropped exp to {@bexp}
 		if attacker is a player:
-			give {@boss-exp} xp to attacker
+			give {@bexp} xp to attacker

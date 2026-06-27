@@ -158,6 +158,10 @@ public final class BossManager {
     }
 
     public void faceTarget(SkeBoss boss, Player target) {
+        faceTarget(boss, target, boss.isCastingSkill());
+    }
+
+    public void faceTarget(SkeBoss boss, Player target, boolean forSkill) {
         if (target == null || !boss.getEntity().isValid()) {
             return;
         }
@@ -167,7 +171,8 @@ public final class BossManager {
         if (dx * dx + dz * dz < 0.0001) {
             return;
         }
-        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz)) + config.getFaceYawOffset();
+        float offset = forSkill ? config.getSkillFaceYawOffset() : config.getFaceYawOffset();
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz)) + offset;
         entity.setRotation(yaw, 0.0f);
         if (boss.getModel() != null) {
             modelEngine.syncBodyRotation(boss.getModel(), yaw);
@@ -200,12 +205,37 @@ public final class BossManager {
                 .orElse(null);
     }
 
+    public Player findNearestPlayer(LivingEntity entity, double range) {
+        return entity.getWorld().getPlayers().stream()
+                .filter(this::isValidTarget)
+                .filter(player -> player.getLocation().distanceSquared(entity.getLocation()) <= range * range)
+                .min(Comparator.comparingDouble(player -> player.getLocation().distanceSquared(entity.getLocation())))
+                .orElse(null);
+    }
+
+    public boolean isSkillTarget(SkeBoss boss, Player player, double range) {
+        if (!isValidTarget(player)) {
+            return false;
+        }
+        if (!player.getWorld().equals(boss.getEntity().getWorld())) {
+            return false;
+        }
+        if (player.getLocation().distanceSquared(boss.getEntity().getLocation()) > range * range) {
+            return false;
+        }
+        if ("nearest".equalsIgnoreCase(config.getSkillTargetMode())) {
+            return true;
+        }
+        return isEnemy(boss, player);
+    }
+
     public Player resolveSkillTarget(SkeBoss boss, double range) {
         Player current = boss.getTarget();
-        if (current != null && isEnemy(boss, current)
-                && current.getWorld().equals(boss.getEntity().getWorld())
-                && current.getLocation().distanceSquared(boss.getEntity().getLocation()) <= range * range) {
+        if (current != null && isSkillTarget(boss, current, range)) {
             return current;
+        }
+        if ("nearest".equalsIgnoreCase(config.getSkillTargetMode())) {
+            return findNearestPlayer(boss.getEntity(), range);
         }
         return findNearestEnemy(boss, boss.getEntity(), range);
     }
@@ -217,10 +247,10 @@ public final class BossManager {
                 stopSkillTracking(boss);
                 return;
             }
-            Player target = findNearestEnemy(boss, boss.getEntity(), trackRange);
+            Player target = resolveSkillTarget(boss, trackRange);
             if (target != null) {
                 boss.setTarget(target);
-                faceTarget(boss, target);
+                faceTarget(boss, target, true);
             }
         }, 0L, 1L);
         boss.setAimTask(task);
@@ -285,6 +315,13 @@ public final class BossManager {
         }
 
         LivingEntity entity = boss.getEntity();
+
+        double trackRange = Math.max(skill.range(), config.getFollowRange());
+        Player target = resolveSkillTarget(boss, trackRange);
+        if (target == null) {
+            return false;
+        }
+
         boss.setCastingSkill(true);
         boss.setCurrentSkillId(skill.id());
         boss.setSkillCooldown(skill);
@@ -294,12 +331,8 @@ public final class BossManager {
         }
         entity.setVelocity(new Vector(0, 0, 0));
 
-        double trackRange = Math.max(skill.range(), config.getFollowRange());
-        Player target = resolveSkillTarget(boss, trackRange);
-        if (target != null) {
-            boss.setTarget(target);
-            faceTarget(boss, target);
-        }
+        boss.setTarget(target);
+        faceTarget(boss, target, true);
 
         startSkillTracking(boss, trackRange);
 

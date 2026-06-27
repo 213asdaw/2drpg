@@ -4,6 +4,8 @@ model-id: ske
 # ske 모델 facing 보정 (반대 보면 0 ↔ 180)
 yaw-offset: 180
 face-yaw-offset: 180
+# 스킬 시전 시 모델 방향 (attack 애니는 보통 0, 반대면 180)
+skill-face-yaw-offset: 0
 
 blend-in: 0.15
 blend-out: 0.25
@@ -26,8 +28,10 @@ boss:
   viewer-sync-radius: 64.0
   model-scale: 2.0
   hitbox-scale: 2.0
-  # aggro = 보스를 공격한 플레이어만 타겟 / nearest = 가장 가까운 플레이어
+  # aggro = 보스를 공격한 플레이어만 추적 / nearest = 가까운 플레이어
   target-mode: aggro
+  # 스킬 조준: aggro | nearest (nearest = 어그로 없어도 스킬 사용)
+  skill-target-mode: aggro
   aggro-drop-seconds: 30
   # Skript {공격력::%uuid%} 연동 — 빔 데미지 = 공격력 × beam-attack-multiplier
   rpg:
