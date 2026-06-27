@@ -10,6 +10,7 @@ public record WeaponDefinition(
         String displayName,
         List<String> lore,
         String skillId,
+        String sneakSkillId,
         int cooldownSeconds
 ) {
 }

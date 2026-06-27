@@ -23,7 +23,7 @@ public final class WeaponConfig {
         pvp = root != null && root.getBoolean("pvp", false);
         targetBoss = root == null || root.getBoolean("target-boss", true);
         targetMobs = root == null || root.getBoolean("target-mobs", true);
-        pluginRightClick = root != null && root.getBoolean("plugin-right-click", false);
+        pluginRightClick = root == null || root.getBoolean("plugin-right-click", true);
         weapons = loadWeapons(root);
     }
 
@@ -37,7 +37,8 @@ public final class WeaponConfig {
 
         Map<String, WeaponDefinition> loaded = new ConcurrentHashMap<>();
         for (String key : root.getKeys(false)) {
-            if (key.equals("pvp") || key.equals("target-boss") || key.equals("target-mobs")) {
+            if (key.equals("pvp") || key.equals("target-boss") || key.equals("target-mobs")
+                    || key.equals("plugin-right-click")) {
                 continue;
             }
             ConfigurationSection section = root.getConfigurationSection(key);
@@ -64,12 +65,17 @@ public final class WeaponConfig {
         if (lore.isEmpty()) {
             lore = List.of("&7우클릭으로 스킬 시전");
         }
+        String sneakSkill = section.getString("sneak-skill");
+        if (sneakSkill != null && sneakSkill.isBlank()) {
+            sneakSkill = null;
+        }
         return new WeaponDefinition(
                 key,
                 material,
                 section.getString("display-name", "&c무기"),
                 lore,
                 section.getString("skill", key.contains("chain") ? "chain" : "laser"),
+                sneakSkill,
                 section.getInt("cooldown-seconds", 8)
         );
     }
@@ -85,6 +91,7 @@ public final class WeaponConfig {
                         "&e웅크린 채 우클릭 &7- 사슬"
                 ),
                 "laser",
+                "chain",
                 8
         );
     }
@@ -96,6 +103,7 @@ public final class WeaponConfig {
                 "&c&l인조 레이저",
                 List.of("&7인조인간의 레이저 기술", "&7우클릭: 레이저 발사"),
                 "laser",
+                null,
                 8
         );
     }
@@ -107,6 +115,7 @@ public final class WeaponConfig {
                 "&7&l인조 사슬",
                 List.of("&7인조인간의 사슬 기술", "&7우클릭: 사슬 발사·끌어오기"),
                 "chain",
+                null,
                 10
         );
     }

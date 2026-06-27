@@ -34,6 +34,6 @@ public final class WeaponListener implements Listener {
         }
 
         event.setCancelled(true);
-        weaponManager.tryUse(event.getPlayer(), item);
+        weaponManager.tryUse(event.getPlayer(), item, event.getPlayer().isSneaking());
     }
 }

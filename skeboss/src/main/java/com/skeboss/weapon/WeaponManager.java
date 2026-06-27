@@ -9,6 +9,7 @@ import com.skeboss.skill.PlayerLaserSkill;
 import com.skeboss.skript.SkriptBridge;
 import com.skeboss.util.TextUtil;
 import org.bukkit.NamespacedKey;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -72,28 +73,72 @@ public final class WeaponManager {
     }
 
     public String getWeaponId(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
-            return null;
-        }
-        return item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
+        WeaponDefinition weapon = resolveWeapon(item);
+        return weapon != null ? weapon.id() : null;
     }
 
     public boolean isWeapon(ItemStack item) {
-        return getWeaponId(item) != null;
+        return resolveWeapon(item) != null;
+    }
+
+    /** NBT 우선, 없으면 config display-name 과 아이템 이름 비교 */
+    public WeaponDefinition resolveWeapon(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return null;
+        }
+
+        if (item.hasItemMeta()) {
+            String nbtId = item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
+            if (nbtId != null) {
+                WeaponDefinition weapon = weaponConfig.getWeapon(nbtId);
+                if (weapon != null) {
+                    return weapon;
+                }
+            }
+        }
+
+        return resolveWeaponByDisplayName(item);
+    }
+
+    private WeaponDefinition resolveWeaponByDisplayName(ItemStack item) {
+        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
+            return null;
+        }
+
+        String itemName = ChatColor.stripColor(item.getItemMeta().getDisplayName()).trim();
+        if (itemName.isEmpty()) {
+            return null;
+        }
+
+        WeaponDefinition partialMatch = null;
+        for (WeaponDefinition weapon : weaponConfig.getWeapons().values()) {
+            String configName = TextUtil.stripColor(weapon.displayName());
+            if (itemName.equalsIgnoreCase(configName)) {
+                return weapon;
+            }
+            if (partialMatch == null && (itemName.contains(configName) || configName.contains(itemName))) {
+                partialMatch = weapon;
+            }
+        }
+        return partialMatch;
     }
 
     public boolean tryUse(Player player, ItemStack item) {
-        String weaponId = getWeaponId(item);
-        if (weaponId == null) {
-            return false;
-        }
+        return tryUse(player, item, player.isSneaking());
+    }
 
-        WeaponDefinition weapon = weaponConfig.getWeapon(weaponId);
+    public boolean tryUse(Player player, ItemStack item, boolean sneaking) {
+        WeaponDefinition weapon = resolveWeapon(item);
         if (weapon == null) {
             return false;
         }
 
-        castSkill(player, weapon.skillId(), weapon.cooldownSeconds());
+        String skillId = weapon.skillId();
+        if (sneaking && weapon.sneakSkillId() != null && !weapon.sneakSkillId().isBlank()) {
+            skillId = weapon.sneakSkillId();
+        }
+
+        castSkill(player, skillId, getCooldownForSkill(skillId));
         return true;
     }
 

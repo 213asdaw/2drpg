@@ -1,14 +1,13 @@
 # ============================================================
-# SkeBoss 통합 Skript — 보스 스탯 + 인조 무기 우클릭 (한 파일)
+# SkeBoss 통합 Skript — 보스 스탯 + RPG 데미지
 # plugins/Skript/scripts/skeboss.sk
 #
-# config: weapons.plugin-right-click: false (Skript가 우클릭 처리)
+# 무기 우클릭은 SkeBoss 플러그인이 처리 (OP 불필요)
 # 무기 지급: /skeboss weapon artificial-arm
 # ============================================================
 
 options:
 	boss-name: 인조인간
-	weapon-name: 인조 무기
 	bdef: 240
 	batk: 80
 	bexp: 500
@@ -114,16 +113,3 @@ on death of zombie:
 		give {@bexp} xp to attacker
 	else:
 		drop {@bexp} experience at {_loc}
-
-# ---------- 인조 무기 우클릭 (레이저 + 사슬 하나로) ----------
-on right click:
-	set {_tool} to player's tool
-	if {_tool} is air:
-		stop
-	if uncolored name of {_tool} does not contain "{@weapon-name}":
-		stop
-	cancel event
-	if player is sneaking:
-		make player execute command "/skeboss cast chain"
-	else:
-		make player execute command "/skeboss cast laser"
