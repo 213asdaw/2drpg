@@ -36,6 +36,7 @@ public final class BossConfig {
     private final String skriptAttackVariable;
     private final double beamAttackMultiplier;
     private final double fallbackAttackStat;
+    private final float skillMaxPitch;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -67,6 +68,7 @@ public final class BossConfig {
         skriptAttackVariable = config.getString("boss.rpg.skript-attack-variable", "공격력");
         beamAttackMultiplier = config.getDouble("boss.rpg.beam-attack-multiplier", 2.0);
         fallbackAttackStat = config.getDouble("boss.rpg.fallback-attack-stat", 80.0);
+        skillMaxPitch = (float) config.getDouble("boss.skill-max-pitch", 75.0);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -261,6 +263,10 @@ public final class BossConfig {
 
     public double getFallbackAttackStat() {
         return fallbackAttackStat;
+    }
+
+    public float getSkillMaxPitch() {
+        return skillMaxPitch;
     }
 
     public List<SkillDefinition> getSkills() {

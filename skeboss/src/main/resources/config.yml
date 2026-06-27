@@ -6,6 +6,8 @@ yaw-offset: 180
 face-yaw-offset: 180
 # 스킬 시전 시 모델 방향 (attack 애니는 보통 0, 반대면 180)
 skill-face-yaw-offset: 0
+# 스킬 위·아래 조준 각도 제한 (도)
+skill-max-pitch: 75
 
 blend-in: 0.15
 blend-out: 0.25

@@ -44,7 +44,7 @@ public final class ChainPullSkill {
                     return;
                 }
 
-                Location origin = manager.getSkillOrigin(boss);
+                Location origin = manager.getBeamOrigin(boss);
 
                 if (!pulling) {
                     extendChain(origin, chain, skill);
@@ -62,12 +62,11 @@ public final class ChainPullSkill {
                 }
 
                 if (direction == null) {
-                    direction = manager.getBeamDirection(boss, skill.range()).clone();
-                    hook = origin.clone();
                     traveled = 0;
                     entity.getWorld().playSound(origin, Sound.ENTITY_FISHING_BOBBER_THROW, 1.1f, 0.55f);
                 }
 
+                direction = manager.getBeamDirection(boss, skill.range()).clone();
                 traveled = Math.min(skill.range(), traveled + chain.chainSpeed());
                 hook = origin.clone().add(direction.clone().multiply(traveled));
 
@@ -113,7 +112,6 @@ public final class ChainPullSkill {
 
                 if (distance > 0.35) {
                     Vector pull = toBoss.normalize().multiply(chain.pullSpeed());
-                    pull.setY(Math.max(pull.getY(), 0.08));
                     latched.setVelocity(pull);
                 } else {
                     latched.setVelocity(new Vector(0, 0, 0));

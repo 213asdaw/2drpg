@@ -166,17 +166,37 @@ public final class BossManager {
             return;
         }
         LivingEntity entity = boss.getEntity();
-        double dx = target.getX() - entity.getX();
-        double dz = target.getZ() - entity.getZ();
-        if (dx * dx + dz * dz < 0.0001) {
+        Location aim = getTargetAimPoint(target);
+        Location origin = forSkill ? getBeamOrigin(boss) : entity.getLocation();
+
+        double dx = aim.getX() - origin.getX();
+        double dy = aim.getY() - origin.getY();
+        double dz = aim.getZ() - origin.getZ();
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        if (horizontal < 0.0001 && Math.abs(dy) < 0.0001) {
             return;
         }
+
         float offset = forSkill ? config.getSkillFaceYawOffset() : config.getFaceYawOffset();
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz)) + offset;
-        entity.setRotation(yaw, 0.0f);
+        float pitch = 0.0f;
+        if (forSkill && horizontal > 0.0001) {
+            pitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
+            pitch = clampPitch(pitch);
+        }
+        entity.setRotation(yaw, pitch);
         if (boss.getModel() != null) {
             modelEngine.syncBodyRotation(boss.getModel(), yaw);
         }
+    }
+
+    private float clampPitch(float pitch) {
+        float max = config.getSkillMaxPitch();
+        return Math.max(-max, Math.min(max, pitch));
+    }
+
+    public Location getTargetAimPoint(Player target) {
+        return target.getLocation().clone().add(0, target.getHeight() * 0.5, 0);
     }
 
     public boolean isValidTarget(Player player) {
@@ -282,20 +302,23 @@ public final class BossManager {
 
         if (target != null) {
             boss.setTarget(target);
-            Vector toTarget = target.getLocation().add(0, target.getHeight() * 0.5, 0).toVector()
-                    .subtract(origin.toVector());
-            toTarget.setY(0);
+            Vector toTarget = getTargetAimPoint(target).toVector().subtract(origin.toVector());
             if (toTarget.lengthSquared() > 0.0001) {
                 return toTarget.normalize();
             }
         }
 
-        float yaw = entityYaw(boss.getEntity());
-        return new Vector(-Math.sin(Math.toRadians(yaw)), 0, Math.cos(Math.toRadians(yaw)));
+        return directionFromRotation(boss.getEntity().getLocation().getYaw(), boss.getEntity().getLocation().getPitch());
     }
 
-    private float entityYaw(LivingEntity entity) {
-        return entity.getLocation().getYaw();
+    private Vector directionFromRotation(float yaw, float pitch) {
+        double yawRad = Math.toRadians(yaw);
+        double pitchRad = Math.toRadians(pitch);
+        return new Vector(
+                -Math.sin(yawRad) * Math.cos(pitchRad),
+                -Math.sin(pitchRad),
+                Math.cos(yawRad) * Math.cos(pitchRad)
+        ).normalize();
     }
 
     /** Skript {공격력::%uuid%} × 배율 — 빔 최종 데미지 */
