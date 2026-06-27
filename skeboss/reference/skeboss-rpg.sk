@@ -21,12 +21,28 @@ function isSkeBoss(e: entity) :: boolean:
 	return false
 
 function initSkeBossStats(boss: entity):
-	set {방어력::%{_boss}%} to {@boss-방어력}
-	set {공격력::%{_boss}%} to {@boss-공격력}
-	# SkeBoss Java 연동 — UUID 키 필수
+	# UUID — SkeBoss Java가 {공격력::%uuid%} 읽음
 	set {방어력::%uuid of _boss%} to {@boss-방어력}
 	set {공격력::%uuid of _boss%} to {@boss-공격력}
+	# entity — on damage 의 {방어력::%victim%} 용 (둘 다 같은 값으로 유지)
+	set {방어력::%{_boss}%} to {@boss-방어력}
+	set {공격력::%{_boss}%} to {@boss-공격력}
 	set {boss.init::%uuid of _boss%} to true
+
+# victim/attacker 조회 — entity 키 우선, 보스는 uuid 키도 확인
+function getDefense(e: entity) :: number:
+	if {방어력::%{_e}%} is set:
+		return {방어력::%{_e}%}
+	if isSkeBoss({_e}) and {방어력::%uuid of _e%} is set:
+		return {방어력::%uuid of _e%}
+	return 0
+
+function getAttack(e: entity) :: number:
+	if {공격력::%{_e}%} is set:
+		return {공격력::%{_e}%}
+	if isSkeBoss({_e}) and {공격력::%uuid of _e%} is set:
+		return {공격력::%uuid of _e%}
+	return 0
 
 function clearSkeBossStats(boss: entity):
 	delete {방어력::%{_boss}%}
@@ -55,17 +71,20 @@ on damage:
 
 	if isSkeBoss(attacker):
 		set {공격::%attacker%} to damage
-		if damage <= {@boss-melee-max} and {공격력::%attacker%} is set:
-			add {공격력::%attacker%} to {공격::%attacker%}
+		set {_atk} to getAttack(attacker)
+		if damage <= {@boss-melee-max} and {_atk} > 0:
+			add {_atk} to {공격::%attacker%}
 	else:
 		set {공격::%attacker%} to damage
-		if {공격력::%attacker%} is set:
-			add {공격력::%attacker%} to {공격::%attacker%}
+		set {_atk} to getAttack(attacker)
+		if {_atk} > 0:
+			add {_atk} to {공격::%attacker%}
 
 	if victim is set:
 		set {막는량::%victim%} to 0
-		if {방어력::%victim%} is set:
-			set {막는량::%victim%} to {방어력::%victim%} / 4
+		set {_def} to getDefense(victim)
+		if {_def} > 0:
+			set {막는량::%victim%} to {_def} / 4
 		if {막는량::%victim%} > 90:
 			set {막는량::%victim%} to 90
 		remove {공격::%attacker%} * {막는량::%victim%} / 100 from {공격::%attacker%}
