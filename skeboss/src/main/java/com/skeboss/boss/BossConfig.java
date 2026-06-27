@@ -42,7 +42,7 @@ public final class BossConfig {
         blendOut = config.getDouble("blend-out", 0.25);
 
         maxHealth = config.getDouble("boss.max-health", 500.0);
-        displayName = config.getString("boss.display-name", "&c&l해골 보스");
+        displayName = config.getString("boss.display-name", "&c&l인조인간");
         followRange = config.getDouble("boss.follow-range", 32.0);
         meleeRange = config.getDouble("boss.melee-range", 3.5);
         meleeDamage = config.getDouble("boss.melee-damage", 8.0);

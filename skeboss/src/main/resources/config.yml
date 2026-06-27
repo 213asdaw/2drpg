@@ -15,7 +15,7 @@ animations:
 
 boss:
   max-health: 500.0
-  display-name: "&c&l☠ 해골 보스"
+  display-name: "&c&l인조인간"
   follow-range: 32.0
   melee-range: 3.5
   melee-damage: 8.0
