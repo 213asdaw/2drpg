@@ -77,9 +77,10 @@ skills:
     particle-size: 2.0
 
 # 인조인간 스킬 무기 — 플러그인이 아이템 이름·우클릭 처리 (OP 불필요)
+# pvp: true = 플레이어에게도 레이저·사슬 적용
 weapons:
   plugin-right-click: true
-  pvp: false
+  pvp: true
   target-boss: true
   target-mobs: true
   artificial-arm:

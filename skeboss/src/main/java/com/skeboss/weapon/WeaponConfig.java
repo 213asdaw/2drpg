@@ -21,7 +21,7 @@ public final class WeaponConfig {
 
     public WeaponConfig(SkeBossPlugin plugin) {
         ConfigurationSection root = plugin.getConfig().getConfigurationSection("weapons");
-        pvp = root != null && root.getBoolean("pvp", false);
+        pvp = root == null || root.getBoolean("pvp", true);
         targetBoss = root == null || root.getBoolean("target-boss", true);
         targetMobs = root == null || root.getBoolean("target-mobs", true);
         pluginRightClick = root == null || root.getBoolean("plugin-right-click", true);
