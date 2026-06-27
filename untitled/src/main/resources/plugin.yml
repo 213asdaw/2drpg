@@ -1,0 +1,5 @@
+name: slash
+version: '1.0-SNAPSHOT'
+main: org.example12.slash.Slash
+api-version: '1.20'
+load: POSTWORLD
