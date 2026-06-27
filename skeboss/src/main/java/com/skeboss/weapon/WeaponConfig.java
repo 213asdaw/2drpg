@@ -17,6 +17,7 @@ public final class WeaponConfig {
     private final boolean targetBoss;
     private final boolean targetMobs;
     private final boolean pluginRightClick;
+    private final boolean requireNbt;
     private final Map<String, WeaponDefinition> weapons;
 
     public WeaponConfig(SkeBossPlugin plugin) {
@@ -25,6 +26,7 @@ public final class WeaponConfig {
         targetBoss = root == null || root.getBoolean("target-boss", true);
         targetMobs = root == null || root.getBoolean("target-mobs", true);
         pluginRightClick = root == null || root.getBoolean("plugin-right-click", true);
+        requireNbt = root == null || root.getBoolean("require-nbt", true);
         weapons = loadWeapons(root);
     }
 
@@ -40,7 +42,7 @@ public final class WeaponConfig {
         Map<String, WeaponDefinition> loaded = new ConcurrentHashMap<>();
         for (String key : root.getKeys(false)) {
             if (key.equals("pvp") || key.equals("target-boss") || key.equals("target-mobs")
-                    || key.equals("plugin-right-click")) {
+                    || key.equals("plugin-right-click") || key.equals("require-nbt")) {
                 continue;
             }
             ConfigurationSection section = root.getConfigurationSection(key);
@@ -128,6 +130,10 @@ public final class WeaponConfig {
 
     public boolean isTargetBoss() {
         return targetBoss;
+    }
+
+    public boolean isRequireNbt() {
+        return requireNbt;
     }
 
     public boolean isPluginRightClick() {

@@ -81,14 +81,29 @@ public final class WeaponManager {
         return resolveWeapon(item) != null;
     }
 
-    /** NBT 우선, 없으면 config display-name 과 아이템 이름 비교 */
+    /** 우클릭 처리용 — 다른 스킬 플러그인과 충돌 줄이기 */
+    public boolean isInteractWeapon(ItemStack item) {
+        if (weaponConfig.isRequireNbt()) {
+            return getNbtWeaponId(item) != null;
+        }
+        return resolveWeapon(item) != null;
+    }
+
+    public String getNbtWeaponId(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return null;
+        }
+        return item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
+    }
+
+    /** NBT 우선, 없으면 config display-name 과 아이템 이름 비교 (정확히 일치만) */
     public WeaponDefinition resolveWeapon(ItemStack item) {
         if (item == null || item.getType().isAir()) {
             return null;
         }
 
         if (item.hasItemMeta()) {
-            String nbtId = item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
+            String nbtId = getNbtWeaponId(item);
             if (nbtId != null) {
                 WeaponDefinition weapon = weaponConfig.getWeapon(nbtId);
                 if (weapon != null) {
@@ -110,17 +125,13 @@ public final class WeaponManager {
             return null;
         }
 
-        WeaponDefinition partialMatch = null;
         for (WeaponDefinition weapon : weaponConfig.getWeapons().values()) {
             String configName = TextUtil.stripColor(weapon.displayName());
             if (itemName.equalsIgnoreCase(configName)) {
                 return weapon;
             }
-            if (partialMatch == null && (itemName.contains(configName) || configName.contains(itemName))) {
-                partialMatch = weapon;
-            }
         }
-        return partialMatch;
+        return null;
     }
 
     public boolean tryUse(Player player, ItemStack item) {

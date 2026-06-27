@@ -80,6 +80,8 @@ skills:
 # pvp: true = 플레이어에게도 레이저·사슬 적용
 weapons:
   plugin-right-click: true
+  # true = /skeboss weapon 으로 받은 무기(NBT)만 우클릭 인식 — 불꽃검기 등 다른 스킬과 충돌 방지
+  require-nbt: true
   pvp: true
   target-boss: true
   target-mobs: true
