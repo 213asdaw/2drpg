@@ -1,8 +1,9 @@
 # ske.bbmodel 기준 설정 (model-id: ske, model_identifier: ske)
 model-id: ske
 
-# 모델 facing — 반대 보이면 0 ↔ 180 조절
-yaw-offset: 0
+# ske 모델 facing 보정 (반대 보면 0 ↔ 180)
+yaw-offset: 180
+face-yaw-offset: 180
 
 blend-in: 0.15
 blend-out: 0.25
@@ -39,6 +40,6 @@ skills:
     aoe-radius: 0.0
     beam-width: 1.2
     fire-delay-ticks: 11
-    particle-ticks: 20
-    particle-step: 0.35
-    particle-size: 1.5
+    particle-ticks: 25
+    particle-step: 0.25
+    particle-size: 2.0

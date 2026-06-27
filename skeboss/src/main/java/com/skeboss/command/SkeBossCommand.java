@@ -92,8 +92,11 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        boss.setTarget(player);
+        bossManager.faceTarget(boss, player);
+
         if (bossManager.castSkill(boss, skill)) {
-            player.sendMessage(TextUtil.color("&e스킬 &f" + skill.id() + " &e시전 → 끝나면 idle 복귀"));
+            player.sendMessage(TextUtil.color("&e스킬 &f" + skill.id() + " &e시전"));
         } else {
             player.sendMessage(TextUtil.color("&c스킬 사용 불가 (쿨타임 또는 시전 중)"));
         }

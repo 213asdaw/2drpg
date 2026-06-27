@@ -160,8 +160,34 @@ public final class BossManager {
         if (dx * dx + dz * dz < 0.0001) {
             return;
         }
-        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz)) + config.getFaceYawOffset();
         entity.setRotation(yaw, 0.0f);
+    }
+
+    public Location getBeamOrigin(SkeBoss boss) {
+        LivingEntity entity = boss.getEntity();
+        Location loc = entity.getLocation().clone();
+        loc.add(0, entity.getHeight() * 0.75, 0);
+        loc.setYaw(entity.getLocation().getYaw() + config.getFaceYawOffset());
+        loc.setPitch(0.0f);
+        return loc;
+    }
+
+    public Vector getBeamDirection(SkeBoss boss) {
+        Player target = boss.getTarget();
+        LivingEntity entity = boss.getEntity();
+        Location origin = getBeamOrigin(boss);
+
+        if (target != null && target.isValid() && !target.isDead()) {
+            Vector toTarget = target.getLocation().add(0, target.getHeight() * 0.5, 0).toVector()
+                    .subtract(origin.toVector());
+            toTarget.setY(0);
+            if (toTarget.lengthSquared() > 0.0001) {
+                return toTarget.normalize();
+            }
+        }
+
+        return origin.getDirection().setY(0).normalize();
     }
 
     public boolean castSkill(SkeBoss boss, SkillDefinition skill) {
@@ -182,6 +208,9 @@ public final class BossManager {
         Player target = boss.getTarget();
         if (target != null) {
             faceTarget(boss, target);
+        } else if (entity instanceof Mob mob && mob.getTarget() instanceof Player player) {
+            boss.setTarget(player);
+            faceTarget(boss, player);
         }
 
         modelEngine.playLoopAnimation(
@@ -195,7 +224,7 @@ public final class BossManager {
         int duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), skill.durationTicks());
 
         if (skill.isBeamSkill()) {
-            LaserBeamSkill.execute(plugin, boss, skill);
+            LaserBeamSkill.execute(plugin, this, boss, skill);
         } else {
             Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
         }

@@ -75,6 +75,8 @@ public final class ModelEngineBridge {
 
             addModel(modeledEntity, activeModel);
             applyScale(activeModel, modelScale, hitboxScale);
+            tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
+            tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
             // 모델 먼저 플레이어에게 보이게 한 뒤 좀비 숨김
             syncNearbyPlayers(modeledEntity, entity, 64.0);

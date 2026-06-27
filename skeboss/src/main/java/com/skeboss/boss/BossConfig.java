@@ -14,6 +14,7 @@ public final class BossConfig {
     private final String idleAnimation;
     private final String walkAnimation;
     private final float yawOffset;
+    private final float faceYawOffset;
     private final double blendIn;
     private final double blendOut;
     private final double maxHealth;
@@ -35,7 +36,8 @@ public final class BossConfig {
         modelId = config.getString("model-id", "ske");
         idleAnimation = config.getString("animations.idle", "none");
         walkAnimation = config.getString("animations.walk", "walk");
-        yawOffset = (float) config.getDouble("yaw-offset", 0.0);
+        yawOffset = (float) config.getDouble("yaw-offset", 180.0);
+        faceYawOffset = (float) config.getDouble("face-yaw-offset", 180.0);
         blendIn = config.getDouble("blend-in", 0.15);
         blendOut = config.getDouble("blend-out", 0.25);
 
@@ -124,6 +126,10 @@ public final class BossConfig {
 
     public String getWalkAnimation() {
         return walkAnimation;
+    }
+
+    public float getFaceYawOffset() {
+        return faceYawOffset;
     }
 
     public float getYawOffset() {

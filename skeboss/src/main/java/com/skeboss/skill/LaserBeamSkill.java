@@ -2,11 +2,13 @@ package com.skeboss.skill;
 
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.BeamSettings;
+import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.LivingEntity;
@@ -22,13 +24,17 @@ public final class LaserBeamSkill {
     private LaserBeamSkill() {
     }
 
-    public static void execute(SkeBossPlugin plugin, SkeBoss boss, SkillDefinition skill) {
+    public static void execute(SkeBossPlugin plugin, BossManager manager, SkeBoss boss, SkillDefinition skill) {
         BeamSettings beam = skill.beam();
         if (beam == null) {
             return;
         }
 
         LivingEntity entity = boss.getEntity();
+        Player target = boss.getTarget();
+        if (target != null) {
+            manager.faceTarget(boss, target);
+        }
 
         new BukkitRunnable() {
             private int counter = 0;
@@ -40,9 +46,18 @@ public final class LaserBeamSkill {
                     return;
                 }
 
-                BeamResult result = drawBeam(entity, skill.range(), beam);
+                Player currentTarget = boss.getTarget();
+                if (currentTarget != null) {
+                    manager.faceTarget(boss, currentTarget);
+                }
+
+                Vector direction = manager.getBeamDirection(boss);
+                Location start = manager.getBeamOrigin(boss);
+                BeamResult result = drawBeam(start, direction, skill.range(), beam);
+
                 if (counter == 0) {
-                    applyDamage(entity, skill, result.direction(), result.length(), beam.width());
+                    entity.getWorld().playSound(start, Sound.ENTITY_GUARDIAN_ATTACK, 1.2f, 0.6f);
+                    applyDamage(entity, skill, start, result.direction(), result.length(), beam.width());
                 }
 
                 counter++;
@@ -53,11 +68,9 @@ public final class LaserBeamSkill {
         }.runTaskTimer(plugin, beam.fireDelayTicks(), 1L);
     }
 
-    private static BeamResult drawBeam(LivingEntity entity, double maxLength, BeamSettings beam) {
-        Location start = beamOrigin(entity);
-        Vector direction = start.getDirection().normalize();
+    private static BeamResult drawBeam(Location start, Vector direction, double maxLength, BeamSettings beam) {
         World world = start.getWorld();
-        Particle.DustOptions red = new Particle.DustOptions(Color.fromRGB(255, 25, 25), beam.particleSize());
+        Particle.DustOptions red = new Particle.DustOptions(Color.fromRGB(255, 20, 20), beam.particleSize());
 
         double traveled = maxLength;
         for (double d = 0; d <= maxLength; d += beam.particleStep()) {
@@ -77,18 +90,33 @@ public final class LaserBeamSkill {
     }
 
     private static void spawnBeamPoint(World world, Location point, Particle.DustOptions red) {
-        world.spawnParticle(Particle.REDSTONE, point, 4, 0.03, 0.03, 0.03, 0, red);
-        world.spawnParticle(Particle.END_ROD, point, 1, 0, 0, 0, 0);
+        spawnParticleForced(world, Particle.REDSTONE, point, 10, 0.06, 0.06, 0.06, red);
+        spawnParticleForced(world, Particle.CRIT, point, 2, 0.02, 0.02, 0.02, null);
+        spawnParticleForced(world, Particle.FLAME, point, 1, 0, 0, 0, null);
+        spawnParticleForced(world, Particle.CRIMSON_SPORE, point, 2, 0.04, 0.04, 0.04, null);
+    }
+
+    private static void spawnParticleForced(
+            World world,
+            Particle particle,
+            Location point,
+            int count,
+            double ox,
+            double oy,
+            double oz,
+            Object data
+    ) {
+        world.spawnParticle(particle, point, count, ox, oy, oz, 0, data, true);
     }
 
     private static void applyDamage(
             LivingEntity shooter,
             SkillDefinition skill,
+            Location start,
             Vector direction,
             double length,
             double width
     ) {
-        Location start = beamOrigin(shooter);
         Set<Player> hit = new HashSet<>();
 
         for (Player player : shooter.getWorld().getPlayers()) {
@@ -120,12 +148,6 @@ public final class LaserBeamSkill {
 
         Vector closest = startVec.clone().add(direction.clone().multiply(projection));
         return target.toVector().distanceSquared(closest) <= width * width;
-    }
-
-    private static Location beamOrigin(LivingEntity entity) {
-        Location eye = entity.getEyeLocation();
-        eye.setPitch(0.0f);
-        return eye;
     }
 
     private static boolean isBlocking(Block block) {
