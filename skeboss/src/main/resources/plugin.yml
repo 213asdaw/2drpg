@@ -11,9 +11,9 @@ description: ModelEngine 해골 보스 — 겹침/방향/스킬복귀 수정 포
 
 commands:
   skeboss:
-    description: 해골 보스 관리
-    usage: /skeboss <spawn|skill|weapon|cast|remove|reload>
-    aliases: [sboss]
+    description: SkeBoss 보스·무기 명령어
+    usage: /skeboss [help|weapon|cast|spawn|skill|remove|reload]
+    aliases: [sboss, 인조보스]
 
 permissions:
   skeboss.admin:

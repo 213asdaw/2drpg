@@ -15,7 +15,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -31,40 +30,58 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length > 0 && args[0].equalsIgnoreCase("cast")) {
-            return handleCast(sender, args);
-        }
-        if (args.length > 0 && args[0].equalsIgnoreCase("weapon")) {
-            return handleWeapon(sender, args);
+        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
+            sendHelp(sender);
+            return true;
         }
 
+        String sub = args[0].toLowerCase(Locale.ROOT);
+        switch (sub) {
+            case "cast" -> {
+                return handleCast(sender, args);
+            }
+            case "weapon" -> {
+                return handleWeapon(sender, args);
+            }
+            case "spawn" -> {
+                return requireAdmin(sender, () -> handleSpawn((Player) sender));
+            }
+            case "remove", "kill" -> {
+                return requireAdmin(sender, () -> handleRemove((Player) sender));
+            }
+            case "skill" -> {
+                return requireAdmin(sender, () -> handleSkill((Player) sender, args));
+            }
+            case "reload" -> {
+                return requireAdmin(sender, () -> handleReload(sender));
+            }
+            default -> {
+                sender.sendMessage(TextUtil.color("&c알 수 없는 명령입니다. &7/skeboss help"));
+                return true;
+            }
+        }
+    }
+
+    private boolean requireAdmin(CommandSender sender, Runnable action) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("플레이어만 사용할 수 있습니다.");
             return true;
         }
         if (!player.hasPermission("skeboss.admin")) {
-            player.sendMessage(TextUtil.color("&c권한이 없습니다."));
+            player.sendMessage(TextUtil.color("&c권한이 없습니다. &7/skeboss help"));
             return true;
         }
-
-        if (args.length == 0) {
-            sendHelp(player);
-            return true;
-        }
-
-        switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "spawn" -> handleSpawn(player);
-            case "remove", "kill" -> handleRemove(player);
-            case "skill" -> handleSkill(player, args);
-            case "reload" -> handleReload(sender);
-            default -> sendHelp(player);
-        }
+        action.run();
         return true;
     }
 
     private boolean handleCast(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("플레이어만 사용할 수 있습니다.");
+            return true;
+        }
+        if (!player.hasPermission("skeboss.weapon.use")) {
+            player.sendMessage(TextUtil.color("&c무기 사용 권한이 없습니다."));
             return true;
         }
         if (args.length < 2) {
@@ -82,6 +99,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length < 2) {
             sender.sendMessage(TextUtil.color("&c/skeboss weapon <이름> [플레이어]"));
+            sender.sendMessage(TextUtil.color("&7무기 목록: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
             return true;
         }
 
@@ -181,29 +199,53 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         return null;
     }
 
-    private void sendHelp(Player player) {
-        player.sendMessage(TextUtil.color("&6&lSkeBoss 명령어"));
-        player.sendMessage(TextUtil.color("&e/skeboss spawn &7- 보스 스폰"));
-        player.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 스킬 테스트"));
-        player.sendMessage(TextUtil.color("&e/skeboss cast <laser|chain> &7- 스킬 시전 (Skript 연동)"));
-        player.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
-        player.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
-        player.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(TextUtil.color("&6&l━━━━ SkeBoss 명령어 ━━━━"));
+        if (sender.hasPermission("skeboss.weapon.give")) {
+            sender.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
+            sender.sendMessage(TextUtil.color("&7  무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
+        }
+        if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
+            sender.sendMessage(TextUtil.color("&e/skeboss cast <laser|chain> &7- 스킬 직접 시전"));
+            sender.sendMessage(TextUtil.color("&7  무기 우클릭으로도 사용 가능 (OP 불필요)"));
+        }
+        if (sender.hasPermission("skeboss.admin")) {
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn &7- 보스 스폰"));
+            sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
+            sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
+            sender.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
+        }
+        if (!sender.hasPermission("skeboss.weapon.give")
+                && !sender.hasPermission("skeboss.weapon.use")
+                && !sender.hasPermission("skeboss.admin")) {
+            sender.sendMessage(TextUtil.color("&7사용 가능한 명령이 없습니다."));
+        }
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(Arrays.asList("spawn", "skill", "cast", "weapon", "remove", "reload"), args[0]);
+            List<String> options = new ArrayList<>();
+            if (sender.hasPermission("skeboss.admin")) {
+                options.addAll(List.of("spawn", "skill", "remove", "reload"));
+            }
+            if (sender.hasPermission("skeboss.weapon.give")) {
+                options.add("weapon");
+            }
+            if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
+                options.add("cast");
+            }
+            options.add("help");
+            return filter(options, args[0]);
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("cast")) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("cast") && sender.hasPermission("skeboss.weapon.use")) {
             return filter(List.of("laser", "chain"), args[1]);
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("skill")) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("skill") && sender.hasPermission("skeboss.admin")) {
             List<String> names = bossManager.getConfig().getSkills().stream().map(SkillDefinition::id).toList();
             return filter(names, args[1]);
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("weapon")) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("weapon") && sender.hasPermission("skeboss.weapon.give")) {
             return filter(weaponManager.getWeaponConfig().getWeaponIds(), args[1]);
         }
         return List.of();
