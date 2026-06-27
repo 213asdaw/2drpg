@@ -31,6 +31,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("cast")) {
+            return handleCast(sender, args);
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("weapon")) {
             return handleWeapon(sender, args);
         }
@@ -56,6 +59,19 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             case "reload" -> handleReload(sender);
             default -> sendHelp(player);
         }
+        return true;
+    }
+
+    private boolean handleCast(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("플레이어만 사용할 수 있습니다.");
+            return true;
+        }
+        if (args.length < 2) {
+            player.sendMessage(TextUtil.color("&c/skeboss cast <laser|chain>"));
+            return true;
+        }
+        weaponManager.castSkill(player, args[1]);
         return true;
     }
 
@@ -169,6 +185,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(TextUtil.color("&6&lSkeBoss 명령어"));
         player.sendMessage(TextUtil.color("&e/skeboss spawn &7- 보스 스폰"));
         player.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 스킬 테스트"));
+        player.sendMessage(TextUtil.color("&e/skeboss cast <laser|chain> &7- 스킬 시전 (Skript 연동)"));
         player.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
         player.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
         player.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
@@ -177,7 +194,10 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(Arrays.asList("spawn", "skill", "weapon", "remove", "reload"), args[0]);
+            return filter(Arrays.asList("spawn", "skill", "cast", "weapon", "remove", "reload"), args[0]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("cast")) {
+            return filter(List.of("laser", "chain"), args[1]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("skill")) {
             List<String> names = bossManager.getConfig().getSkills().stream().map(SkillDefinition::id).toList();

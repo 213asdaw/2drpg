@@ -1,8 +1,14 @@
-# 서버에 이 파일 전체를 plugins/Skript/scripts/skeboss.sk 로 덮어쓰기
-# isSkeBoss() 함수 사용 금지 — 구버전 Skript가 if 조건에서 함수 호출 불가
+# ============================================================
+# SkeBoss 통합 Skript — 보스 스탯 + 인조 무기 우클릭 (한 파일)
+# plugins/Skript/scripts/skeboss.sk
+#
+# config: weapons.plugin-right-click: false (Skript가 우클릭 처리)
+# 무기 지급: /skeboss weapon artificial-arm
+# ============================================================
 
 options:
 	boss-name: 인조인간
+	weapon-name: 인조 무기
 	bdef: 240
 	batk: 80
 	bexp: 500
@@ -40,6 +46,7 @@ function getAttack(e: entity) :: number:
 		return {공격력::%{_u}%}
 	return 0
 
+# ---------- 보스 스탯 ----------
 on spawn of zombie:
 	wait 5 ticks
 	if uncolored name of event-entity does not contain "{@boss-name}":
@@ -56,6 +63,7 @@ every 15 seconds:
 		if {boss.init::%{_u}%} is not set:
 			initSkeBossStats(loop-zombie)
 
+# ---------- RPG 데미지 ----------
 on damage:
 	if attacker is not set:
 		stop
@@ -102,8 +110,20 @@ on death of zombie:
 	drop 1 netherite scrap at {_loc}
 	chance of 25%:
 		drop 1 emerald block at {_loc}
-	# 경험치 — death event 문법은 구버전 Skript 미지원
 	if attacker is a player:
 		give {@bexp} xp to attacker
 	else:
 		drop {@bexp} experience at {_loc}
+
+# ---------- 인조 무기 우클릭 (레이저 + 사슬 하나로) ----------
+on right click:
+	set {_tool} to player's tool
+	if {_tool} is air:
+		stop
+	if uncolored name of {_tool} does not contain "{@weapon-name}":
+		stop
+	cancel event
+	if player is sneaking:
+		make player execute command "/skeboss cast chain"
+	else:
+		make player execute command "/skeboss cast laser"

@@ -18,6 +18,9 @@ public final class WeaponListener implements Listener {
 
     @EventHandler
     public void onUse(PlayerInteractEvent event) {
+        if (!weaponManager.getWeaponConfig().isPluginRightClick()) {
+            return;
+        }
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }

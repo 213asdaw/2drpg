@@ -93,21 +93,30 @@ public final class WeaponManager {
             return false;
         }
 
+        castSkill(player, weapon.skillId(), weapon.cooldownSeconds());
+        return true;
+    }
+
+    /** Skript 우클릭 등에서 호출 — /skeboss cast laser|chain */
+    public boolean castSkill(Player player, String skillId) {
+        return castSkill(player, skillId, getCooldownForSkill(skillId));
+    }
+
+    public boolean castSkill(Player player, String skillId, int cooldownSeconds) {
         if (!player.hasPermission("skeboss.weapon.use")) {
             player.sendMessage(TextUtil.color("&c무기 사용 권한이 없습니다."));
-            return true;
+            return false;
         }
 
-        if (isOnCooldown(player, weaponId)) {
-            long left = cooldownLeftSeconds(player, weaponId);
-            player.sendMessage(TextUtil.color("&c쿨타임 &f" + left + "초"));
-            return true;
-        }
-
-        SkillDefinition skill = findSkill(weapon.skillId());
+        SkillDefinition skill = findSkill(skillId);
         if (skill == null) {
-            player.sendMessage(TextUtil.color("&c스킬 설정 없음: &f" + weapon.skillId()));
-            return true;
+            player.sendMessage(TextUtil.color("&c스킬 없음: &f" + skillId));
+            return false;
+        }
+
+        if (isOnCooldown(player, skillId)) {
+            player.sendMessage(TextUtil.color("&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초"));
+            return false;
         }
 
         boolean cast;
@@ -117,20 +126,29 @@ public final class WeaponManager {
             cast = PlayerChainSkill.execute(plugin, this, player, skill);
         } else {
             player.sendMessage(TextUtil.color("&c지원하지 않는 스킬: &f" + skill.id()));
-            return true;
+            return false;
         }
 
         if (cast) {
-            setCooldown(player, weaponId, weapon.cooldownSeconds());
+            setCooldown(player, skillId, cooldownSeconds);
             player.addScoreboardTag(USING_SKILL_TAG);
-            int skillDuration = skill.durationTicks();
             plugin.getServer().getScheduler().runTaskLater(
                     plugin,
                     () -> player.removeScoreboardTag(USING_SKILL_TAG),
-                    skillDuration
+                    skill.durationTicks()
             );
         }
-        return true;
+        return cast;
+    }
+
+    private int getCooldownForSkill(String skillId) {
+        for (WeaponDefinition weapon : weaponConfig.getWeapons().values()) {
+            if (weapon.skillId().equalsIgnoreCase(skillId)) {
+                return weapon.cooldownSeconds();
+            }
+        }
+        SkillDefinition skill = findSkill(skillId);
+        return skill != null ? skill.cooldownSeconds() : 8;
     }
 
     private SkillDefinition findSkill(String skillId) {

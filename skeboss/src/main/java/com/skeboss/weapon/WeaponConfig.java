@@ -15,6 +15,7 @@ public final class WeaponConfig {
     private final boolean pvp;
     private final boolean targetBoss;
     private final boolean targetMobs;
+    private final boolean pluginRightClick;
     private final Map<String, WeaponDefinition> weapons;
 
     public WeaponConfig(SkeBossPlugin plugin) {
@@ -22,6 +23,7 @@ public final class WeaponConfig {
         pvp = root != null && root.getBoolean("pvp", false);
         targetBoss = root == null || root.getBoolean("target-boss", true);
         targetMobs = root == null || root.getBoolean("target-mobs", true);
+        pluginRightClick = root != null && root.getBoolean("plugin-right-click", false);
         weapons = loadWeapons(root);
     }
 
@@ -46,6 +48,7 @@ public final class WeaponConfig {
         }
 
         if (loaded.isEmpty()) {
+            loaded.put("artificial-arm", defaultCombined());
             loaded.put("laser-rifle", defaultLaser());
             loaded.put("chain-hook", defaultChain());
         }
@@ -68,6 +71,21 @@ public final class WeaponConfig {
                 lore,
                 section.getString("skill", key.contains("chain") ? "chain" : "laser"),
                 section.getInt("cooldown-seconds", 8)
+        );
+    }
+
+    private static WeaponDefinition defaultCombined() {
+        return new WeaponDefinition(
+                "artificial-arm",
+                Material.BLAZE_ROD,
+                "&c&l인조 무기",
+                List.of(
+                        "&7인조인간의 전투 장비",
+                        "&e우클릭 &7- 레이저",
+                        "&e웅크린 채 우클릭 &7- 사슬"
+                ),
+                "laser",
+                8
         );
     }
 
@@ -99,6 +117,10 @@ public final class WeaponConfig {
 
     public boolean isTargetBoss() {
         return targetBoss;
+    }
+
+    public boolean isPluginRightClick() {
+        return pluginRightClick;
     }
 
     public boolean isTargetMobs() {

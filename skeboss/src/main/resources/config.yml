@@ -77,10 +77,21 @@ skills:
     particle-size: 2.0
 
 # 인조인간 스킬 무기 — 우클릭 사용, skills 섹션과 연동
+# Skript 우클릭 사용 시 false (skeboss.sk 참고)
 weapons:
+  plugin-right-click: false
   pvp: false
   target-boss: true
   target-mobs: true
+  artificial-arm:
+    material: BLAZE_ROD
+    display-name: "&c&l인조 무기"
+    lore:
+      - "&7인조인간의 전투 장비"
+      - "&e우클릭 &7- 레이저"
+      - "&e웅크린 채 우클릭 &7- 사슬"
+    skill: laser
+    cooldown-seconds: 8
   laser-rifle:
     material: BLAZE_ROD
     display-name: "&c&l인조 레이저"
