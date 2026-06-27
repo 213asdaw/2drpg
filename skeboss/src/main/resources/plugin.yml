@@ -1,0 +1,19 @@
+name: SkeBoss
+version: '${project.version}'
+main: com.skeboss.SkeBossPlugin
+api-version: '1.20'
+author: skeboss
+depend:
+  - ModelEngine
+description: ModelEngine skeleton boss with fixed visibility, rotation, and skill reset
+
+commands:
+  skeboss:
+    description: Spawn or manage the skeleton boss
+    usage: /skeboss <spawn|skill|remove>
+    permission: skeboss.admin
+
+permissions:
+  skeboss.admin:
+    description: Admin commands for SkeBoss
+    default: op
