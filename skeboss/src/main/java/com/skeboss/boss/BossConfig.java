@@ -26,6 +26,8 @@ public final class BossConfig {
     private final int spawnDelayTicks;
     private final boolean hideBaseEntity;
     private final double viewerSyncRadius;
+    private final double modelScale;
+    private final double hitboxScale;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -47,6 +49,8 @@ public final class BossConfig {
         spawnDelayTicks = config.getInt("boss.spawn-delay-ticks", 2);
         hideBaseEntity = config.getBoolean("boss.hide-base-entity", true);
         viewerSyncRadius = config.getDouble("boss.viewer-sync-radius", 64.0);
+        modelScale = config.getDouble("boss.model-scale", 2.0);
+        hitboxScale = config.getDouble("boss.hitbox-scale", 2.0);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -172,6 +176,14 @@ public final class BossConfig {
 
     public double getViewerSyncRadius() {
         return viewerSyncRadius;
+    }
+
+    public double getModelScale() {
+        return modelScale;
+    }
+
+    public double getHitboxScale() {
+        return hitboxScale;
     }
 
     public List<SkillDefinition> getSkills() {

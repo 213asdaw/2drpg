@@ -85,7 +85,9 @@ public final class BossManager {
             ModelEngineBridge.BossModel bossModel = modelEngine.attachModel(
                     entity,
                     config.getModelId(),
-                    config.isHideBaseEntity()
+                    config.isHideBaseEntity(),
+                    config.getModelScale(),
+                    config.getHitboxScale()
             );
             boss.setModel(bossModel);
 

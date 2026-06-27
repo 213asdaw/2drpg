@@ -61,7 +61,7 @@ public final class ModelEngineBridge {
         return available;
     }
 
-    public BossModel attachModel(Entity entity, String modelId, boolean hideBaseEntity) {
+    public BossModel attachModel(Entity entity, String modelId, boolean hideBaseEntity, double modelScale, double hitboxScale) {
         if (!available) {
             throw new IllegalStateException("ModelEngine 사용 불가");
         }
@@ -74,6 +74,7 @@ public final class ModelEngineBridge {
             }
 
             addModel(modeledEntity, activeModel);
+            applyScale(activeModel, modelScale, hitboxScale);
 
             // 모델 먼저 플레이어에게 보이게 한 뒤 좀비 숨김
             syncNearbyPlayers(modeledEntity, entity, 64.0);
@@ -123,6 +124,17 @@ public final class ModelEngineBridge {
             }
         }
         return createActiveModel.invoke(null, modelId);
+    }
+
+    private void applyScale(Object activeModel, double modelScale, double hitboxScale) {
+        if (modelScale > 0 && modelScale != 1.0) {
+            if (!tryInvoke(activeModel, "setScale", new Class<?>[]{double.class}, modelScale)) {
+                tryInvoke(activeModel, "setModelScale", new Class<?>[]{int.class}, (int) Math.round(modelScale));
+            }
+        }
+        if (hitboxScale > 0 && hitboxScale != 1.0) {
+            tryInvoke(activeModel, "setHitboxScale", new Class<?>[]{double.class}, hitboxScale);
+        }
     }
 
     private void addModel(Object modeledEntity, Object activeModel) {
