@@ -81,6 +81,19 @@ public final class SkriptBridge {
             }
         }
 
+        if (entity instanceof org.bukkit.entity.Player player) {
+            String name = player.getName();
+            for (String key : new String[]{
+                    variableName + "::" + name,
+                    variableName + "::" + name.toLowerCase(Locale.ENGLISH),
+            }) {
+                Double parsed = parseNumber(readVariable(key));
+                if (parsed != null) {
+                    return parsed;
+                }
+            }
+        }
+
         return fallback;
     }
 

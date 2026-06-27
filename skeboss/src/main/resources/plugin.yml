@@ -20,3 +20,9 @@ permissions:
   skeboss.admin:
     description: SkeBoss 관리자
     default: op
+  skeboss.weapon.use:
+    description: 인조인간 무기 사용
+    default: true
+  skeboss.weapon.give:
+    description: 인조인간 무기 지급
+    default: op

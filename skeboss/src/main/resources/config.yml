@@ -75,3 +75,26 @@ skills:
     damage-interval-ticks: 4
     particle-step: 0.25
     particle-size: 2.0
+
+# 인조인간 스킬 무기 — 우클릭 사용, skills 섹션과 연동
+weapons:
+  pvp: false
+  target-boss: true
+  target-mobs: true
+  laser-rifle:
+    material: BLAZE_ROD
+    display-name: "&c&l인조 레이저"
+    lore:
+      - "&7인조인간의 레이저 기술"
+      - "&7우클릭: 레이저 발사"
+      - "&7데미지: Skript {공격력} × 배율"
+    skill: laser
+    cooldown-seconds: 8
+  chain-hook:
+    material: FISHING_ROD
+    display-name: "&7&l인조 사슬"
+    lore:
+      - "&7인조인간의 사슬 기술"
+      - "&7우클릭: 사슬 발사·끌어오기"
+    skill: chain
+    cooldown-seconds: 10

@@ -4,8 +4,10 @@ import com.skeboss.boss.BossAI;
 import com.skeboss.boss.BossManager;
 import com.skeboss.command.SkeBossCommand;
 import com.skeboss.listener.BossListener;
+import com.skeboss.listener.WeaponListener;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.skript.SkriptBridge;
+import com.skeboss.weapon.WeaponManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SkeBossPlugin extends JavaPlugin {
@@ -14,6 +16,7 @@ public final class SkeBossPlugin extends JavaPlugin {
 
     private ModelEngineBridge modelEngine;
     private BossManager bossManager;
+    private WeaponManager weaponManager;
     private BossAI bossAI;
 
     @Override
@@ -35,15 +38,17 @@ public final class SkeBossPlugin extends JavaPlugin {
 
         SkriptBridge skriptBridge = new SkriptBridge(this);
         bossManager = new BossManager(this, modelEngine, skriptBridge);
+        weaponManager = new WeaponManager(this, bossManager, skriptBridge);
         bossAI = new BossAI(this, bossManager);
         bossAI.start();
 
-        SkeBossCommand command = new SkeBossCommand(bossManager);
+        SkeBossCommand command = new SkeBossCommand(bossManager, weaponManager);
         getCommand("skeboss").setExecutor(command);
         getCommand("skeboss").setTabCompleter(command);
         getServer().getPluginManager().registerEvents(new BossListener(bossManager), this);
+        getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
 
-        getLogger().info("SkeBoss v1.0 활성화 — /skeboss spawn");
+        getLogger().info("SkeBoss 활성화 — /skeboss spawn | /skeboss weapon <이름>");
     }
 
     @Override
@@ -59,5 +64,9 @@ public final class SkeBossPlugin extends JavaPlugin {
 
     public BossManager getBossManager() {
         return bossManager;
+    }
+
+    public WeaponManager getWeaponManager() {
+        return weaponManager;
     }
 }
