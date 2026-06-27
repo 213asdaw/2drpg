@@ -5,6 +5,7 @@ import com.skeboss.boss.BossManager;
 import com.skeboss.command.SkeBossCommand;
 import com.skeboss.listener.BossListener;
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.skript.SkriptBridge;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SkeBossPlugin extends JavaPlugin {
@@ -32,7 +33,8 @@ public final class SkeBossPlugin extends JavaPlugin {
             return;
         }
 
-        bossManager = new BossManager(this, modelEngine);
+        SkriptBridge skriptBridge = new SkriptBridge(this);
+        bossManager = new BossManager(this, modelEngine, skriptBridge);
         bossAI = new BossAI(this, bossManager);
         bossAI.start();
 

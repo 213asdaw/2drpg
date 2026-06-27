@@ -128,7 +128,7 @@ public final class LaserBeamSkill {
         }
 
         for (Player player : hit) {
-            player.damage(skill.damage(), shooter);
+            player.damage(manager.getBeamDamage(boss), shooter);
             Vector knockback = direction.clone().multiply(skill.knockback());
             knockback.setY(0.25);
             player.setVelocity(knockback);

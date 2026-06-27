@@ -3,6 +3,7 @@ package com.skeboss.boss;
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.skill.LaserBeamSkill;
+import com.skeboss.skript.SkriptBridge;
 import com.skeboss.util.TextUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
@@ -26,17 +27,17 @@ import java.util.logging.Level;
 public final class BossManager {
 
     public static final String METADATA_KEY = "skeboss";
-    /** Skript RPG 연동 — 빔 스킬 시전 중 보스에 부여 */
-    public static final String USING_SKILL_TAG = "using_skill";
 
     private final SkeBossPlugin plugin;
     private final ModelEngineBridge modelEngine;
+    private final SkriptBridge skriptBridge;
     private final BossConfig config;
     private final Map<UUID, SkeBoss> bosses = new ConcurrentHashMap<>();
 
-    public BossManager(SkeBossPlugin plugin, ModelEngineBridge modelEngine) {
+    public BossManager(SkeBossPlugin plugin, ModelEngineBridge modelEngine, SkriptBridge skriptBridge) {
         this.plugin = plugin;
         this.modelEngine = modelEngine;
+        this.skriptBridge = skriptBridge;
         this.config = new BossConfig(plugin);
     }
 
@@ -258,6 +259,17 @@ public final class BossManager {
         return entity.getLocation().getYaw();
     }
 
+    /** Skript {공격력::%uuid%} × 배율 — 빔 최종 데미지 */
+    public double getBeamDamage(SkeBoss boss) {
+        LivingEntity entity = boss.getEntity();
+        double attackStat = skriptBridge.getEntityStat(
+                entity,
+                config.getSkriptAttackVariable(),
+                config.getFallbackAttackStat()
+        );
+        return Math.max(0.0, attackStat * config.getBeamAttackMultiplier());
+    }
+
     public boolean castSkill(SkeBoss boss, SkillDefinition skill) {
         if (boss.isCastingSkill() || !boss.isReady() || !boss.isSkillReady(skill)) {
             return false;
@@ -293,7 +305,6 @@ public final class BossManager {
         int duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), skill.durationTicks());
 
         if (skill.isBeamSkill()) {
-            entity.addScoreboardTag(USING_SKILL_TAG);
             LaserBeamSkill.execute(plugin, this, boss, skill);
         } else {
             Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
@@ -330,7 +341,6 @@ public final class BossManager {
 
     private void finishSkill(SkeBoss boss, SkillDefinition skill) {
         LivingEntity entity = boss.getEntity();
-        entity.removeScoreboardTag(USING_SKILL_TAG);
 
         if (!entity.isValid()) {
             return;
@@ -377,7 +387,6 @@ public final class BossManager {
             modelEngine.destroy(boss.getModel());
         }
         if (boss.getEntity().isValid()) {
-            boss.getEntity().removeScoreboardTag(USING_SKILL_TAG);
             boss.getEntity().remove();
         }
     }

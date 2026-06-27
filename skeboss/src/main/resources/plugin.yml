@@ -5,6 +5,8 @@ api-version: '1.20'
 author: skeboss
 depend:
   - ModelEngine
+softdepend:
+  - Skript
 description: ModelEngine 해골 보스 — 겹침/방향/스킬복귀 수정 포함
 
 commands:

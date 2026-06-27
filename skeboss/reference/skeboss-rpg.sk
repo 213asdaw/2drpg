@@ -1,9 +1,9 @@
 # ============================================================
 # SkeBoss (인조인간) — RPG 스탯 + 드랍 Skript
-# plugins/Skript/scripts/ 에 넣고 /sk reload 하세요.
 #
-# SkeBoss 플러gin: 레이저 시전 중 보스에 scoreboard tag "using_skill" 부여
-# (플레이어 스킬과 동일한 태그 — 빔 데미지는 Skript에서 공격력×배율로 계산)
+# SkeBoss 플러gin이 Skript 변수 {공격력::%uuid%} 를 읽어
+# 레이저 데미지 = 공격력 × 2 를 직접 적용합니다.
+# (빔 데미지는 on damage 에서 처리할 필요 없음)
 # ============================================================
 
 options:
@@ -11,9 +11,8 @@ options:
 	boss-방어력: 240
 	boss-공격력: 80
 	boss-exp: 500
-	boss-beam-multiplier: 2
+	boss-melee-max: 10
 
-# ---------- 보스 판별 ----------
 function isSkeBoss(e: entity) :: boolean:
 	if {_e} is not a zombie:
 		return false
@@ -21,16 +20,20 @@ function isSkeBoss(e: entity) :: boolean:
 		return true
 	return false
 
-# ---------- 스탯 등록 ----------
 function initSkeBossStats(boss: entity):
 	set {방어력::%{_boss}%} to {@boss-방어력}
 	set {공격력::%{_boss}%} to {@boss-공격력}
-	set {boss.init::%uuid of {_boss}%} to true
+	# SkeBoss Java 연동 — UUID 키 필수
+	set {방어력::%uuid of _boss%} to {@boss-방어력}
+	set {공격력::%uuid of _boss%} to {@boss-공격력}
+	set {boss.init::%uuid of _boss%} to true
 
 function clearSkeBossStats(boss: entity):
 	delete {방어력::%{_boss}%}
 	delete {공격력::%{_boss}%}
-	delete {boss.init::%uuid of {_boss}%}
+	delete {방어력::%uuid of _boss%}
+	delete {공격력::%uuid of _boss%}
+	delete {boss.init::%uuid of _boss%}
 
 on spawn of zombie:
 	wait 5 ticks
@@ -44,17 +47,16 @@ every 15 seconds:
 			if {boss.init::%uuid of loop-zombie%} is not set:
 				initSkeBossStats(loop-zombie)
 
-# ---------- 데미지 (기존 RPG 공식 + 보스 using_skill 빔) ----------
-# ※ 기존 on damage 가 있으면 아래 내용으로 교체하거나 병합하세요.
+# ---------- 데미지 ----------
+# 빔: SkeBoss가 Skript {공격력::%uuid%}×2 로 넣음 → 여기서 플레이어 방어력만 적용
 on damage:
 	if attacker is not set:
 		stop
 
-	# SkeBoss 레이저: 플러gin이 using_skill 태그 부여 → 공격력×배율
-	if isSkeBoss(attacker) and scoreboard tags of attacker contains "using_skill":
-		if {공격력::%attacker%} is not set:
-			stop
-		set {공격::%attacker%} to {공격력::%attacker%} * {@boss-beam-multiplier}
+	if isSkeBoss(attacker):
+		set {공격::%attacker%} to damage
+		if damage <= {@boss-melee-max} and {공격력::%attacker%} is set:
+			add {공격력::%attacker%} to {공격::%attacker%}
 	else:
 		set {공격::%attacker%} to damage
 		if {공격력::%attacker%} is set:
@@ -68,26 +70,21 @@ on damage:
 			set {막는량::%victim%} to 90
 		remove {공격::%attacker%} * {막는량::%victim%} / 100 from {공격::%attacker%}
 
-	# 플레이어 using_skill = 스킬 스크립트가 데미지 처리 (기존과 동일)
-	# 보스·몹은 항상 계산된 값 적용
 	if attacker is a player:
 		if scoreboard tags of attacker doesn't contain "using_skill":
 			set damage to {공격::%attacker%}
 	else:
 		set damage to {공격::%attacker%}
 
-# ---------- 사망: 스탯 정리 + 드랍 ----------
 on death of zombie:
 	if isSkeBoss(victim):
 		clearSkeBossStats(victim)
 		wait 1 tick
 		set {_loc} to location of victim
-
 		drop 3 diamond named "&b인조인간 파편" at {_loc}
 		drop 1 netherite scrap at {_loc}
 		chance of 25%:
 			drop 1 emerald block at {_loc}
-
 		set death event's dropped exp to {@boss-exp}
 		if attacker is a player:
 			give {@boss-exp} xp to attacker

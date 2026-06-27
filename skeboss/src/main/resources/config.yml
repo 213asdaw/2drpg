@@ -29,6 +29,11 @@ boss:
   # aggro = 보스를 공격한 플레이어만 타겟 / nearest = 가장 가까운 플레이어
   target-mode: aggro
   aggro-drop-seconds: 30
+  # Skript {공격력::%uuid%} 연동 — 빔 데미지 = 공격력 × beam-attack-multiplier
+  rpg:
+    skript-attack-variable: "공격력"
+    beam-attack-multiplier: 2.0
+    fallback-attack-stat: 80.0
 
 # attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
 skills:

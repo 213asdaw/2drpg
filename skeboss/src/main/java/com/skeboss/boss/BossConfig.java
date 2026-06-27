@@ -31,6 +31,9 @@ public final class BossConfig {
     private final double hitboxScale;
     private final String targetMode;
     private final long aggroDropSeconds;
+    private final String skriptAttackVariable;
+    private final double beamAttackMultiplier;
+    private final double fallbackAttackStat;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -57,6 +60,9 @@ public final class BossConfig {
         hitboxScale = config.getDouble("boss.hitbox-scale", 2.0);
         targetMode = config.getString("boss.target-mode", "aggro");
         aggroDropSeconds = config.getLong("boss.aggro-drop-seconds", 30L);
+        skriptAttackVariable = config.getString("boss.rpg.skript-attack-variable", "공격력");
+        beamAttackMultiplier = config.getDouble("boss.rpg.beam-attack-multiplier", 2.0);
+        fallbackAttackStat = config.getDouble("boss.rpg.fallback-attack-stat", 80.0);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -202,6 +208,18 @@ public final class BossConfig {
 
     public long getAggroDropMs() {
         return aggroDropSeconds * 1000L;
+    }
+
+    public String getSkriptAttackVariable() {
+        return skriptAttackVariable;
+    }
+
+    public double getBeamAttackMultiplier() {
+        return beamAttackMultiplier;
+    }
+
+    public double getFallbackAttackStat() {
+        return fallbackAttackStat;
     }
 
     public List<SkillDefinition> getSkills() {
