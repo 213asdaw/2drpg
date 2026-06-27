@@ -18,7 +18,7 @@ animations:
   walk: walk
 
 boss:
-  max-health: 500.0
+  max-health: 400.0
   display-name: "&c&l인조인간"
   follow-range: 32.0
   melee-range: 3.5
