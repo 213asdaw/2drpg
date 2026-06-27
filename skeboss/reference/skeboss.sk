@@ -102,6 +102,8 @@ on death of zombie:
 	drop 1 netherite scrap at {_loc}
 	chance of 25%:
 		drop 1 emerald block at {_loc}
-	set death event's dropped exp to {@bexp}
+	# 경험치 — death event 문법은 구버전 Skript 미지원
 	if attacker is a player:
 		give {@bexp} xp to attacker
+	else:
+		drop {@bexp} experience at {_loc}
