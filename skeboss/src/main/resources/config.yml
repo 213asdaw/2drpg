@@ -1,5 +1,5 @@
-# ModelEngine blueprint 폴더 이름 (plugins/ModelEngine/blueprints/xxx)
-model-id: ske_boss
+# ModelEngine blueprint — money서버시즌1/plugins/ModelEngine/blueprints/ske.bbmodel
+model-id: ske
 
 # 애니메이션 이름 — Blockbench bbmodel 과 동일해야 함
 animations:

@@ -33,7 +33,7 @@ mvn package
 1. `plugins/`에 넣을 것:
    - `skeboss-1.0-SNAPSHOT.jar`
    - `ModelEngine.jar` (이미 있으면 OK)
-   - ModelEngine blueprint (`plugins/ModelEngine/blueprints/ske_boss/` 등)
+   - ModelEngine blueprint (`plugins/ModelEngine/blueprints/ske.bbmodel`)
 
 2. 서버 재시작
 

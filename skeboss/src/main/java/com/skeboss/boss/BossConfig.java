@@ -26,7 +26,7 @@ public final class BossConfig {
 
     public BossConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
-        modelId = config.getString("model-id", "ske_boss");
+        modelId = config.getString("model-id", "ske");
         idleAnimation = config.getString("animations.idle", "idle");
         walkAnimation = config.getString("animations.walk", "walk");
         yawOffset = (float) config.getDouble("yaw-offset", 180.0);
