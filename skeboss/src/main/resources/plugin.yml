@@ -1,0 +1,22 @@
+name: SkeBoss
+version: '${project.version}'
+main: com.skeboss.SkeBossPlugin
+api-version: '1.20'
+author: skeboss
+depend:
+  - ModelEngine
+softdepend:
+  - Skript
+description: ModelEngine 해골 보스 — 겹침/방향/스킬복귀 수정 포함
+
+commands:
+  skeboss:
+    description: 해골 보스 관리
+    usage: /skeboss <spawn|skill|remove|reload>
+    aliases: [sboss]
+    permission: skeboss.admin
+
+permissions:
+  skeboss.admin:
+    description: SkeBoss 관리자
+    default: op
