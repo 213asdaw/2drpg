@@ -1,52 +1,74 @@
-# SkeBoss — ModelEngine 해골 보스 플러그인
+# SkeBoss 1.0 — ModelEngine 해골 보스 플러그인
 
-말씀하신 세 가지 문제를 반영한 **수정 예시 코드**입니다.
+처음부터 새로 만든 **완성형** 보스 플러그인입니다.  
+기존에 겪던 3가지 문제를 모두 반영했습니다.
 
-| 문제 | 원인 | 수정 |
-|------|------|------|
-| 모델이 좀비랑 겹침 | 바닐라 좀비가 그대로 보임 | `setBaseEntityVisible(false)` |
-| 몸이 반대 | yaw / 모델 facing 불일치 | 스폰 시 `yaw-offset` (기본 180°) |
-| 스킬 후 원래대로 안 돌아옴 | idle 재생 누락 | 스킬 끝에 `stopAnimation` + `idle` 재생 |
+| 문제 | 해결 |
+|------|------|
+| 좀비랑 모델 겹침 | `setBaseEntityVisible(false)` |
+| 몸이 반대 | `yaw-offset` (기본 180°) |
+| 스킬 후 idle 안 돌아옴 | 스킬 끝 `stopAnimation` + idle 재생 |
 
-## 빌드 방법 (IntelliJ IDEA)
+## 포함 기능
 
-1. 서버 `plugins` 폴더에서 **ModelEngine JAR** 복사  
-   → `skeboss/libs/ModelEngine-R4.0.4.jar`  
-   (버전이 다르면 `pom.xml`의 `systemPath` 수정)
+- ModelEngine 커스텀 모델 보스 스폰
+- 자동 AI (추적, 근접 공격, 스킬)
+- 스킬 2종 (베기 / 내려찍기) — config에서 추가 가능
+- BossBar 체력 표시
+- `/skeboss` 명령어
 
-2. IntelliJ에서 `skeboss/pom.xml` → **Maven 프로젝트로 열기**
+## 빌드 (IntelliJ / Maven)
 
-3. 터미널:
-   ```bash
-   cd skeboss
-   mvn package
-   ```
-   결과: `target/skeboss-1.0-SNAPSHOT.jar`
+**ModelEngine JAR 복사 불필요** — 런타임에 서버 plugins 폴더의 ModelEngine을 사용합니다.
 
-4. JAR를 서버 `plugins/`에 넣고 재시작
-
-## 설정 (`config.yml`)
-
-```yaml
-model-id: ske_boss          # ModelEngine blueprint 이름
-animations:
-  idle: idle
-  skill: skill_attack
-yaw-offset: 180             # 방향이 맞으면 0으로 변경
+```bash
+cd skeboss
+mvn package
 ```
 
-## 테스트 명령어
+결과 JAR: `target/skeboss-1.0-SNAPSHOT.jar`
 
-- `/skeboss spawn` — 보스 스폰
-- `/skeboss skill` — 바라보는 보스 스킬 (끝나면 idle 복귀)
-- `/skeboss remove` — 보스 제거
+## 서버 설치
 
-## 핵심 코드 위치
+1. `plugins/`에 넣을 것:
+   - `skeboss-1.0-SNAPSHOT.jar`
+   - `ModelEngine.jar` (이미 있으면 OK)
+   - ModelEngine blueprint (`plugins/ModelEngine/blueprints/ske_boss/` 등)
 
-`ModelEngineBossService.java` — 스폰·스킬·복귀 로직 전부 여기 있습니다.
+2. 서버 재시작
 
-기존 프로젝트에 붙일 때는 **해당 클래스의 spawn / finishSkill 부분**만 복사해도 됩니다.
+3. `plugins/SkeBoss/config.yml` 에서 모델/애니메이션 이름 수정
 
-## ModelEngine 버전
+## 명령어
 
-이 예시는 **ModelEngine R4** API 기준입니다. R3를 쓰면 import/API 이름이 조금 다를 수 있습니다.
+| 명령어 | 설명 |
+|--------|------|
+| `/skeboss spawn` | 보스 스폰 |
+| `/skeboss skill [이름]` | 스킬 테스트 (slash, slam) |
+| `/skeboss remove` | 보스 제거 |
+| `/skeboss reload` | config 리로드 |
+
+## config.yml 설정 예시
+
+```yaml
+model-id: ske_boss       # blueprint 폴더 이름
+animations:
+  idle: idle
+  walk: walk
+yaw-offset: 180          # 방향 맞으면 0
+skills:
+  slash:
+    animation: attack  # bbmodel 애니메이션 이름
+```
+
+## IntelliJ에서 열기
+
+1. **File → Open** → `skeboss/pom.xml` 선택
+2. Maven import 대기
+3. 우측 Maven → **Lifecycle → package** 실행
+4. `target/skeboss-1.0-SNAPSHOT.jar` 를 서버 `plugins/`에 복사
+
+## 모델 애니메이션 이름 맞추기
+
+Blockbench에서 export한 애니메이션 이름과 `config.yml`의 `animations`, `skills.*.animation` 이 **정확히 같아야** 합니다.  
+이름이 다르면 스킬 후 idle 복귀가 안 되는 것처럼 보일 수 있습니다.

@@ -1,43 +1,54 @@
 package com.skeboss.boss;
 
-import com.ticxo.modelengine.api.entity.ModeledEntity;
-import com.ticxo.modelengine.api.model.ActiveModel;
+import com.skeboss.modelengine.ModelEngineBridge;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public final class SkeBoss {
 
+    private final UUID id;
     private final LivingEntity entity;
-    private final ModeledEntity modeledEntity;
-    private final ActiveModel activeModel;
-    private final BossSettings settings;
-    private boolean castingSkill;
+    private final ModelEngineBridge.BossModel model;
+    private final BossBar bossBar;
+    private final Map<String, Long> skillCooldowns = new HashMap<>();
 
-    public SkeBoss(
-            LivingEntity entity,
-            ModeledEntity modeledEntity,
-            ActiveModel activeModel,
-            BossSettings settings
-    ) {
+    private boolean castingSkill;
+    private String currentSkillId;
+    private Player target;
+
+    public SkeBoss(LivingEntity entity, ModelEngineBridge.BossModel model, BossConfig config) {
+        this.id = entity.getUniqueId();
         this.entity = entity;
-        this.modeledEntity = modeledEntity;
-        this.activeModel = activeModel;
-        this.settings = settings;
+        this.model = model;
+        this.bossBar = org.bukkit.Bukkit.createBossBar(
+                com.skeboss.util.TextUtil.color(config.getDisplayName()),
+                BarColor.RED,
+                BarStyle.SEGMENTED_10
+        );
+        bossBar.setProgress(1.0);
+    }
+
+    public UUID getId() {
+        return id;
     }
 
     public LivingEntity getEntity() {
         return entity;
     }
 
-    public ModeledEntity getModeledEntity() {
-        return modeledEntity;
+    public ModelEngineBridge.BossModel getModel() {
+        return model;
     }
 
-    public ActiveModel getActiveModel() {
-        return activeModel;
-    }
-
-    public BossSettings getSettings() {
-        return settings;
+    public BossBar getBossBar() {
+        return bossBar;
     }
 
     public boolean isCastingSkill() {
@@ -46,5 +57,47 @@ public final class SkeBoss {
 
     public void setCastingSkill(boolean castingSkill) {
         this.castingSkill = castingSkill;
+    }
+
+    public String getCurrentSkillId() {
+        return currentSkillId;
+    }
+
+    public void setCurrentSkillId(String currentSkillId) {
+        this.currentSkillId = currentSkillId;
+    }
+
+    public Player getTarget() {
+        return target;
+    }
+
+    public void setTarget(Player target) {
+        this.target = target;
+    }
+
+    public boolean isSkillReady(SkillDefinition skill) {
+        Long readyAt = skillCooldowns.get(skill.id());
+        return readyAt == null || System.currentTimeMillis() >= readyAt;
+    }
+
+    public void setSkillCooldown(SkillDefinition skill) {
+        skillCooldowns.put(skill.id(), System.currentTimeMillis() + skill.cooldownSeconds() * 1000L);
+    }
+
+    public void updateBossBar() {
+        double max = entity.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue();
+        bossBar.setProgress(Math.max(0.0, Math.min(1.0, entity.getHealth() / max)));
+    }
+
+    public void addViewer(Player player) {
+        bossBar.addPlayer(player);
+    }
+
+    public void removeViewer(Player player) {
+        bossBar.removePlayer(player);
+    }
+
+    public void removeAllViewers() {
+        bossBar.removeAll();
     }
 }

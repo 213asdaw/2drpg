@@ -1,18 +1,40 @@
-# Blockbench → ModelEngine export 한 모델 ID (plugins/ModelEngine/blueprints/ 폴더 이름)
+# ModelEngine blueprint 폴더 이름 (plugins/ModelEngine/blueprints/xxx)
 model-id: ske_boss
 
-# idle / skill 애니메이션 이름 (모델 bbmodel 안 이름과 동일해야 함)
+# 애니메이션 이름 — Blockbench bbmodel 과 동일해야 함
 animations:
   idle: idle
-  skill: skill_attack
+  walk: walk
 
-# 모델이 180도 뒤집혀 보이면 true (대부분의 커스텀 모델은 false)
+# 모델이 뒤를 보고 있으면 180, 정상이면 0
 yaw-offset: 180
 
-# 애니메이션 블렌드 시간 (초)
 blend-in: 0.15
 blend-out: 0.25
 
 boss:
   max-health: 500.0
-  display-name: "&c&l해골 보스"
+  display-name: "&c&l☠ 해골 보스"
+  follow-range: 32.0
+  melee-range: 3.5
+  melee-damage: 8.0
+  ai-interval-ticks: 5
+
+# 스킬 — animation 이름을 본인 모델에 맞게 수정
+skills:
+  slash:
+    animation: attack
+    cooldown-seconds: 5
+    duration-ticks: 30
+    damage: 14.0
+    range: 4.5
+    knockback: 0.4
+    aoe-radius: 0.0
+  slam:
+    animation: skill_slam
+    cooldown-seconds: 12
+    duration-ticks: 50
+    damage: 22.0
+    range: 6.0
+    knockback: 1.2
+    aoe-radius: 5.0
