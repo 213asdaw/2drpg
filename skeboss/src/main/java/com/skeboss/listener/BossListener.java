@@ -41,7 +41,7 @@ public final class BossListener implements Listener {
         for (SkeBoss boss : bossManager.getBosses()) {
             if (boss.getEntity().getWorld().equals(player.getWorld())
                     && boss.getEntity().getLocation().distanceSquared(player.getLocation()) <= 64 * 64) {
-                boss.addViewer(player);
+                bossManager.syncBossViewers(boss, player);
             }
         }
     }
@@ -66,7 +66,7 @@ public final class BossListener implements Listener {
             }
             for (Player player : event.getWorld().getPlayers()) {
                 if (player.getLocation().distanceSquared(boss.getEntity().getLocation()) <= 64 * 64) {
-                    boss.addViewer(player);
+                    bossManager.syncBossViewers(boss, player);
                 }
             }
         }

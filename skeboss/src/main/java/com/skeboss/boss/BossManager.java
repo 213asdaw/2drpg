@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public final class BossManager {
 
@@ -59,22 +60,69 @@ public final class BossManager {
             }
         });
 
-        ModelEngineBridge.BossModel bossModel = modelEngine.attachModel(zombie, config.getModelId());
-        modelEngine.playLoopAnimation(bossModel, config.getIdleAnimation(), config.getBlendIn(), config.getBlendOut());
-
-        SkeBoss boss = new SkeBoss(zombie, bossModel, config);
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getWorld().equals(zombie.getWorld())
-                    && online.getLocation().distanceSquared(zombie.getLocation()) <= 64 * 64) {
-                boss.addViewer(online);
-            }
-        }
-
+        SkeBoss boss = new SkeBoss(zombie, null, config);
         bosses.put(zombie.getUniqueId(), boss);
+
+        int delay = Math.max(1, config.getSpawnDelayTicks());
+        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSpawn(boss), delay);
         return boss;
     }
 
+    private void finishSpawn(SkeBoss boss) {
+        LivingEntity entity = boss.getEntity();
+        if (!entity.isValid() || entity.isDead()) {
+            bosses.remove(entity.getUniqueId());
+            return;
+        }
+
+        try {
+            ModelEngineBridge.BossModel bossModel = modelEngine.attachModel(
+                    entity,
+                    config.getModelId(),
+                    config.isHideBaseEntity()
+            );
+            boss.setModel(bossModel);
+
+            modelEngine.playLoopAnimation(
+                    bossModel,
+                    config.getIdleAnimation(),
+                    config.getBlendIn(),
+                    config.getBlendOut()
+            );
+
+            modelEngine.syncNearbyPlayers(bossModel, entity, config.getViewerSyncRadius());
+            registerBossBarViewers(boss);
+
+            plugin.getLogger().info("보스 스폰 완료: " + entity.getUniqueId() + " (모델: " + config.getModelId() + ")");
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "보스 모델 적용 실패 — 좀비만 남습니다. /meg reload 확인", ex);
+            if (!config.isHideBaseEntity()) {
+                entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            }
+        }
+    }
+
+    private void registerBossBarViewers(SkeBoss boss) {
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.getWorld().equals(boss.getEntity().getWorld())
+                    && online.getLocation().distanceSquared(boss.getEntity().getLocation())
+                    <= config.getViewerSyncRadius() * config.getViewerSyncRadius()) {
+                boss.addViewer(online);
+            }
+        }
+    }
+
+    public void syncBossViewers(SkeBoss boss, Player player) {
+        if (boss.getModel() != null) {
+            modelEngine.syncNearbyPlayers(boss.getModel(), boss.getEntity(), config.getViewerSyncRadius());
+        }
+        boss.addViewer(player);
+    }
+
     public void playIdle(SkeBoss boss) {
+        if (!boss.isReady()) {
+            return;
+        }
         modelEngine.playLoopAnimation(
                 boss.getModel(),
                 config.getIdleAnimation(),
@@ -84,6 +132,9 @@ public final class BossManager {
     }
 
     public void playWalk(SkeBoss boss) {
+        if (!boss.isReady()) {
+            return;
+        }
         modelEngine.playLoopAnimation(
                 boss.getModel(),
                 config.getWalkAnimation(),
@@ -93,7 +144,7 @@ public final class BossManager {
     }
 
     public boolean castSkill(SkeBoss boss, SkillDefinition skill) {
-        if (boss.isCastingSkill() || !boss.isSkillReady(skill)) {
+        if (boss.isCastingSkill() || !boss.isReady() || !boss.isSkillReady(skill)) {
             return false;
         }
 
@@ -187,7 +238,9 @@ public final class BossManager {
     public void remove(SkeBoss boss) {
         bosses.remove(boss.getId());
         boss.removeAllViewers();
-        modelEngine.destroy(boss.getModel());
+        if (boss.getModel() != null) {
+            modelEngine.destroy(boss.getModel());
+        }
         if (boss.getEntity().isValid()) {
             boss.getEntity().remove();
         }

@@ -19,6 +19,9 @@ boss:
   melee-range: 3.5
   melee-damage: 8.0
   ai-interval-ticks: 5
+  spawn-delay-ticks: 2
+  hide-base-entity: true
+  viewer-sync-radius: 64.0
 
 # attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
 skills:

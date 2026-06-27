@@ -17,6 +17,9 @@ public final class ModelEngineBridge {
     private Method getOrCreateModeledEntity;
     private Method createModeledEntity;
     private Method createActiveModel;
+    private Method createActiveModelFromBlueprint;
+    private Method getBlueprint;
+    private Class<?> activeModelClass;
 
     public ModelEngineBridge(Plugin plugin) {
         this.plugin = plugin;
@@ -27,9 +30,17 @@ public final class ModelEngineBridge {
         try {
             Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
 
+            activeModelClass = Class.forName("com.ticxo.modelengine.api.model.ActiveModel");
+
             getOrCreateModeledEntity = findStaticMethod(apiClass, "getOrCreateModeledEntity", Entity.class);
             createModeledEntity = findStaticMethod(apiClass, "createModeledEntity", Entity.class);
             createActiveModel = findStaticMethod(apiClass, "createActiveModel", String.class);
+            getBlueprint = findStaticMethod(apiClass, "getBlueprint", String.class);
+
+            if (getBlueprint != null) {
+                createActiveModelFromBlueprint = findStaticMethod(apiClass, "createActiveModel", Class.forName(
+                        "com.ticxo.modelengine.api.generator.blueprint.ModelBlueprint"));
+            }
 
             if (createActiveModel == null) {
                 throw new NoSuchMethodException("createActiveModel(String)");
@@ -50,30 +61,80 @@ public final class ModelEngineBridge {
         return available;
     }
 
-    public BossModel attachModel(Entity entity, String modelId) {
+    public BossModel attachModel(Entity entity, String modelId, boolean hideBaseEntity) {
         if (!available) {
             throw new IllegalStateException("ModelEngine 사용 불가");
         }
 
         try {
             Object modeledEntity = createModeledEntityWrapper(entity);
-            Object activeModel = createActiveModel.invoke(null, modelId);
+            Object activeModel = createActiveModelInstance(modelId);
             if (activeModel == null) {
                 throw new IllegalStateException("모델 ID 없음: " + modelId + " (/meg reload 후 blueprint 확인)");
             }
 
-            if (!tryInvoke(modeledEntity, "addModel", new Class<?>[]{activeModel.getClass(), boolean.class}, activeModel, true)) {
-                tryInvoke(modeledEntity, "addModel", new Class<?>[]{activeModel.getClass()}, activeModel);
+            addModel(modeledEntity, activeModel);
+
+            // 모델 먼저 플레이어에게 보이게 한 뒤 좀비 숨김
+            syncNearbyPlayers(modeledEntity, entity, 64.0);
+
+            if (hideBaseEntity) {
+                tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
+                syncNearbyPlayers(modeledEntity, entity, 64.0);
             }
 
-            // ModeledEntity 에만 존재 — ActiveModel 에 호출하면 "호출 실패" 남
-            tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
-
+            plugin.getLogger().info("ModelEngine 모델 적용: " + modelId + " → " + entity.getUniqueId());
             return new BossModel(modeledEntity, activeModel);
         } catch (ReflectiveOperationException ex) {
             plugin.getLogger().log(Level.SEVERE, "ModelEngine attachModel 실패", ex);
             throw new IllegalStateException("ModelEngine 모델 적용 실패: " + rootMessage(ex), ex);
         }
+    }
+
+    public void syncNearbyPlayers(BossModel model, Entity entity, double radius) {
+        syncNearbyPlayers(model.modeledEntity(), entity, radius);
+    }
+
+    private void syncNearbyPlayers(Object modeledEntity, Entity entity, double radius) {
+        Object rangeManager = invokeOptional(modeledEntity, "getRangeManager");
+        if (rangeManager == null) {
+            plugin.getLogger().warning("RangeManager 없음 — 모델이 안 보일 수 있습니다.");
+            return;
+        }
+
+        double radiusSq = radius * radius;
+        for (org.bukkit.entity.Player player : entity.getWorld().getPlayers()) {
+            if (!player.isValid() || player.getLocation().distanceSquared(entity.getLocation()) > radiusSq) {
+                continue;
+            }
+            tryInvoke(rangeManager, "forceSpawn", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            tryInvoke(rangeManager, "updatePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+        }
+    }
+
+    private Object createActiveModelInstance(String modelId) throws ReflectiveOperationException {
+        if (getBlueprint != null && createActiveModelFromBlueprint != null) {
+            Object blueprint = getBlueprint.invoke(null, modelId);
+            if (blueprint != null) {
+                Object fromBlueprint = createActiveModelFromBlueprint.invoke(null, blueprint);
+                if (fromBlueprint != null) {
+                    return fromBlueprint;
+                }
+            }
+        }
+        return createActiveModel.invoke(null, modelId);
+    }
+
+    private void addModel(Object modeledEntity, Object activeModel) {
+        if (tryInvoke(modeledEntity, "addModel",
+                new Class<?>[]{activeModelClass, boolean.class}, activeModel, true)) {
+            return;
+        }
+        if (tryInvoke(modeledEntity, "addModel",
+                new Class<?>[]{activeModelClass}, activeModel)) {
+            return;
+        }
+        throw new IllegalStateException("addModel 실패");
     }
 
     private Object createModeledEntityWrapper(Entity entity) throws ReflectiveOperationException {
@@ -163,6 +224,14 @@ public final class ModelEngineBridge {
         } catch (ReflectiveOperationException ex) {
             plugin.getLogger().log(Level.FINE, "ModelEngine optional call failed: " + method, ex);
             return false;
+        }
+    }
+
+    private Object invokeOptional(Object target, String method, Object... args) {
+        try {
+            return invokeFirst(target, method, args);
+        } catch (IllegalStateException ex) {
+            return null;
         }
     }
 

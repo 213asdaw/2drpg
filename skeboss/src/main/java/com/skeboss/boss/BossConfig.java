@@ -22,6 +22,9 @@ public final class BossConfig {
     private final double meleeRange;
     private final double meleeDamage;
     private final int aiIntervalTicks;
+    private final int spawnDelayTicks;
+    private final boolean hideBaseEntity;
+    private final double viewerSyncRadius;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -39,6 +42,9 @@ public final class BossConfig {
         meleeRange = config.getDouble("boss.melee-range", 3.5);
         meleeDamage = config.getDouble("boss.melee-damage", 8.0);
         aiIntervalTicks = config.getInt("boss.ai-interval-ticks", 5);
+        spawnDelayTicks = config.getInt("boss.spawn-delay-ticks", 2);
+        hideBaseEntity = config.getBoolean("boss.hide-base-entity", true);
+        viewerSyncRadius = config.getDouble("boss.viewer-sync-radius", 64.0);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -116,6 +122,18 @@ public final class BossConfig {
 
     public int getAiIntervalTicks() {
         return aiIntervalTicks;
+    }
+
+    public int getSpawnDelayTicks() {
+        return spawnDelayTicks;
+    }
+
+    public boolean isHideBaseEntity() {
+        return hideBaseEntity;
+    }
+
+    public double getViewerSyncRadius() {
+        return viewerSyncRadius;
     }
 
     public List<SkillDefinition> getSkills() {

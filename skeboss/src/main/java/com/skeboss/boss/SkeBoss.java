@@ -15,7 +15,7 @@ public final class SkeBoss {
 
     private final UUID id;
     private final LivingEntity entity;
-    private final ModelEngineBridge.BossModel model;
+    private ModelEngineBridge.BossModel model;
     private final BossBar bossBar;
     private final Map<String, Long> skillCooldowns = new HashMap<>();
 
@@ -45,6 +45,14 @@ public final class SkeBoss {
 
     public ModelEngineBridge.BossModel getModel() {
         return model;
+    }
+
+    public void setModel(ModelEngineBridge.BossModel model) {
+        this.model = model;
+    }
+
+    public boolean isReady() {
+        return model != null;
     }
 
     public BossBar getBossBar() {
