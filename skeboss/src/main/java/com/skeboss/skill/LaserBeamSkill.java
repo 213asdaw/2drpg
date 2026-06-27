@@ -31,10 +31,6 @@ public final class LaserBeamSkill {
         }
 
         LivingEntity entity = boss.getEntity();
-        Player target = boss.getTarget();
-        if (target != null) {
-            manager.faceTarget(boss, target);
-        }
 
         new BukkitRunnable() {
             private int counter = 0;
@@ -46,12 +42,13 @@ public final class LaserBeamSkill {
                     return;
                 }
 
-                Player currentTarget = boss.getTarget();
-                if (currentTarget != null) {
-                    manager.faceTarget(boss, currentTarget);
+                Player target = manager.resolveSkillTarget(boss, skill.range());
+                if (target != null) {
+                    boss.setTarget(target);
+                    manager.faceTarget(boss, target);
                 }
 
-                Vector direction = manager.getBeamDirection(boss);
+                Vector direction = manager.getBeamDirection(boss, skill.range());
                 Location start = manager.getBeamOrigin(boss);
                 BeamResult result = drawBeam(start, direction, skill.range(), beam);
 

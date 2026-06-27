@@ -4,6 +4,7 @@ import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.skill.LaserBeamSkill;
 import com.skeboss.util.TextUtil;
+import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
@@ -12,9 +13,11 @@ import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -162,23 +165,63 @@ public final class BossManager {
         }
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz)) + config.getFaceYawOffset();
         entity.setRotation(yaw, 0.0f);
+        if (boss.getModel() != null) {
+            modelEngine.syncBodyRotation(boss.getModel(), yaw);
+        }
+    }
+
+    public Player findNearestPlayer(LivingEntity entity, double range) {
+        return entity.getWorld().getPlayers().stream()
+                .filter(player -> player.isValid() && !player.isDead() && player.getGameMode() != GameMode.SPECTATOR)
+                .filter(player -> player.getLocation().distanceSquared(entity.getLocation()) <= range * range)
+                .min(Comparator.comparingDouble(player -> player.getLocation().distanceSquared(entity.getLocation())))
+                .orElse(null);
+    }
+
+    public Player resolveSkillTarget(SkeBoss boss, double range) {
+        Player current = boss.getTarget();
+        if (current != null && current.isValid() && !current.isDead()
+                && current.getWorld().equals(boss.getEntity().getWorld())
+                && current.getLocation().distanceSquared(boss.getEntity().getLocation()) <= range * range) {
+            return current;
+        }
+        return findNearestPlayer(boss.getEntity(), range);
+    }
+
+    public void startSkillTracking(SkeBoss boss, double trackRange) {
+        stopSkillTracking(boss);
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!boss.getEntity().isValid() || boss.getEntity().isDead() || !boss.isCastingSkill()) {
+                stopSkillTracking(boss);
+                return;
+            }
+            Player target = findNearestPlayer(boss.getEntity(), trackRange);
+            if (target != null) {
+                boss.setTarget(target);
+                faceTarget(boss, target);
+            }
+        }, 0L, 1L);
+        boss.setAimTask(task);
+    }
+
+    public void stopSkillTracking(SkeBoss boss) {
+        boss.cancelAimTask();
     }
 
     public Location getBeamOrigin(SkeBoss boss) {
         LivingEntity entity = boss.getEntity();
         Location loc = entity.getLocation().clone();
         loc.add(0, entity.getHeight() * 0.75, 0);
-        loc.setYaw(entity.getLocation().getYaw() + config.getFaceYawOffset());
         loc.setPitch(0.0f);
         return loc;
     }
 
-    public Vector getBeamDirection(SkeBoss boss) {
-        Player target = boss.getTarget();
-        LivingEntity entity = boss.getEntity();
+    public Vector getBeamDirection(SkeBoss boss, double range) {
+        Player target = resolveSkillTarget(boss, range);
         Location origin = getBeamOrigin(boss);
 
-        if (target != null && target.isValid() && !target.isDead()) {
+        if (target != null) {
+            boss.setTarget(target);
             Vector toTarget = target.getLocation().add(0, target.getHeight() * 0.5, 0).toVector()
                     .subtract(origin.toVector());
             toTarget.setY(0);
@@ -187,7 +230,12 @@ public final class BossManager {
             }
         }
 
-        return origin.getDirection().setY(0).normalize();
+        float yaw = entityYaw(boss.getEntity());
+        return new Vector(-Math.sin(Math.toRadians(yaw)), 0, Math.cos(Math.toRadians(yaw)));
+    }
+
+    private float entityYaw(LivingEntity entity) {
+        return entity.getLocation().getYaw();
     }
 
     public boolean castSkill(SkeBoss boss, SkillDefinition skill) {
@@ -205,13 +253,14 @@ public final class BossManager {
         }
         entity.setVelocity(new Vector(0, 0, 0));
 
-        Player target = boss.getTarget();
+        double trackRange = Math.max(skill.range(), config.getFollowRange());
+        Player target = resolveSkillTarget(boss, trackRange);
         if (target != null) {
+            boss.setTarget(target);
             faceTarget(boss, target);
-        } else if (entity instanceof Mob mob && mob.getTarget() instanceof Player player) {
-            boss.setTarget(player);
-            faceTarget(boss, player);
         }
+
+        startSkillTracking(boss, trackRange);
 
         modelEngine.playLoopAnimation(
                 boss.getModel(),
@@ -262,6 +311,8 @@ public final class BossManager {
         if (!boss.getEntity().isValid()) {
             return;
         }
+
+        stopSkillTracking(boss);
 
         modelEngine.stopAnimation(boss.getModel(), skill.animation());
         clearAnimationState(boss);

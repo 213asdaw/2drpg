@@ -158,6 +158,17 @@ public final class ModelEngineBridge {
         return createModeledEntity.invoke(null, entity);
     }
 
+    public void syncBodyRotation(BossModel model, float yaw) {
+        if (model == null) {
+            return;
+        }
+        Object activeModel = model.activeModel();
+        tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
+        tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
+        tryInvoke(activeModel, "setYBodyRot", new Class<?>[]{float.class}, yaw);
+        tryInvoke(activeModel, "setYHeadRot", new Class<?>[]{float.class}, yaw);
+    }
+
     public void destroy(BossModel model) {
         if (model == null || model.modeledEntity() == null) {
             return;

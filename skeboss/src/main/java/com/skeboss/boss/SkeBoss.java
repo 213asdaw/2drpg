@@ -6,6 +6,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +24,7 @@ public final class SkeBoss {
     private String currentSkillId;
     private String currentAnimation;
     private Player target;
+    private BukkitTask aimTask;
 
     public SkeBoss(LivingEntity entity, ModelEngineBridge.BossModel model, BossConfig config) {
         this.id = entity.getUniqueId();
@@ -90,6 +92,21 @@ public final class SkeBoss {
 
     public void setCurrentAnimation(String currentAnimation) {
         this.currentAnimation = currentAnimation;
+    }
+
+    public BukkitTask getAimTask() {
+        return aimTask;
+    }
+
+    public void setAimTask(BukkitTask aimTask) {
+        this.aimTask = aimTask;
+    }
+
+    public void cancelAimTask() {
+        if (aimTask != null) {
+            aimTask.cancel();
+            aimTask = null;
+        }
     }
 
     public boolean isSkillReady(SkillDefinition skill) {

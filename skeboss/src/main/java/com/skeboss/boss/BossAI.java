@@ -2,12 +2,9 @@ package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
 import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
-
-import java.util.Comparator;
 
 public final class BossAI implements Runnable {
 
@@ -31,12 +28,15 @@ public final class BossAI implements Runnable {
 
             boss.updateBossBar();
 
+            Player target = manager.findNearestPlayer(entity, config.getFollowRange());
+            if (target != null) {
+                boss.setTarget(target);
+            }
+
             if (boss.isCastingSkill()) {
                 continue;
             }
 
-            Player target = findNearestPlayer(entity, config.getFollowRange());
-            boss.setTarget(target);
             if (target == null) {
                 continue;
             }
@@ -77,14 +77,6 @@ public final class BossAI implements Runnable {
             }
         }
         return best;
-    }
-
-    private Player findNearestPlayer(LivingEntity entity, double range) {
-        return entity.getWorld().getPlayers().stream()
-                .filter(player -> player.isValid() && !player.isDead() && player.getGameMode() != GameMode.SPECTATOR)
-                .filter(player -> player.getLocation().distanceSquared(entity.getLocation()) <= range * range)
-                .min(Comparator.comparingDouble(player -> player.getLocation().distanceSquared(entity.getLocation())))
-                .orElse(null);
     }
 
     public void start() {
