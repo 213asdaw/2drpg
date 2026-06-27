@@ -11,6 +11,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class SkeBoss {
 
@@ -19,6 +20,7 @@ public final class SkeBoss {
     private ModelEngineBridge.BossModel model;
     private final BossBar bossBar;
     private final Map<String, Long> skillCooldowns = new HashMap<>();
+    private final Map<UUID, Long> aggroPlayers = new ConcurrentHashMap<>();
 
     private boolean castingSkill;
     private String currentSkillId;
@@ -106,6 +108,33 @@ public final class SkeBoss {
         if (aimTask != null) {
             aimTask.cancel();
             aimTask = null;
+        }
+    }
+
+    public void addAggro(Player player) {
+        if (player != null) {
+            aggroPlayers.put(player.getUniqueId(), System.currentTimeMillis());
+        }
+    }
+
+    public boolean hasAggro(Player player, long dropAfterMs) {
+        if (player == null) {
+            return false;
+        }
+        Long last = aggroPlayers.get(player.getUniqueId());
+        if (last == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - last > dropAfterMs) {
+            aggroPlayers.remove(player.getUniqueId());
+            return false;
+        }
+        return true;
+    }
+
+    public void removeAggro(Player player) {
+        if (player != null) {
+            aggroPlayers.remove(player.getUniqueId());
         }
     }
 

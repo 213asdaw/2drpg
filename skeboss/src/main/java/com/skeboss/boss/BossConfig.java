@@ -29,6 +29,8 @@ public final class BossConfig {
     private final double viewerSyncRadius;
     private final double modelScale;
     private final double hitboxScale;
+    private final String targetMode;
+    private final long aggroDropSeconds;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -53,6 +55,8 @@ public final class BossConfig {
         viewerSyncRadius = config.getDouble("boss.viewer-sync-radius", 64.0);
         modelScale = config.getDouble("boss.model-scale", 2.0);
         hitboxScale = config.getDouble("boss.hitbox-scale", 2.0);
+        targetMode = config.getString("boss.target-mode", "aggro");
+        aggroDropSeconds = config.getLong("boss.aggro-drop-seconds", 30L);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -190,6 +194,14 @@ public final class BossConfig {
 
     public double getHitboxScale() {
         return hitboxScale;
+    }
+
+    public String getTargetMode() {
+        return targetMode;
+    }
+
+    public long getAggroDropMs() {
+        return aggroDropSeconds * 1000L;
     }
 
     public List<SkillDefinition> getSkills() {

@@ -54,7 +54,7 @@ public final class LaserBeamSkill {
 
                 if (counter == 0) {
                     entity.getWorld().playSound(start, Sound.ENTITY_GUARDIAN_ATTACK, 1.2f, 0.6f);
-                    applyDamage(entity, skill, start, result.direction(), result.length(), beam.width());
+                    applyDamage(manager, boss, entity, skill, start, result.direction(), result.length(), beam.width());
                 }
 
                 counter++;
@@ -107,6 +107,8 @@ public final class LaserBeamSkill {
     }
 
     private static void applyDamage(
+            BossManager manager,
+            SkeBoss boss,
             LivingEntity shooter,
             SkillDefinition skill,
             Location start,
@@ -117,7 +119,7 @@ public final class LaserBeamSkill {
         Set<Player> hit = new HashSet<>();
 
         for (Player player : shooter.getWorld().getPlayers()) {
-            if (!player.isValid() || player.isDead() || player.equals(shooter)) {
+            if (!manager.isEnemy(boss, player) || player.equals(shooter)) {
                 continue;
             }
             if (isInsideBeam(start, direction, length, width, player)) {

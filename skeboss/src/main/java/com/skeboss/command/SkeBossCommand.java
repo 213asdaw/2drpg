@@ -92,6 +92,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        boss.addAggro(player);
         boss.setTarget(player);
         bossManager.faceTarget(boss, player);
 

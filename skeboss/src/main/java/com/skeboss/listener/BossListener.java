@@ -4,8 +4,10 @@ import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -17,6 +19,33 @@ public final class BossListener implements Listener {
 
     public BossListener(BossManager bossManager) {
         this.bossManager = bossManager;
+    }
+
+    @EventHandler
+    public void onBossDamaged(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity victim) || !bossManager.isBoss(victim)) {
+            return;
+        }
+
+        Player attacker = resolveAttacker(event.getDamager());
+        if (attacker == null) {
+            return;
+        }
+
+        SkeBoss boss = bossManager.getBoss(victim.getUniqueId());
+        if (boss != null) {
+            boss.addAggro(attacker);
+        }
+    }
+
+    private Player resolveAttacker(org.bukkit.entity.Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) {
+            return shooter;
+        }
+        return null;
     }
 
     @EventHandler

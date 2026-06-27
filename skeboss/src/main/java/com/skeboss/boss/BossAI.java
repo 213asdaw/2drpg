@@ -28,16 +28,17 @@ public final class BossAI implements Runnable {
 
             boss.updateBossBar();
 
-            Player target = manager.findNearestPlayer(entity, config.getFollowRange());
-            if (target != null) {
-                boss.setTarget(target);
-            }
+            Player target = manager.findNearestEnemy(boss, entity, config.getFollowRange());
+            boss.setTarget(target);
 
             if (boss.isCastingSkill()) {
                 continue;
             }
 
             if (target == null) {
+                if (entity instanceof Mob mob) {
+                    mob.setTarget(null);
+                }
                 continue;
             }
 

@@ -26,6 +26,9 @@ boss:
   viewer-sync-radius: 64.0
   model-scale: 2.0
   hitbox-scale: 2.0
+  # aggro = 보스를 공격한 플레이어만 타겟 / nearest = 가장 가까운 플레이어
+  target-mode: aggro
+  aggro-drop-seconds: 30
 
 # attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
 skills:

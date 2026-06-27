@@ -170,9 +170,27 @@ public final class BossManager {
         }
     }
 
-    public Player findNearestPlayer(LivingEntity entity, double range) {
+    public boolean isValidTarget(Player player) {
+        return player != null
+                && player.isValid()
+                && !player.isDead()
+                && player.getGameMode() != GameMode.SPECTATOR
+                && player.getGameMode() != GameMode.CREATIVE;
+    }
+
+    public boolean isEnemy(SkeBoss boss, Player player) {
+        if (!isValidTarget(player)) {
+            return false;
+        }
+        if ("aggro".equalsIgnoreCase(config.getTargetMode())) {
+            return boss.hasAggro(player, config.getAggroDropMs());
+        }
+        return true;
+    }
+
+    public Player findNearestEnemy(SkeBoss boss, LivingEntity entity, double range) {
         return entity.getWorld().getPlayers().stream()
-                .filter(player -> player.isValid() && !player.isDead() && player.getGameMode() != GameMode.SPECTATOR)
+                .filter(player -> isEnemy(boss, player))
                 .filter(player -> player.getLocation().distanceSquared(entity.getLocation()) <= range * range)
                 .min(Comparator.comparingDouble(player -> player.getLocation().distanceSquared(entity.getLocation())))
                 .orElse(null);
@@ -180,12 +198,12 @@ public final class BossManager {
 
     public Player resolveSkillTarget(SkeBoss boss, double range) {
         Player current = boss.getTarget();
-        if (current != null && current.isValid() && !current.isDead()
+        if (current != null && isEnemy(boss, current)
                 && current.getWorld().equals(boss.getEntity().getWorld())
                 && current.getLocation().distanceSquared(boss.getEntity().getLocation()) <= range * range) {
             return current;
         }
-        return findNearestPlayer(boss.getEntity(), range);
+        return findNearestEnemy(boss, boss.getEntity(), range);
     }
 
     public void startSkillTracking(SkeBoss boss, double trackRange) {
@@ -195,7 +213,7 @@ public final class BossManager {
                 stopSkillTracking(boss);
                 return;
             }
-            Player target = findNearestPlayer(boss.getEntity(), trackRange);
+            Player target = findNearestEnemy(boss, boss.getEntity(), trackRange);
             if (target != null) {
                 boss.setTarget(target);
                 faceTarget(boss, target);
@@ -288,7 +306,7 @@ public final class BossManager {
         }
 
         Location origin = entity.getLocation();
-        Collection<EntityTarget> targets = findTargets(origin, skill.range(), skill.aoeRadius());
+        Collection<EntityTarget> targets = findTargets(boss, origin, skill.range(), skill.aoeRadius());
         for (EntityTarget target : targets) {
             target.player().damage(skill.damage(), entity);
             Vector knockback = target.player().getLocation().toVector()
@@ -301,7 +319,7 @@ public final class BossManager {
     }
 
     public void meleeAttack(SkeBoss boss, Player target) {
-        if (boss.isCastingSkill()) {
+        if (boss.isCastingSkill() || !isEnemy(boss, target)) {
             return;
         }
         target.damage(config.getMeleeDamage(), boss.getEntity());
@@ -327,12 +345,12 @@ public final class BossManager {
         boss.setCurrentSkillId(null);
     }
 
-    private Collection<EntityTarget> findTargets(Location origin, double range, double aoeRadius) {
+    private Collection<EntityTarget> findTargets(SkeBoss boss, Location origin, double range, double aoeRadius) {
         Map<UUID, EntityTarget> found = new ConcurrentHashMap<>();
         double checkRadius = aoeRadius > 0 ? aoeRadius : range;
 
         for (Player player : origin.getWorld().getPlayers()) {
-            if (!player.isValid() || player.isDead()) {
+            if (!isEnemy(boss, player)) {
                 continue;
             }
             double distance = player.getLocation().distance(origin);
