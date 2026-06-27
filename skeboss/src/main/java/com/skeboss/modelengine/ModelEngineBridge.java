@@ -14,8 +14,8 @@ public final class ModelEngineBridge {
     private final Plugin plugin;
     private boolean available;
 
-    private Class<?> apiClass;
     private Method getOrCreateModeledEntity;
+    private Method createModeledEntity;
     private Method createActiveModel;
 
     public ModelEngineBridge(Plugin plugin) {
@@ -25,14 +25,24 @@ public final class ModelEngineBridge {
 
     private void init() {
         try {
-            apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            getOrCreateModeledEntity = apiClass.getMethod("getOrCreateModeledEntity", Entity.class);
-            createActiveModel = apiClass.getMethod("createActiveModel", String.class);
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+
+            getOrCreateModeledEntity = findStaticMethod(apiClass, "getOrCreateModeledEntity", Entity.class);
+            createModeledEntity = findStaticMethod(apiClass, "createModeledEntity", Entity.class);
+            createActiveModel = findStaticMethod(apiClass, "createActiveModel", String.class);
+
+            if (createActiveModel == null) {
+                throw new NoSuchMethodException("createActiveModel(String)");
+            }
+            if (getOrCreateModeledEntity == null && createModeledEntity == null) {
+                throw new NoSuchMethodException("getOrCreateModeledEntity / createModeledEntity");
+            }
+
             available = true;
             plugin.getLogger().info("ModelEngine API 연결 완료");
         } catch (ReflectiveOperationException ex) {
             available = false;
-            plugin.getLogger().severe("ModelEngine API를 찾을 수 없습니다. ModelEngine 플러그인을 설치하세요.");
+            plugin.getLogger().log(Level.SEVERE, "ModelEngine API를 찾을 수 없습니다.", ex);
         }
     }
 
@@ -46,22 +56,31 @@ public final class ModelEngineBridge {
         }
 
         try {
-            Object modeledEntity = getOrCreateModeledEntity.invoke(null, entity);
+            Object modeledEntity = createModeledEntityWrapper(entity);
             Object activeModel = createActiveModel.invoke(null, modelId);
             if (activeModel == null) {
-                throw new IllegalStateException("모델 ID 없음: " + modelId);
+                throw new IllegalStateException("모델 ID 없음: " + modelId + " (/meg reload 후 blueprint 확인)");
             }
 
-            invoke(modeledEntity, "addModel", activeModel, true);
+            if (!tryInvoke(modeledEntity, "addModel", new Class<?>[]{activeModel.getClass(), boolean.class}, activeModel, true)) {
+                tryInvoke(modeledEntity, "addModel", new Class<?>[]{activeModel.getClass()}, activeModel);
+            }
 
-            // 좀비 바닐라 모델 숨김 — 겹침 방지
-            invoke(activeModel, "setBaseEntityVisible", false);
-            invoke(modeledEntity, "setBaseEntityVisible", false);
+            // ModeledEntity 에만 존재 — ActiveModel 에 호출하면 "호출 실패" 남
+            tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
 
             return new BossModel(modeledEntity, activeModel);
         } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("ModelEngine 모델 적용 실패: " + ex.getMessage(), ex);
+            plugin.getLogger().log(Level.SEVERE, "ModelEngine attachModel 실패", ex);
+            throw new IllegalStateException("ModelEngine 모델 적용 실패: " + rootMessage(ex), ex);
         }
+    }
+
+    private Object createModeledEntityWrapper(Entity entity) throws ReflectiveOperationException {
+        if (getOrCreateModeledEntity != null) {
+            return getOrCreateModeledEntity.invoke(null, entity);
+        }
+        return createModeledEntity.invoke(null, entity);
     }
 
     public void destroy(BossModel model) {
@@ -69,7 +88,7 @@ public final class ModelEngineBridge {
             return;
         }
         try {
-            invoke(model.modeledEntity(), "destroy");
+            invokeFirst(model.modeledEntity(), "destroy");
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "ModeledEntity destroy 실패", ex);
         }
@@ -77,62 +96,155 @@ public final class ModelEngineBridge {
 
     public void playLoopAnimation(BossModel model, String animation, double blendIn, double blendOut) {
         Object handler = animationHandler(model);
-        invoke(handler, "playAnimation", animation, blendIn, blendOut, 1.0, true);
+        if (!tryPlayAnimation(handler, animation, blendIn, blendOut)) {
+            throw new IllegalStateException("playAnimation 실패: " + animation);
+        }
     }
 
     public void stopAnimation(BossModel model, String animation) {
         Object handler = animationHandler(model);
-        invoke(handler, "stopAnimation", animation);
+        // hold 애니메이션은 forceStop 이 더 확실
+        if (!tryInvoke(handler, "forceStopAnimation", new Class<?>[]{String.class}, animation)) {
+            tryInvoke(handler, "stopAnimation", new Class<?>[]{String.class}, animation);
+        }
     }
 
     public int estimateDurationTicks(BossModel model, String animation, int fallbackTicks) {
         try {
             Object handler = animationHandler(model);
-            Object anim = invoke(handler, "getAnimation", animation);
-            if (anim == null) {
+            Object property = invokeFirst(handler, "getAnimation", String.class, animation);
+            if (property == null) {
                 return fallbackTicks;
             }
-            Object length = invoke(anim, "getLength");
+
+            Object length = invokeFirst(property, "getLength");
             if (length instanceof Number number) {
                 return Math.max(10, (int) Math.ceil(number.doubleValue() * 20.0));
             }
-        } catch (Exception ignored) {
-            // API 차이 시 config 값 사용
+        } catch (Exception ex) {
+            plugin.getLogger().fine("애니메이션 길이 추정 실패, config 값 사용: " + animation);
         }
         return fallbackTicks;
     }
 
+    private boolean tryPlayAnimation(Object handler, String animation, double blendIn, double blendOut) {
+        return tryInvoke(handler, "playAnimation",
+                new Class<?>[]{String.class, double.class, double.class, double.class, boolean.class},
+                animation, blendIn, blendOut, 1.0d, true)
+                || tryInvoke(handler, "playAnimation",
+                new Class<?>[]{String.class, float.class, float.class, float.class, boolean.class},
+                animation, (float) blendIn, (float) blendOut, 1.0f, true);
+    }
+
     private Object animationHandler(BossModel model) {
-        return invoke(model.activeModel(), "getAnimationHandler");
+        Object handler = invokeFirst(model.activeModel(), "getAnimationHandler");
+        if (handler == null) {
+            throw new IllegalStateException("getAnimationHandler 반환 null");
+        }
+        return handler;
     }
 
-    private Object invoke(Object target, String method, Object... args) {
+    private static Method findStaticMethod(Class<?> clazz, String name, Class<?>... paramTypes) {
         try {
-            Class<?>[] types = new Class<?>[args.length];
-            for (int i = 0; i < args.length; i++) {
-                types[i] = wrapPrimitive(args[i].getClass());
-            }
-            Method m = target.getClass().getMethod(method, types);
-            return m.invoke(target, args);
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("ModelEngine 호출 실패: " + method, ex);
+            return clazz.getMethod(name, paramTypes);
+        } catch (NoSuchMethodException ignored) {
+            return null;
         }
     }
 
-    private static Class<?> wrapPrimitive(Class<?> type) {
-        if (type == Boolean.class) {
-            return boolean.class;
+    private boolean tryInvoke(Object target, String method, Class<?>[] paramTypes, Object... args) {
+        try {
+            Method m = findMethod(target.getClass(), method, paramTypes);
+            if (m == null) {
+                return false;
+            }
+            m.invoke(target, args);
+            return true;
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "ModelEngine optional call failed: " + method, ex);
+            return false;
         }
-        if (type == Integer.class) {
-            return int.class;
+    }
+
+    private Object invokeFirst(Object target, String method, Object... args) {
+        Method match = findMethodByNameAndArity(target.getClass(), method, args.length);
+        if (match == null) {
+            throw new IllegalStateException("ModelEngine 호출 실패: " + method + " (메서드 없음, 클래스="
+                    + target.getClass().getName() + ")");
         }
-        if (type == Double.class) {
-            return double.class;
+        try {
+            Object[] converted = convertArgs(match.getParameterTypes(), args);
+            return match.invoke(target, converted);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("ModelEngine 호출 실패: " + method + " — " + rootMessage(ex), ex);
         }
-        if (type == Float.class) {
-            return float.class;
+    }
+
+    private static Method findMethod(Class<?> type, String name, Class<?>[] paramTypes) {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getMethod(name, paramTypes);
+            } catch (NoSuchMethodException ignored) {
+                current = current.getSuperclass();
+            }
         }
-        return type;
+        for (Class<?> iface : type.getInterfaces()) {
+            try {
+                return iface.getMethod(name, paramTypes);
+            } catch (NoSuchMethodException ignored) {
+                // continue
+            }
+        }
+        return null;
+    }
+
+    private static Method findMethodByNameAndArity(Class<?> type, String name, int arity) {
+        Class<?> current = type;
+        while (current != null) {
+            for (Method method : current.getMethods()) {
+                if (method.getName().equals(name) && method.getParameterCount() == arity) {
+                    return method;
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private static Object[] convertArgs(Class<?>[] paramTypes, Object[] args) {
+        Object[] converted = new Object[args.length];
+        for (int i = 0; i < args.length; i++) {
+            converted[i] = convertArg(paramTypes[i], args[i]);
+        }
+        return converted;
+    }
+
+    private static Object convertArg(Class<?> paramType, Object arg) {
+        if (arg == null) {
+            return null;
+        }
+        if (paramType.isInstance(arg)) {
+            return arg;
+        }
+        if (paramType == float.class || paramType == Float.class) {
+            return ((Number) arg).floatValue();
+        }
+        if (paramType == double.class || paramType == Double.class) {
+            return ((Number) arg).doubleValue();
+        }
+        if (paramType == int.class || paramType == Integer.class) {
+            return ((Number) arg).intValue();
+        }
+        if (paramType == boolean.class || paramType == Boolean.class) {
+            return (Boolean) arg;
+        }
+        return arg;
+    }
+
+    private static String rootMessage(Throwable ex) {
+        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+        return cause.getClass().getSimpleName() + ": " + cause.getMessage();
     }
 
     public record BossModel(Object modeledEntity, Object activeModel) {

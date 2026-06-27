@@ -56,6 +56,10 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(TextUtil.color("&a해골 보스 스폰 완료! &7(UUID: " + boss.getId() + ")"));
         } catch (IllegalStateException ex) {
             player.sendMessage(TextUtil.color("&c스폰 실패: &f" + ex.getMessage()));
+            com.skeboss.SkeBossPlugin.getInstance().getLogger().severe("보스 스폰 실패: " + ex.getMessage());
+            if (ex.getCause() != null) {
+                ex.getCause().printStackTrace();
+            }
         }
     }
 
