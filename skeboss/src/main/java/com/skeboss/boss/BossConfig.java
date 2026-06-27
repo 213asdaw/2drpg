@@ -37,6 +37,7 @@ public final class BossConfig {
     private final double beamAttackMultiplier;
     private final double fallbackAttackStat;
     private final float skillMaxPitch;
+    private final boolean fireImmune;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
@@ -55,7 +56,7 @@ public final class BossConfig {
         followRange = config.getDouble("boss.follow-range", 32.0);
         meleeRange = config.getDouble("boss.melee-range", 3.5);
         meleeDamage = config.getDouble("boss.melee-damage", 8.0);
-        movementSpeed = config.getDouble("boss.movement-speed", 0.28);
+        movementSpeed = config.getDouble("boss.movement-speed", 0.38);
         aiIntervalTicks = config.getInt("boss.ai-interval-ticks", 5);
         spawnDelayTicks = config.getInt("boss.spawn-delay-ticks", 2);
         hideBaseEntity = config.getBoolean("boss.hide-base-entity", true);
@@ -69,6 +70,7 @@ public final class BossConfig {
         beamAttackMultiplier = config.getDouble("boss.rpg.beam-attack-multiplier", 2.0);
         fallbackAttackStat = config.getDouble("boss.rpg.fallback-attack-stat", 80.0);
         skillMaxPitch = (float) config.getDouble("boss.skill-max-pitch", 75.0);
+        fireImmune = config.getBoolean("boss.fire-immune", true);
 
         skills = loadSkills(config.getConfigurationSection("skills"));
     }
@@ -99,6 +101,7 @@ public final class BossConfig {
                         beamSec.getDouble("width", defaults.width()),
                         beamSec.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
                         beamSec.getInt("particle-ticks", defaults.particleTicks()),
+                        beamSec.getInt("damage-interval-ticks", defaults.damageIntervalTicks()),
                         beamSec.getDouble("particle-step", defaults.particleStep()),
                         (float) beamSec.getDouble("particle-size", defaults.particleSize())
                 );
@@ -107,6 +110,7 @@ public final class BossConfig {
                         skill.getDouble("beam-width", defaults.width()),
                         skill.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
                         skill.getInt("particle-ticks", defaults.particleTicks()),
+                        skill.getInt("damage-interval-ticks", defaults.damageIntervalTicks()),
                         skill.getDouble("particle-step", defaults.particleStep()),
                         (float) skill.getDouble("particle-size", defaults.particleSize())
                 );
@@ -267,6 +271,10 @@ public final class BossConfig {
 
     public float getSkillMaxPitch() {
         return skillMaxPitch;
+    }
+
+    public boolean isFireImmune() {
+        return fireImmune;
     }
 
     public List<SkillDefinition> getSkills() {

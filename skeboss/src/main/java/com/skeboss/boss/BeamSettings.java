@@ -4,10 +4,11 @@ public record BeamSettings(
         double width,
         int fireDelayTicks,
         int particleTicks,
+        int damageIntervalTicks,
         double particleStep,
         float particleSize
 ) {
     public static BeamSettings defaults() {
-        return new BeamSettings(1.2, 11, 18, 0.35, 1.5f);
+        return new BeamSettings(1.8, 11, 25, 4, 0.25, 2.0f);
     }
 }

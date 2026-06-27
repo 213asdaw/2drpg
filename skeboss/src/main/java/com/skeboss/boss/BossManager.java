@@ -52,6 +52,7 @@ public final class BossManager {
             entity.setCanPickupItems(false);
             entity.setRemoveWhenFarAway(false);
             entity.setShouldBurnInDay(false);
+            entity.setFireTicks(0);
             entity.setCustomNameVisible(true);
             entity.setCustomName(TextUtil.color(config.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));

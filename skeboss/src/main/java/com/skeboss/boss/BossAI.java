@@ -28,6 +28,10 @@ public final class BossAI implements Runnable {
 
             boss.updateBossBar();
 
+            if (config.isFireImmune()) {
+                entity.setFireTicks(0);
+            }
+
             Player target = manager.findNearestEnemy(boss, entity, config.getFollowRange());
             boss.setTarget(target);
 

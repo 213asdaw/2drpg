@@ -23,7 +23,8 @@ boss:
   follow-range: 32.0
   melee-range: 3.5
   melee-damage: 8.0
-  movement-speed: 0.28
+  movement-speed: 0.38
+  fire-immune: true
   ai-interval-ticks: 5
   spawn-delay-ticks: 2
   hide-base-entity: true
@@ -68,8 +69,9 @@ skills:
     priority: 10
     knockback: 0.6
     aoe-radius: 0.0
-    beam-width: 1.2
+    beam-width: 1.8
     fire-delay-ticks: 11
     particle-ticks: 25
+    damage-interval-ticks: 4
     particle-step: 0.25
     particle-size: 2.0

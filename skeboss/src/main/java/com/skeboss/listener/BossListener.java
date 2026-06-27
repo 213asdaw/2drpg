@@ -6,8 +6,11 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -19,6 +22,35 @@ public final class BossListener implements Listener {
 
     public BossListener(BossManager bossManager) {
         this.bossManager = bossManager;
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCombust(EntityCombustEvent event) {
+        if (!bossManager.getConfig().isFireImmune()) {
+            return;
+        }
+        if (event.getEntity() instanceof LivingEntity living && bossManager.isBoss(living)) {
+            event.setCancelled(true);
+            living.setFireTicks(0);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onFireDamage(EntityDamageEvent event) {
+        if (!bossManager.getConfig().isFireImmune()) {
+            return;
+        }
+        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
+            return;
+        }
+        EntityDamageEvent.DamageCause cause = event.getCause();
+        if (cause == EntityDamageEvent.DamageCause.FIRE
+                || cause == EntityDamageEvent.DamageCause.FIRE_TICK
+                || cause == EntityDamageEvent.DamageCause.LAVA
+                || cause == EntityDamageEvent.DamageCause.HOT_FLOOR) {
+            event.setCancelled(true);
+            living.setFireTicks(0);
+        }
     }
 
     @EventHandler
