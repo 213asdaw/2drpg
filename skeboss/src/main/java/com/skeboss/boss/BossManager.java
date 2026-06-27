@@ -2,6 +2,7 @@ package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.skill.ChainPullSkill;
 import com.skeboss.skill.LaserBeamSkill;
 import com.skeboss.skript.SkriptBridge;
 import com.skeboss.util.TextUtil;
@@ -230,9 +231,17 @@ public final class BossManager {
     }
 
     public Location getBeamOrigin(SkeBoss boss) {
+        return getSkillOrigin(boss, 0.75);
+    }
+
+    public Location getSkillOrigin(SkeBoss boss) {
+        return getSkillOrigin(boss, 0.55);
+    }
+
+    private Location getSkillOrigin(SkeBoss boss, double heightRatio) {
         LivingEntity entity = boss.getEntity();
         Location loc = entity.getLocation().clone();
-        loc.add(0, entity.getHeight() * 0.75, 0);
+        loc.add(0, entity.getHeight() * heightRatio, 0);
         loc.setPitch(0.0f);
         return loc;
     }
@@ -306,6 +315,8 @@ public final class BossManager {
 
         if (skill.isBeamSkill()) {
             LaserBeamSkill.execute(plugin, this, boss, skill);
+        } else if (skill.isChainSkill()) {
+            ChainPullSkill.execute(plugin, this, boss, skill);
         } else {
             Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
         }

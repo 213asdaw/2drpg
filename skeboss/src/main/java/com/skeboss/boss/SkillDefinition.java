@@ -7,11 +7,18 @@ public record SkillDefinition(
         int durationTicks,
         double damage,
         double range,
+        double minRange,
+        int priority,
         double knockback,
         double aoeRadius,
-        BeamSettings beam
+        BeamSettings beam,
+        ChainSettings chain
 ) {
     public boolean isBeamSkill() {
         return beam != null;
+    }
+
+    public boolean isChainSkill() {
+        return chain != null;
     }
 }

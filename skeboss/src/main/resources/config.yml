@@ -37,6 +37,20 @@ boss:
 
 # attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
 skills:
+  chain:
+    chain: true
+    animation: walk
+    cooldown-seconds: 12
+    duration-ticks: 45
+    damage: 6.0
+    range: 16.0
+    min-range: 4.0
+    priority: 20
+    fire-delay-ticks: 8
+    chain-speed: 1.1
+    hit-radius: 1.4
+    pull-speed: 0.5
+    pull-ticks: 14
   laser:
     animation: attack_laser
     beam: true
@@ -44,6 +58,8 @@ skills:
     duration-ticks: 50
     damage: 18.0
     range: 20.0
+    min-range: 6.0
+    priority: 10
     knockback: 0.6
     aoe-radius: 0.0
     beam-width: 1.2

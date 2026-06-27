@@ -66,15 +66,18 @@ public final class BossAI implements Runnable {
 
     private SkillDefinition pickSkill(SkeBoss boss, double distance) {
         SkillDefinition best = null;
+        int bestPriority = Integer.MIN_VALUE;
+
         for (SkillDefinition skill : manager.getConfig().getSkills()) {
             if (!boss.isSkillReady(skill)) {
                 continue;
             }
-            if (distance > skill.range()) {
+            if (distance > skill.range() || distance < skill.minRange()) {
                 continue;
             }
-            if (best == null || skill.damage() > best.damage()) {
+            if (best == null || skill.priority() > bestPriority) {
                 best = skill;
+                bestPriority = skill.priority();
             }
         }
         return best;

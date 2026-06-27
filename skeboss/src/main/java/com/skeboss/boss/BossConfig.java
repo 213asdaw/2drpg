@@ -107,6 +107,31 @@ public final class BossConfig {
             }
         }
 
+        ChainSettings chain = null;
+        if (skill.getBoolean("chain", false) || skill.isConfigurationSection("chain")) {
+            ConfigurationSection chainSec = skill.getConfigurationSection("chain");
+            ChainSettings defaults = ChainSettings.defaults();
+            if (chainSec != null) {
+                chain = new ChainSettings(
+                        chainSec.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
+                        chainSec.getDouble("chain-speed", defaults.chainSpeed()),
+                        chainSec.getDouble("hit-radius", defaults.hitRadius()),
+                        chainSec.getDouble("pull-speed", defaults.pullSpeed()),
+                        chainSec.getInt("pull-ticks", defaults.pullTicks()),
+                        chainSec.getDouble("particle-step", defaults.particleStep())
+                );
+            } else {
+                chain = new ChainSettings(
+                        skill.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
+                        skill.getDouble("chain-speed", defaults.chainSpeed()),
+                        skill.getDouble("hit-radius", defaults.hitRadius()),
+                        skill.getDouble("pull-speed", defaults.pullSpeed()),
+                        skill.getInt("pull-ticks", defaults.pullTicks()),
+                        skill.getDouble("particle-step", defaults.particleStep())
+                );
+            }
+        }
+
         return new SkillDefinition(
                 key,
                 skill.getString("animation", key),
@@ -114,15 +139,19 @@ public final class BossConfig {
                 skill.getInt("duration-ticks", 40),
                 skill.getDouble("damage", 10.0),
                 skill.getDouble("range", 5.0),
+                skill.getDouble("min-range", 0.0),
+                skill.getInt("priority", 0),
                 skill.getDouble("knockback", 0.5),
                 skill.getDouble("aoe-radius", 0.0),
-                beam
+                beam,
+                chain
         );
     }
 
     private static SkillDefinition defaultLaserSkill() {
         return new SkillDefinition(
-                "laser", "attack_laser", 10, 50, 18.0, 20.0, 0.6, 0.0, BeamSettings.defaults()
+                "laser", "attack_laser", 10, 50, 18.0, 20.0, 6.0, 10, 0.6, 0.0,
+                BeamSettings.defaults(), null
         );
     }
 
