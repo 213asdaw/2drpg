@@ -48,17 +48,25 @@ mvn package
 | `/skeboss remove` | 보스 제거 |
 | `/skeboss reload` | config 리로드 |
 
-## config.yml 설정 예시
+## ske.bbmodel 애니메이션 (확인됨)
+
+| 이름 | loop | 길이 | 용도 |
+|------|------|------|------|
+| `walk` | loop | 1초 | 이동 / 대기(idle 대체) |
+| `attack_laser` | **hold** | 2.5초 | 레이저 스킬 |
+
+> `attack_laser`가 `loop: hold`라 마지막 프레임에 멈춥니다.  
+> 플러그인이 스킬 종료 후 `stopAnimation` + `walk` 재생으로 복귀합니다.
 
 ```yaml
-model-id: ske_boss       # blueprint 폴더 이름
+model-id: ske
 animations:
-  idle: idle
+  idle: walk
   walk: walk
-yaw-offset: 180          # 방향 맞으면 0
 skills:
-  slash:
-    animation: attack  # bbmodel 애니메이션 이름
+  laser:
+    animation: attack_laser
+    duration-ticks: 50   # 2.5초
 ```
 
 ## IntelliJ에서 열기

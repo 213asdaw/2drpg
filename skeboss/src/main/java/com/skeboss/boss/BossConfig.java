@@ -27,7 +27,7 @@ public final class BossConfig {
     public BossConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
         modelId = config.getString("model-id", "ske");
-        idleAnimation = config.getString("animations.idle", "idle");
+        idleAnimation = config.getString("animations.idle", "walk");
         walkAnimation = config.getString("animations.walk", "walk");
         yawOffset = (float) config.getDouble("yaw-offset", 180.0);
         blendIn = config.getDouble("blend-in", 0.15);
@@ -46,8 +46,7 @@ public final class BossConfig {
     private List<SkillDefinition> loadSkills(ConfigurationSection section) {
         if (section == null) {
             return List.of(
-                    new SkillDefinition("slash", "attack", 5, 30, 14.0, 4.5, 0.4, 0.0),
-                    new SkillDefinition("slam", "skill_slam", 12, 50, 22.0, 6.0, 1.2, 5.0)
+                    new SkillDefinition("laser", "attack_laser", 10, 50, 18.0, 12.0, 0.6, 0.0)
             );
         }
 

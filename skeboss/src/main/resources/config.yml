@@ -1,12 +1,12 @@
-# ModelEngine blueprint — money서버시즌1/plugins/ModelEngine/blueprints/ske.bbmodel
+# ske.bbmodel 기준 설정 (model-id: ske, model_identifier: ske)
 model-id: ske
 
-# 애니메이션 이름 — Blockbench bbmodel 과 동일해야 함
+# bbmodel 애니메이션: walk, attack_laser (idle 없음 → 대기 시 walk 사용)
 animations:
-  idle: idle
+  idle: walk
   walk: walk
 
-# 모델이 뒤를 보고 있으면 180, 정상이면 0
+# right_arm bone이 Y -180° — 모델 facing 보정
 yaw-offset: 180
 
 blend-in: 0.15
@@ -20,21 +20,13 @@ boss:
   melee-damage: 8.0
   ai-interval-ticks: 5
 
-# 스킬 — animation 이름을 본인 모델에 맞게 수정
+# attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
 skills:
-  slash:
-    animation: attack
-    cooldown-seconds: 5
-    duration-ticks: 30
-    damage: 14.0
-    range: 4.5
-    knockback: 0.4
-    aoe-radius: 0.0
-  slam:
-    animation: skill_slam
-    cooldown-seconds: 12
+  laser:
+    animation: attack_laser
+    cooldown-seconds: 10
     duration-ticks: 50
-    damage: 22.0
-    range: 6.0
-    knockback: 1.2
-    aoe-radius: 5.0
+    damage: 18.0
+    range: 12.0
+    knockback: 0.6
+    aoe-radius: 0.0
