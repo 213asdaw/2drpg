@@ -1,5 +1,6 @@
 package com.skeboss.command;
 
+import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
@@ -30,6 +31,12 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("skeweapon")
+                || command.getName().equalsIgnoreCase("인조무기")
+                || command.getName().equalsIgnoreCase("skebossweapon")) {
+            return handleQuickWeapon(sender, args);
+        }
+
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
             sendHelp(sender);
             return true;
@@ -92,14 +99,43 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean canGiveWeapon(CommandSender sender) {
+        return sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin");
+    }
+
+    /** /skeweapon — artificial-arm 바로 지급 */
+    private boolean handleQuickWeapon(CommandSender sender, String[] args) {
+        if (!canGiveWeapon(sender)) {
+            sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7(OP 또는 skeboss.weapon.give)"));
+            return true;
+        }
+
+        Player target;
+        if (args.length >= 1) {
+            target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage(TextUtil.color("&c플레이어를 찾을 수 없습니다: &f" + args[0]));
+                return true;
+            }
+        } else if (sender instanceof Player player) {
+            target = player;
+        } else {
+            sender.sendMessage(TextUtil.color("&c콘솔: &f/skeweapon <플레이어>"));
+            return true;
+        }
+
+        return giveWeapon(sender, target, "artificial-arm");
+    }
+
     private boolean handleWeapon(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("skeboss.weapon.give")) {
-            sender.sendMessage(TextUtil.color("&c권한이 없습니다. (skeboss.weapon.give)"));
+        if (!canGiveWeapon(sender)) {
+            sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7(OP 또는 skeboss.weapon.give)"));
             return true;
         }
         if (args.length < 2) {
             sender.sendMessage(TextUtil.color("&c/skeboss weapon <이름> [플레이어]"));
             sender.sendMessage(TextUtil.color("&7무기 목록: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
+            sender.sendMessage(TextUtil.color("&7빠른 지급: &f/skeweapon"));
             return true;
         }
 
@@ -118,17 +154,29 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        return giveWeapon(sender, target, weaponId);
+    }
+
+    private boolean giveWeapon(CommandSender sender, Player target, String weaponId) {
         ItemStack weapon = weaponManager.createWeapon(weaponId);
         if (weapon == null) {
             sender.sendMessage(TextUtil.color("&c무기 없음: &f" + weaponId));
             sender.sendMessage(TextUtil.color("&7목록: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
+            sender.sendMessage(TextUtil.color("&7config에 weapons 섹션이 있는지 확인 후 &f/skeboss reload"));
             return true;
         }
 
-        target.getInventory().addItem(weapon);
-        sender.sendMessage(TextUtil.color("&a무기 지급: &f" + weaponId + " &7→ &f" + target.getName()));
+        var leftover = target.getInventory().addItem(weapon);
+        if (!leftover.isEmpty()) {
+            for (ItemStack drop : leftover.values()) {
+                target.getWorld().dropItemNaturally(target.getLocation(), drop);
+            }
+            sender.sendMessage(TextUtil.color("&e인벤토리 가득 참 — 바닥에 드롭했습니다."));
+        }
+
+        sender.sendMessage(TextUtil.color("&a무기 지급: &f" + weaponManager.getWeaponId(weapon) + " &7→ &f" + target.getName()));
         if (!target.equals(sender)) {
-            target.sendMessage(TextUtil.color("&a인조인간 무기를 받았습니다: &f" + weaponId));
+            target.sendMessage(TextUtil.color("&a인조 무기를 받았습니다."));
         }
         return true;
     }
@@ -187,9 +235,11 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleReload(CommandSender sender) {
-        com.skeboss.SkeBossPlugin.getInstance().reloadConfig();
+        SkeBossPlugin plugin = com.skeboss.SkeBossPlugin.getInstance();
+        plugin.mergeAndReloadConfig();
         weaponManager.reload();
         sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스는 재시작 권장)"));
+        sender.sendMessage(TextUtil.color("&7무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
     }
 
     private SkeBoss getTargetBoss(Player player) {
@@ -201,7 +251,8 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(TextUtil.color("&6&l━━━━ SkeBoss 명령어 ━━━━"));
-        if (sender.hasPermission("skeboss.weapon.give")) {
+        if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
+            sender.sendMessage(TextUtil.color("&e/skeweapon &7- 인조 무기 바로 지급"));
             sender.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
             sender.sendMessage(TextUtil.color("&7  무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
         }
@@ -216,6 +267,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
         }
         if (!sender.hasPermission("skeboss.weapon.give")
+                && !sender.hasPermission("skeboss.admin")
                 && !sender.hasPermission("skeboss.weapon.use")
                 && !sender.hasPermission("skeboss.admin")) {
             sender.sendMessage(TextUtil.color("&7사용 가능한 명령이 없습니다."));
@@ -229,7 +281,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("skeboss.admin")) {
                 options.addAll(List.of("spawn", "skill", "remove", "reload"));
             }
-            if (sender.hasPermission("skeboss.weapon.give")) {
+            if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
                 options.add("weapon");
             }
             if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
@@ -245,7 +297,8 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             List<String> names = bossManager.getConfig().getSkills().stream().map(SkillDefinition::id).toList();
             return filter(names, args[1]);
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("weapon") && sender.hasPermission("skeboss.weapon.give")) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("weapon")
+                && (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin"))) {
             return filter(weaponManager.getWeaponConfig().getWeaponIds(), args[1]);
         }
         return List.of();

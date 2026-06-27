@@ -14,6 +14,10 @@ commands:
     description: SkeBoss 보스·무기 명령어
     usage: /skeboss [help|weapon|cast|spawn|skill|remove|reload]
     aliases: [sboss, 인조보스]
+  skeweapon:
+    description: 인조 무기 바로 지급
+    usage: /skeweapon [플레이어]
+    aliases: [인조무기, skebossweapon]
 
 permissions:
   skeboss.admin:

@@ -7,6 +7,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,6 +31,7 @@ public final class WeaponConfig {
     private Map<String, WeaponDefinition> loadWeapons(ConfigurationSection root) {
         if (root == null) {
             return Map.of(
+                    "artificial-arm", defaultCombined(),
                     "laser-rifle", defaultLaser(),
                     "chain-hook", defaultChain()
             );
@@ -141,7 +143,42 @@ public final class WeaponConfig {
     }
 
     public WeaponDefinition getWeapon(String id) {
-        return weapons.get(id);
+        if (id == null) {
+            return null;
+        }
+        WeaponDefinition direct = weapons.get(id);
+        if (direct != null) {
+            return direct;
+        }
+        for (Map.Entry<String, WeaponDefinition> entry : weapons.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(id)) {
+                return entry.getValue();
+            }
+        }
+        return resolveAlias(id);
+    }
+
+    private WeaponDefinition resolveAlias(String id) {
+        String key = id.toLowerCase(Locale.ROOT).replace('_', '-');
+        return switch (key) {
+            case "arm", "weapon", "무기", "인조무기", "인조-무기" -> findByKey("artificial-arm");
+            case "laser", "레이저" -> findByKey("laser-rifle");
+            case "chain", "사슬" -> findByKey("chain-hook");
+            default -> null;
+        };
+    }
+
+    private WeaponDefinition findByKey(String key) {
+        WeaponDefinition direct = weapons.get(key);
+        if (direct != null) {
+            return direct;
+        }
+        for (Map.Entry<String, WeaponDefinition> entry : weapons.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     public List<String> getWeaponIds() {

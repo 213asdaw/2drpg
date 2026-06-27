@@ -23,6 +23,7 @@ public final class SkeBossPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        mergeDefaultConfig();
 
         if (!getServer().getPluginManager().isPluginEnabled("ModelEngine")) {
             getLogger().severe("ModelEngine이 없습니다. plugins/ModelEngine.jar 를 넣고 재시작하세요.");
@@ -43,12 +44,35 @@ public final class SkeBossPlugin extends JavaPlugin {
         bossAI.start();
 
         SkeBossCommand command = new SkeBossCommand(bossManager, weaponManager);
-        getCommand("skeboss").setExecutor(command);
-        getCommand("skeboss").setTabCompleter(command);
+        var skebossCmd = getCommand("skeboss");
+        if (skebossCmd == null) {
+            getLogger().severe("plugin.yml에 skeboss 명령이 없습니다.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        skebossCmd.setExecutor(command);
+        skebossCmd.setTabCompleter(command);
+
+        var skeWeaponCmd = getCommand("skeweapon");
+        if (skeWeaponCmd != null) {
+            skeWeaponCmd.setExecutor(command);
+            skeWeaponCmd.setTabCompleter(command);
+        }
+
         getServer().getPluginManager().registerEvents(new BossListener(bossManager), this);
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
 
-        getLogger().info("SkeBoss 활성화 — /skeboss spawn | /skeboss weapon <이름>");
+        getLogger().info("SkeBoss 활성화 — /skeboss help | /skeweapon | /skeboss weapon artificial-arm");
+    }
+
+    public void mergeAndReloadConfig() {
+        mergeDefaultConfig();
+    }
+
+    private void mergeDefaultConfig() {
+        reloadConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
     }
 
     @Override
