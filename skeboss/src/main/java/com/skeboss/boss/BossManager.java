@@ -26,6 +26,8 @@ import java.util.logging.Level;
 public final class BossManager {
 
     public static final String METADATA_KEY = "skeboss";
+    /** Skript RPG 연동 — 빔 스킬 시전 중 보스에 부여 */
+    public static final String USING_SKILL_TAG = "using_skill";
 
     private final SkeBossPlugin plugin;
     private final ModelEngineBridge modelEngine;
@@ -291,6 +293,7 @@ public final class BossManager {
         int duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), skill.durationTicks());
 
         if (skill.isBeamSkill()) {
+            entity.addScoreboardTag(USING_SKILL_TAG);
             LaserBeamSkill.execute(plugin, this, boss, skill);
         } else {
             Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
@@ -326,7 +329,10 @@ public final class BossManager {
     }
 
     private void finishSkill(SkeBoss boss, SkillDefinition skill) {
-        if (!boss.getEntity().isValid()) {
+        LivingEntity entity = boss.getEntity();
+        entity.removeScoreboardTag(USING_SKILL_TAG);
+
+        if (!entity.isValid()) {
             return;
         }
 
@@ -336,7 +342,6 @@ public final class BossManager {
         clearAnimationState(boss);
         playWalk(boss);
 
-        LivingEntity entity = boss.getEntity();
         if (entity instanceof Mob mob) {
             mob.setAI(true);
         }
@@ -372,6 +377,7 @@ public final class BossManager {
             modelEngine.destroy(boss.getModel());
         }
         if (boss.getEntity().isValid()) {
+            boss.getEntity().removeScoreboardTag(USING_SKILL_TAG);
             boss.getEntity().remove();
         }
     }
