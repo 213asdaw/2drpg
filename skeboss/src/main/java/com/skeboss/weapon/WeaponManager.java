@@ -23,7 +23,7 @@ import java.util.UUID;
 
 public final class WeaponManager {
 
-    public static final String USING_SKILL_TAG = "using_skill";
+    public static final String USING_SKILL_TAG = "skeboss_using_skill";
 
     private final SkeBossPlugin plugin;
     private final BossManager bossManager;

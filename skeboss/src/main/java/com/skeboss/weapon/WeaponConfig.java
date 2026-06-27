@@ -19,6 +19,8 @@ public final class WeaponConfig {
     private final boolean pluginRightClick;
     private final boolean requireNbt;
     private final boolean restoreAfterSkill;
+    private final boolean restoreNearBoss;
+    private final double restoreRadius;
     private final List<String> restoreKeywords;
     private final Map<String, WeaponDefinition> weapons;
 
@@ -30,6 +32,8 @@ public final class WeaponConfig {
         pluginRightClick = root == null || root.getBoolean("plugin-right-click", true);
         requireNbt = root == null || root.getBoolean("require-nbt", true);
         restoreAfterSkill = root == null || root.getBoolean("restore-after-skill", true);
+        restoreNearBoss = root == null || root.getBoolean("restore-near-boss", true);
+        restoreRadius = root == null ? 48.0 : root.getDouble("restore-radius", 48.0);
         restoreKeywords = loadRestoreKeywords(root);
         weapons = loadWeapons(root);
     }
@@ -57,7 +61,8 @@ public final class WeaponConfig {
         for (String key : root.getKeys(false)) {
             if (key.equals("pvp") || key.equals("target-boss") || key.equals("target-mobs")
                     || key.equals("plugin-right-click") || key.equals("require-nbt")
-                    || key.equals("restore-after-skill") || key.equals("restore-keywords")) {
+                    || key.equals("restore-after-skill") || key.equals("restore-keywords")
+                    || key.equals("restore-near-boss") || key.equals("restore-radius")) {
                 continue;
             }
             ConfigurationSection section = root.getConfigurationSection(key);
@@ -153,6 +158,14 @@ public final class WeaponConfig {
 
     public boolean isRestoreAfterSkill() {
         return restoreAfterSkill;
+    }
+
+    public boolean isRestoreNearBoss() {
+        return restoreNearBoss;
+    }
+
+    public double getRestoreRadius() {
+        return restoreRadius;
     }
 
     public List<String> getRestoreKeywords() {

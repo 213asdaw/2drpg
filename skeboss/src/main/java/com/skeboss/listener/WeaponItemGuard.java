@@ -1,6 +1,7 @@
 package com.skeboss.listener;
 
 import com.skeboss.SkeBossPlugin;
+import com.skeboss.boss.SkeBoss;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -22,7 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * untitled 불꽃검기 등이 손에 든 아이템을 검기로 바꿔놓고 복구 못 할 때 인조 무기를 되돌림.
+ * untitled 불꽃검기 등이 손 아이템을 검기로 바꿔놓고 복구 못 할 때 되돌림.
+ * 인조인간 보스 근처 전투 시 일반 무기(검 등)도 백업.
  */
 public final class WeaponItemGuard implements Listener {
 
@@ -45,7 +47,7 @@ public final class WeaponItemGuard implements Listener {
                 && action != Action.LEFT_CLICK_AIR && action != Action.LEFT_CLICK_BLOCK) {
             return;
         }
-        backupIfWeapon(event.getPlayer());
+        tryBackup(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -53,7 +55,7 @@ public final class WeaponItemGuard implements Listener {
         if (event.getAnimationType() != PlayerAnimationType.ARM_SWING) {
             return;
         }
-        backupIfWeapon(event.getPlayer());
+        tryBackup(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -66,13 +68,13 @@ public final class WeaponItemGuard implements Listener {
         backups.remove(event.getPlayer().getUniqueId());
     }
 
-    private void backupIfWeapon(Player player) {
+    private void tryBackup(Player player) {
         if (!weaponManager.getWeaponConfig().isRestoreAfterSkill()) {
             return;
         }
 
         ItemStack hand = player.getInventory().getItemInMainHand();
-        if (!weaponManager.isInteractWeapon(hand)) {
+        if (!shouldBackup(player, hand)) {
             return;
         }
 
@@ -80,9 +82,39 @@ public final class WeaponItemGuard implements Listener {
         scheduleRestoreChecks(player);
     }
 
+    private boolean shouldBackup(Player player, ItemStack hand) {
+        if (hand == null || hand.getType().isAir()) {
+            return false;
+        }
+        if (weaponManager.isInteractWeapon(hand)) {
+            return true;
+        }
+        if (!weaponManager.getWeaponConfig().isRestoreNearBoss()) {
+            return false;
+        }
+        return isNearBoss(player);
+    }
+
+    private boolean isNearBoss(Player player) {
+        double radius = weaponManager.getWeaponConfig().getRestoreRadius();
+        double radiusSq = radius * radius;
+        for (SkeBoss boss : plugin.getBossManager().getBosses()) {
+            if (!boss.getEntity().isValid() || boss.getEntity().isDead()) {
+                continue;
+            }
+            if (!boss.getEntity().getWorld().equals(player.getWorld())) {
+                continue;
+            }
+            if (boss.getEntity().getLocation().distanceSquared(player.getLocation()) <= radiusSq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void scheduleRestoreChecks(Player player) {
         UUID id = player.getUniqueId();
-        for (long delay : new long[]{1L, 3L, 5L, 10L, 20L, 40L, 60L}) {
+        for (long delay : new long[]{1L, 3L, 5L, 10L, 20L, 40L, 60L, 80L, 100L}) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> tryRestore(player, id), delay);
         }
     }
@@ -99,7 +131,7 @@ public final class WeaponItemGuard implements Listener {
         }
 
         ItemStack current = player.getInventory().getItemInMainHand();
-        if (weaponManager.isInteractWeapon(current)) {
+        if (isSameItem(backup, current)) {
             backups.remove(id);
             return;
         }
@@ -128,8 +160,36 @@ public final class WeaponItemGuard implements Listener {
             return true;
         }
 
+        String backupName = displayName(backup);
+        if (!backupName.isEmpty() && !backupName.equals(currentName)) {
+            return looksLikeSkillItem(currentName);
+        }
+
         return weaponManager.getNbtWeaponId(current) == null
                 && weaponManager.getNbtWeaponId(backup) != null;
+    }
+
+    private boolean looksLikeSkillItem(String name) {
+        if (name.isEmpty()) {
+            return false;
+        }
+        List<String> keywords = weaponManager.getWeaponConfig().getRestoreKeywords();
+        for (String keyword : keywords) {
+            if (!keyword.isBlank() && name.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSameItem(ItemStack backup, ItemStack current) {
+        if (current == null || backup == null) {
+            return false;
+        }
+        if (current.getType() != backup.getType()) {
+            return false;
+        }
+        return displayName(current).equals(displayName(backup));
     }
 
     private static String displayName(ItemStack item) {

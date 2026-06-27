@@ -3,7 +3,7 @@
 # plugins/Skript/scripts/skeboss.sk
 #
 # 무기 우클릭은 SkeBoss 플러그인이 처리 (OP 불필요)
-# 무기 지급: /skeboss weapon artificial-arm
+# untitled 불꽃검기: using_skill 태그 = 스킬 데미지 그대로 / skeboss_using_skill = 인조무기
 # ============================================================
 
 options:
@@ -95,7 +95,8 @@ on damage:
 
 	if attacker is a player:
 		if scoreboard tags of attacker does not contain "using_skill":
-			set damage to {공격::%attacker%}
+			if scoreboard tags of attacker does not contain "skeboss_using_skill":
+				set damage to {공격::%attacker%}
 	else:
 		set damage to {공격::%attacker%}
 
