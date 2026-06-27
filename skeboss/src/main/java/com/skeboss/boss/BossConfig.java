@@ -53,9 +53,7 @@ public final class BossConfig {
 
     private List<SkillDefinition> loadSkills(ConfigurationSection section) {
         if (section == null) {
-            return List.of(
-                    new SkillDefinition("laser", "attack_laser", 10, 50, 18.0, 12.0, 0.6, 0.0)
-            );
+            return List.of(defaultLaserSkill());
         }
 
         List<SkillDefinition> loaded = new ArrayList<>();
@@ -64,18 +62,52 @@ public final class BossConfig {
             if (skill == null) {
                 continue;
             }
-            loaded.add(new SkillDefinition(
-                    key,
-                    skill.getString("animation", key),
-                    skill.getInt("cooldown-seconds", 8),
-                    skill.getInt("duration-ticks", 40),
-                    skill.getDouble("damage", 10.0),
-                    skill.getDouble("range", 5.0),
-                    skill.getDouble("knockback", 0.5),
-                    skill.getDouble("aoe-radius", 0.0)
-            ));
+            loaded.add(parseSkill(key, skill));
         }
         return Collections.unmodifiableList(loaded);
+    }
+
+    private SkillDefinition parseSkill(String key, ConfigurationSection skill) {
+        BeamSettings beam = null;
+        if (skill.getBoolean("beam", false) || skill.isConfigurationSection("beam")) {
+            ConfigurationSection beamSec = skill.getConfigurationSection("beam");
+            BeamSettings defaults = BeamSettings.defaults();
+            if (beamSec != null) {
+                beam = new BeamSettings(
+                        beamSec.getDouble("width", defaults.width()),
+                        beamSec.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
+                        beamSec.getInt("particle-ticks", defaults.particleTicks()),
+                        beamSec.getDouble("particle-step", defaults.particleStep()),
+                        (float) beamSec.getDouble("particle-size", defaults.particleSize())
+                );
+            } else {
+                beam = new BeamSettings(
+                        skill.getDouble("beam-width", defaults.width()),
+                        skill.getInt("fire-delay-ticks", defaults.fireDelayTicks()),
+                        skill.getInt("particle-ticks", defaults.particleTicks()),
+                        skill.getDouble("particle-step", defaults.particleStep()),
+                        (float) skill.getDouble("particle-size", defaults.particleSize())
+                );
+            }
+        }
+
+        return new SkillDefinition(
+                key,
+                skill.getString("animation", key),
+                skill.getInt("cooldown-seconds", 8),
+                skill.getInt("duration-ticks", 40),
+                skill.getDouble("damage", 10.0),
+                skill.getDouble("range", 5.0),
+                skill.getDouble("knockback", 0.5),
+                skill.getDouble("aoe-radius", 0.0),
+                beam
+        );
+    }
+
+    private static SkillDefinition defaultLaserSkill() {
+        return new SkillDefinition(
+                "laser", "attack_laser", 10, 50, 18.0, 20.0, 0.6, 0.0, BeamSettings.defaults()
+        );
     }
 
     public String getModelId() {

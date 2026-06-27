@@ -2,6 +2,7 @@ package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.skill.LaserBeamSkill;
 import com.skeboss.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -176,6 +177,11 @@ public final class BossManager {
         }
         entity.setVelocity(new Vector(0, 0, 0));
 
+        Player target = boss.getTarget();
+        if (target != null) {
+            faceTarget(boss, target);
+        }
+
         modelEngine.playLoopAnimation(
                 boss.getModel(),
                 skill.animation(),
@@ -186,7 +192,11 @@ public final class BossManager {
 
         int duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), skill.durationTicks());
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
+        if (skill.isBeamSkill()) {
+            LaserBeamSkill.execute(plugin, boss, skill);
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
+        }
         Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), duration);
         return true;
     }

@@ -8,6 +8,10 @@ public record SkillDefinition(
         double damage,
         double range,
         double knockback,
-        double aoeRadius
+        double aoeRadius,
+        BeamSettings beam
 ) {
+    public boolean isBeamSkill() {
+        return beam != null;
+    }
 }

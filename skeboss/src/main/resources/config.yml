@@ -28,9 +28,15 @@ boss:
 skills:
   laser:
     animation: attack_laser
+    beam: true
     cooldown-seconds: 10
     duration-ticks: 50
     damage: 18.0
-    range: 12.0
+    range: 20.0
     knockback: 0.6
     aoe-radius: 0.0
+    beam-width: 1.2
+    fire-delay-ticks: 11
+    particle-ticks: 20
+    particle-step: 0.35
+    particle-size: 1.5
