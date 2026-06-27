@@ -82,6 +82,11 @@ weapons:
   plugin-right-click: true
   # true = /skeboss weapon 으로 받은 무기(NBT)만 우클릭 인식 — 불꽃검기 등 다른 스킬과 충돌 방지
   require-nbt: true
+  # untitled 불꽃검기 등이 손 아이템을 검기로 바꿀 때 인조 무기 자동 복구
+  restore-after-skill: true
+  restore-keywords:
+    - "검기"
+    - "불꽃"
   pvp: true
   target-boss: true
   target-mobs: true

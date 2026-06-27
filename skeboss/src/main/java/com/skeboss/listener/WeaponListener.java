@@ -19,7 +19,7 @@ public final class WeaponListener implements Listener {
     }
 
     /**
-     * HIGH + ignoreCancelled: 불꽃검기 등 다른 스킬이 먼저 처리한 뒤,
+     * HIGH + ignoreCancelled: untitled 불꽃검기 등 다른 스킬이 먼저 처리한 뒤,
      * 취소되지 않았을 때만 인조 무기 발동.
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
