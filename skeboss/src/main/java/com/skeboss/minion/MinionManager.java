@@ -181,15 +181,16 @@ public final class MinionManager {
             minion.setModel(model);
             double syncRadius = config.getViewerSyncRadius();
             modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
-                if (appliedLimbs >= 6 && config.isHideBaseEntity()) {
+                int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(model));
+                if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         if (!entity.isValid() || entity.isDead()) {
                             return;
                         }
                         modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
                         modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
-                    }, 10L);
-                } else if (appliedLimbs > 0 && appliedLimbs < 6) {
+                    }, 5L);
+                } else if (appliedLimbs > 0 && appliedLimbs < requiredLimbs) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs
                             + "개) — 좀비 본체 유지");

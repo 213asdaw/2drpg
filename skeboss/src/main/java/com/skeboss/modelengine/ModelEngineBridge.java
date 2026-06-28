@@ -152,8 +152,10 @@ public final class ModelEngineBridge {
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
+            // player limb 잡몹: 본 생성은 즉시, 렌더러/스킨은 스킨 적용 후 초기화
+            invokeOptional(activeModel, "generateModel");
+
             if (!deferRendererInit) {
-                invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
                 syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
@@ -264,70 +266,6 @@ public final class ModelEngineBridge {
             }
         }
         return synced;
-    }
-
-    private boolean registerModeledEntityForTracking(Object modeledEntity, Entity entity) {
-        if (tryInvoke(modeledEntity, "registerSelf", new Class<?>[]{})) {
-            return true;
-        }
-
-        Object base = invokeOptional(modeledEntity, "getBase");
-        if (base == null) {
-            return false;
-        }
-
-        try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Object updaters = getModelUpdaters(apiClass);
-            if (updaters != null) {
-                Object registered = invokeOptional(updaters, "registerModeledEntity", base, modeledEntity);
-                if (registered != null || modeledEntity.equals(invokeOptional(updaters, "getModeledEntity",
-                        entity.getUniqueId()))) {
-                    return true;
-                }
-            }
-
-            Method registerStatic = findStaticMethod(apiClass, "registerModeledEntity",
-                    Class.forName("com.ticxo.modelengine.api.entity.BaseEntity"),
-                    Class.forName("com.ticxo.modelengine.api.model.ModeledEntity"));
-            if (registerStatic != null) {
-                registerStatic.invoke(null, base, modeledEntity);
-                return true;
-            }
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "ModelEngine 등록 실패: " + entity.getUniqueId(), ex);
-        }
-        return false;
-    }
-
-    private Object getModelUpdaters(Class<?> apiClass) throws ReflectiveOperationException {
-        Method staticGetter = findStaticMethod(apiClass, "getModelUpdaters");
-        if (staticGetter != null) {
-            return staticGetter.invoke(null);
-        }
-        Method getApi = findStaticMethod(apiClass, "getAPI");
-        if (getApi != null) {
-            Object api = getApi.invoke(null);
-            if (api != null) {
-                return invokeOptional(api, "getModelUpdaters");
-            }
-        }
-        return null;
-    }
-
-    private boolean startDesyncMonitor(UUID entityId) {
-        try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Object updaters = getModelUpdaters(apiClass);
-            if (updaters == null) {
-                return false;
-            }
-            invokeOptional(updaters, "startDesyncMonitor", entityId);
-            return true;
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "DesyncMonitor 시작 실패: " + entityId, ex);
-            return false;
-        }
     }
 
     private Object createActiveModelInstance(String modelId) throws ReflectiveOperationException {
@@ -483,13 +421,17 @@ public final class ModelEngineBridge {
     private Object resolveSkinProfile(String username) {
         UUID uuid = resolveUsernameUuid(username);
         if (uuid != null) {
-            try {
-                Object profile = Bukkit.createProfile(uuid, username);
-                if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)
-                        && extractTexturesProperty(profile) != null) {
-                    return profile;
-                }
-            } catch (Exception ex) {
+        try {
+            Object profile = Bukkit.createProfile(uuid, username);
+            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)
+                    && extractTexturesProperty(profile) != null) {
+                return profile;
+            }
+            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, false)
+                    && extractTexturesProperty(profile) != null) {
+                return profile;
+            }
+        } catch (Exception ex) {
                 plugin.getLogger().log(Level.FINE, "Bukkit profile 조회 실패: " + username, ex);
             }
         }
@@ -707,25 +649,16 @@ public final class ModelEngineBridge {
 
         Object paperProfile = toPaperProfileForTexture(profile);
         if (paperProfile != null) {
-            if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{paperProfile.getClass()}, paperProfile)) {
-                return true;
-            }
-            for (String className : List.of(
-                    "com.destroystokyo.paper.profile.PlayerProfile",
-                    "org.bukkit.profile.PlayerProfile")) {
+            Method match = findMethodByNameAndArity(playerLimb.getClass(), "setTexture", 1);
+            if (match != null) {
                 try {
-                    Class<?> type = Class.forName(className);
-                    if (type.isInstance(paperProfile)
-                            && tryInvoke(playerLimb, "setTexture", new Class<?>[]{type}, paperProfile)) {
-                        return true;
-                    }
-                } catch (ClassNotFoundException ignored) {
+                    Object[] args = convertArgs(match.getParameterTypes(), new Object[]{paperProfile});
+                    match.invoke(playerLimb, args);
+                    return true;
+                } catch (ReflectiveOperationException ex) {
+                    plugin.getLogger().log(Level.FINE, "setTexture(PlayerProfile) 실패", ex);
                 }
             }
-        }
-
-        if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{profile.getClass()}, profile)) {
-            return true;
         }
         return false;
     }
@@ -797,7 +730,7 @@ public final class ModelEngineBridge {
         return null;
     }
 
-    /** generateModel → 스킨 → initializeRenderer 순서 (generateModel이 스킨을 지우지 않도록) */
+    /** generateModel → 스킨 → initializeRenderer (ME 자동 등록 사용, registerSelf 금지) */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, Object profile) {
         Object activeModel = model.activeModel();
@@ -810,8 +743,6 @@ public final class ModelEngineBridge {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
         }
         invokeOptional(activeModel, "initializeRenderer");
-        registerModeledEntityForTracking(modeledEntity, entity);
-        startDesyncMonitor(entity.getUniqueId());
         invokeOptional(modeledEntity, "tick");
         invokeOptional(activeModel, "tick");
         forceResyncNearbyPlayers(model, entity, syncRadius);
@@ -820,17 +751,21 @@ public final class ModelEngineBridge {
                 return;
             }
             forceResyncNearbyPlayers(model, entity, syncRadius);
-        }, 10L);
+        }, 5L);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
             forceResyncNearbyPlayers(model, entity, syncRadius);
-        }, 40L);
+        }, 20L);
         return applied;
     }
 
     private String extractTexturesProperty(Object profile) {
+        Object textures = invokeOptional(profile, "getTextures");
+        if (textures instanceof String string && !string.isBlank()) {
+            return string;
+        }
         Object properties = invokeOptional(profile, "getProperties");
         if (properties == null) {
             return null;
