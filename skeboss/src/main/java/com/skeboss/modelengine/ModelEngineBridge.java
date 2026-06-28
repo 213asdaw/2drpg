@@ -155,13 +155,18 @@ public final class ModelEngineBridge {
             if (!deferRendererInit) {
                 invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
-                registerModeledEntityForTracking(modeledEntity, entity);
                 syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
 
             if (hideBaseEntity && !deferRendererInit) {
-                tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
-                syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
+                // 모델이 클라이언트에 뜬 뒤 본체 숨김 (즉시 숨기면 투명해질 수 있음)
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (!entity.isValid() || entity.isDead()) {
+                        return;
+                    }
+                    tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
+                    syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
+                }, 2L);
             }
 
             plugin.getLogger().info("ModelEngine 모델 적용: " + modelId + " → " + entity.getUniqueId());
