@@ -188,7 +188,7 @@ public final class MinionManager {
                         }
                         modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
                         modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
-                    }, 20L);
+                    }, 10L);
                 } else if (appliedLimbs > 0 && appliedLimbs < 6) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs

@@ -152,11 +152,10 @@ public final class ModelEngineBridge {
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
-            registerModeledEntityForTracking(modeledEntity, entity);
-
             if (!deferRendererInit) {
                 invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
+                registerModeledEntityForTracking(modeledEntity, entity);
                 syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
 
@@ -228,16 +227,15 @@ public final class ModelEngineBridge {
         return invokeOptional(base, "wrapRangeManager", modeledEntity);
     }
 
-    /** ModelEngine R4: RangeManager 대신 ModelUpdaters + renderer resync 사용 */
+    /** ModelEngine R4: RangeManager 대신 renderer resync 사용 (등록은 finalize 시 1회만) */
     private boolean syncNearbyPlayersModern(Object modeledEntity, Object activeModel, Entity entity, double radius,
                                             boolean forceResync) {
-        boolean synced = registerModeledEntityForTracking(modeledEntity, entity);
+        boolean synced = false;
         Object base = invokeOptional(modeledEntity, "getBase");
         if (base != null) {
             int renderRadius = Math.max(16, (int) Math.ceil(radius));
             synced |= tryInvoke(base, "setRenderRadius", new Class<?>[]{int.class}, renderRadius);
         }
-        synced |= startDesyncMonitor(entity.getUniqueId());
 
         invokeOptional(modeledEntity, "tick");
         if (activeModel != null) {
@@ -453,6 +451,7 @@ public final class ModelEngineBridge {
                     return;
                 }
                 warmupUserLimbRegistry(username, resolvedProfile);
+                ensureModelBonesReady(model.activeModel());
                 int limbs = applySkinToPlayerLimbs(model.activeModel(), username, resolvedProfile);
                 if (limbs > 0) {
                     finalizePlayerLimbModel(model, entity, syncRadius);
@@ -590,13 +589,39 @@ public final class ModelEngineBridge {
         }
     }
 
+    private void ensureModelBonesReady(Object activeModel) {
+        if (!activeModelBones(activeModel).isEmpty()) {
+            return;
+        }
+        invokeOptional(activeModel, "generateModel");
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> activeModelBones(Object activeModel) {
-        Object bonesMap = invokeOptional(activeModel, "getBones");
+        Object bonesMap = unwrapOptional(invokeOptional(activeModel, "getBones"));
         if (bonesMap instanceof Map<?, ?> bones) {
             return (Map<String, Object>) bones;
         }
         return Map.of();
+    }
+
+    private Object unwrapOptional(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (!"java.util.Optional".equals(value.getClass().getName())) {
+            return value;
+        }
+        try {
+            Method isPresent = value.getClass().getMethod("isPresent");
+            Method get = value.getClass().getMethod("get");
+            if (Boolean.TRUE.equals(isPresent.invoke(value))) {
+                return get.invoke(value);
+            }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "Optional unwrap 실패", ex);
+        }
+        return null;
     }
 
     private List<Object> iterateBoneBehaviors(Object bone) {
@@ -676,6 +701,8 @@ public final class ModelEngineBridge {
         }
         invokeOptional(activeModel, "generateModel");
         invokeOptional(activeModel, "initializeRenderer");
+        registerModeledEntityForTracking(modeledEntity, entity);
+        startDesyncMonitor(entity.getUniqueId());
         invokeOptional(modeledEntity, "tick");
         invokeOptional(activeModel, "tick");
         forceResyncNearbyPlayers(model, entity, syncRadius);
