@@ -124,12 +124,12 @@ weapons:
     skill: chain
     cooldown-seconds: 10
 
-# EMP4348 잡몹 — ModelEngine player limb 모델 + 스킨 (기본 model-id: skin)
+# EMP4348 잡몹 — ModelEngine player limb 모델 + 스킨 (model-id: player_model)
 minion:
-  model-id: skin
+  model-id: player_model
   model-fallback-ids:
-    - skin
     - player_model
+    - skin
     - player
   display-name: "&7EMP4348"
   skin-username: "EMP4348"

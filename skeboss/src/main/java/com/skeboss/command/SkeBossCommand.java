@@ -4,6 +4,7 @@ import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
+import com.skeboss.minion.MinionBlueprintInstaller;
 import com.skeboss.minion.MinionManager;
 import com.skeboss.minion.MinionSpawner;
 import com.skeboss.util.TextUtil;
@@ -19,6 +20,9 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -321,8 +325,14 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        if (args.length >= 2 && (args[1].equalsIgnoreCase("install-model")
+                || args[1].equalsIgnoreCase("install"))) {
+            handleMinionInstallModel(player);
+            return;
+        }
+
         if (args.length < 2) {
-            player.sendMessage(TextUtil.color("&c/skeboss minion <check|spawner> ..."));
+            player.sendMessage(TextUtil.color("&c/skeboss minion <check|install-model|spawner> ..."));
             return;
         }
 
@@ -397,7 +407,31 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void handleMinionInstallModel(Player player) {
+        SkeBossPlugin plugin = SkeBossPlugin.getInstance();
+        Path target = MinionBlueprintInstaller.blueprintPath(plugin);
+        boolean existed = MinionBlueprintInstaller.isInstalled(plugin);
+        try {
+            MinionBlueprintInstaller.install(plugin);
+        } catch (IOException ex) {
+            player.sendMessage(TextUtil.color("&c모델 설치 실패: &f" + ex.getMessage()));
+            return;
+        }
+
+        player.sendMessage(TextUtil.color("&6&l━━━━ 잡몹 모델 설치 ━━━━"));
+        if (existed) {
+            player.sendMessage(TextUtil.color("&e기존 파일 덮어씀: &f" + target));
+        } else {
+            player.sendMessage(TextUtil.color("&a복사 완료: &f" + target));
+        }
+        player.sendMessage(TextUtil.color("&e1. &f/meg reload models &e실행"));
+        player.sendMessage(TextUtil.color("&e2. config &fminion.model-id: player_model &e확인 후 &f/skeboss reload"));
+        player.sendMessage(TextUtil.color("&e3. ModelEngine 리소스팩 받기 (&f/meg reload &e또는 서버 리소스팩)"));
+        player.sendMessage(TextUtil.color("&e4. &f/skeboss minion check &e로 다시 확인"));
+    }
+
     private void handleMinionCheck(Player player) {
+        SkeBossPlugin plugin = SkeBossPlugin.getInstance();
         var config = minionManager.getConfig();
         var me = minionManager.getModelEngine();
 
@@ -405,29 +439,33 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(TextUtil.color("&7스킨 닉네임: &f" + config.getSkinUsername()));
         player.sendMessage(TextUtil.color("&7config model-id: &f" + config.getModelId()));
 
-        String resolved = me.resolveAvailableModelId(config.getModelId(), config.getModelFallbackIds());
-        if (resolved != null) {
-            player.sendMessage(TextUtil.color("&a사용할 모델: &f" + resolved + " &a(blueprint 있음)"));
+        Path blueprintFile = MinionBlueprintInstaller.blueprintPath(plugin);
+        if (Files.isRegularFile(blueprintFile)) {
+            player.sendMessage(TextUtil.color("&a파일: &f" + blueprintFile.getFileName() + " &a(폴더에 있음)"));
         } else {
-            player.sendMessage(TextUtil.color("&c사용할 모델: &f없음 &c(blueprint 미등록)"));
-            player.sendMessage(TextUtil.color("&e→ plugins/ModelEngine/blueprints/ 에 &fplayer_model.bbmodel"));
-            player.sendMessage(TextUtil.color("&e→ 넣고 &f/meg reload models &e후 config model-id: player_model"));
+            player.sendMessage(TextUtil.color("&c파일: &fplayer_model.bbmodel &c없음"));
+            player.sendMessage(TextUtil.color("&e→ &f/skeboss minion install-model &e한 번 실행하세요"));
         }
 
-        player.sendMessage(TextUtil.color("&7폴백 목록:"));
+        String resolved = me.resolveAvailableModelId(config.getModelId(), config.getModelFallbackIds());
+        if (resolved != null) {
+            player.sendMessage(TextUtil.color("&aModelEngine 등록: &f" + resolved + " &a(있음)"));
+        } else {
+            player.sendMessage(TextUtil.color("&cModelEngine 등록: &f없음 &c(/meg reload models 필요)"));
+        }
+
+        player.sendMessage(TextUtil.color("&7폴백 목록 (&cskin/player는 기본 포함 아님&7):"));
         for (String id : config.getModelFallbackIds()) {
             String status = me.hasBlueprint(id) ? "&a있음" : "&c없음";
             player.sendMessage(TextUtil.color("  &f" + id + " " + status));
         }
 
         if (me.hasBlueprint("ske")) {
-            player.sendMessage(TextUtil.color("&7인조인간 모델(ske): &a있음 &7— 리소스팩은 보스 기준으로 적용됨"));
+            player.sendMessage(TextUtil.color("&7인조인간 모델(ske): &a있음"));
         }
 
-        player.sendMessage(TextUtil.color("&7player limb 없으면 &c좀비만&7 보입니다. 스킨 PNG만으로는 안 됩니다."));
-        player.sendMessage(TextUtil.color("&7투명하면 ModelEngine 리소스팩 적용 여부 확인 (&f/meg reload &7→ 팩 받기)"));
-        player.sendMessage(TextUtil.color("&7위키: &fhttps://git.mythiccraft.io/mythiccraft/model-engine-4/-/wikis/Modeling/Bone-Behaviors"));
-        player.sendMessage(TextUtil.color("&7→ player_model.bbmodel 링크 저장 → blueprints 폴더"));
+        player.sendMessage(TextUtil.color("&7EMP4348 스킨은 플러그인이 자동 적용. &cbbmodel 없으면 좀비만 보임."));
+        player.sendMessage(TextUtil.color("&7리소스팩 미적용 시 모델 안 보일 수 있음."));
     }
 
     private SkeBoss getTargetBoss(Player player) {
@@ -455,6 +493,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion install-model &7- player_model.bbmodel 설치"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner create <ID> &7- 잡몹 스포너 생성"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner remove <ID> &7- 잡몹 스포너 삭제"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner list &7- 스포너 목록"));
@@ -500,7 +539,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("minion")
                 && sender.hasPermission("skeboss.admin")) {
-            return filter(List.of("check", "spawner"), args[1]);
+            return filter(List.of("check", "install-model", "install", "spawner"), args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("minion")
                 && args[1].equalsIgnoreCase("spawner") && sender.hasPermission("skeboss.admin")) {

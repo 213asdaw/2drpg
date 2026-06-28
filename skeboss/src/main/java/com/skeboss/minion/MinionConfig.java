@@ -41,7 +41,7 @@ public final class MinionConfig {
 
     public MinionConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
-        modelId = config.getString("minion.model-id", "skin");
+        modelId = config.getString("minion.model-id", "player_model");
         modelFallbackIds = readModelFallbackIds(config);
         displayName = config.getString("minion.display-name", "&7EMP4348");
         skinUsername = config.getString("minion.skin-username", "EMP4348");
@@ -90,8 +90,8 @@ public final class MinionConfig {
     private static List<String> readModelFallbackIds(FileConfiguration config) {
         List<String> ids = new ArrayList<>(config.getStringList("minion.model-fallback-ids"));
         if (ids.isEmpty()) {
-            ids.add("skin");
             ids.add("player_model");
+            ids.add("skin");
             ids.add("player");
         }
         return List.copyOf(ids);
