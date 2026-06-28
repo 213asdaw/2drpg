@@ -32,6 +32,7 @@ public final class Slash extends JavaPlugin implements Listener {
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> shieldCooldowns = new HashMap<>();
+    private final Map<UUID, ItemStack> handBackups = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -94,8 +95,47 @@ public final class Slash extends JavaPlugin implements Listener {
             }
         }
 
-        shootSwordAura(player);
+        shootSwordAura(player, item.clone());
         cooldowns.put(player.getUniqueId(), currentTime + 5_000L);
+    }
+
+    /** 검기 전 손 무기 백업 — FLINT로 바뀌면 복구 */
+    private void backupHand(Player player, ItemStack hand) {
+        handBackups.put(player.getUniqueId(), hand.clone());
+        UUID id = player.getUniqueId();
+        for (long delay : new long[]{1L, 2L, 5L, 10L, 20L, 40L, 60L}) {
+            getServer().getScheduler().runTaskLater(this, () -> restoreHandIfFlint(player, id), delay);
+        }
+    }
+
+    private void restoreHandIfFlint(Player player, UUID id) {
+        if (!player.isOnline()) {
+            handBackups.remove(id);
+            return;
+        }
+        ItemStack backup = handBackups.get(id);
+        if (backup == null) {
+            return;
+        }
+        ItemStack current = player.getInventory().getItemInMainHand();
+        if (current.getType() != Material.FLINT) {
+            if (current.getType() == backup.getType()) {
+                handBackups.remove(id);
+            }
+            return;
+        }
+        player.getInventory().setItemInMainHand(backup.clone());
+        handBackups.remove(id);
+    }
+
+    private static void removeWaveMarker(ArmorStand wave) {
+        if (wave == null || !wave.isValid()) {
+            return;
+        }
+        if (wave.getEquipment() != null) {
+            wave.getEquipment().clear();
+        }
+        wave.remove();
     }
 
     private void castFireShield(Player player) {
@@ -130,12 +170,15 @@ public final class Slash extends JavaPlugin implements Listener {
         }.runTaskTimer(this, 0L, 1L);
     }
 
-    /** 검기 — 손 아이템/아머스탠드 무기 변경 없이 파티클 + 데미지만 */
-    private void shootSwordAura(Player player) {
+    /** 검기 — 파티클 + 데미지, 플레이어 손/FLINT 드롭 방지 */
+    private void shootSwordAura(Player player, ItemStack savedHand) {
+        backupHand(player, savedHand);
+
         double scriptPower = getScriptAttackPower(player);
         final double finalDamage = scriptPower * 1.5 + 5.0;
 
-        Location startLoc = player.getEyeLocation();
+        Location startLoc = player.getEyeLocation().clone();
+        startLoc.add(startLoc.getDirection().normalize().multiply(0.6));
         final Vector direction = startLoc.getDirection().normalize();
         final float yaw = startLoc.getYaw();
         final float pitch = startLoc.getPitch();
@@ -168,7 +211,7 @@ public final class Slash extends JavaPlugin implements Listener {
             public void run() {
                 ticks++;
                 if (ticks > 40 || wave.isDead() || !wave.isValid()) {
-                    wave.remove();
+                    removeWaveMarker(wave);
                     cancel();
                     return;
                 }

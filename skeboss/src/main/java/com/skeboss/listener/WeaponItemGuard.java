@@ -149,6 +149,10 @@ public final class WeaponItemGuard implements Listener {
             return true;
         }
 
+        if (current.getType() == org.bukkit.Material.FLINT) {
+            return true;
+        }
+
         String currentName = displayName(current);
         for (String keyword : weaponManager.getWeaponConfig().getRestoreKeywords()) {
             if (!keyword.isBlank() && currentName.contains(keyword)) {
