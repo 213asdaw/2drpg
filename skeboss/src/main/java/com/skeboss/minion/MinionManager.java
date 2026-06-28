@@ -117,6 +117,9 @@ public final class MinionManager {
             entity.setRemoveWhenFarAway(false);
             entity.setShouldBurnInDay(false);
             entity.setFireTicks(0);
+            if (config.isHideBaseEntity()) {
+                entity.setInvisible(true);
+            }
             entity.setCustomNameVisible(true);
             entity.setCustomName(TextUtil.color(config.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));
@@ -155,15 +158,16 @@ public final class MinionManager {
         }
 
         try {
-            ModelEngineBridge.BossModel model = modelEngine.attachModel(
+            ModelEngineBridge.BossModel model = modelEngine.attachMinionModel(
                     entity,
                     config.getModelId(),
+                    config.getModelFallbackIds(),
                     config.isHideBaseEntity(),
                     config.getModelScale(),
                     config.getHitboxScale()
             );
             minion.setModel(model);
-            modelEngine.applyPlayerSkin(model, config.getSkinUsername());
+            modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), config.getViewerSyncRadius());
             playWalk(minion);
             modelEngine.syncNearbyPlayers(model, entity, config.getViewerSyncRadius());
             registerBossBarViewers(minion);

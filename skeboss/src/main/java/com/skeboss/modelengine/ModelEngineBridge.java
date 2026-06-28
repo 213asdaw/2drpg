@@ -1,9 +1,16 @@
 package com.skeboss.modelengine;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.logging.Level;
 
 /**
@@ -62,6 +69,49 @@ public final class ModelEngineBridge {
     }
 
     public BossModel attachModel(Entity entity, String modelId, boolean hideBaseEntity, double modelScale, double hitboxScale) {
+        String resolvedId = resolveFirstAvailableModelId(modelId, List.of());
+        return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
+    }
+
+    /** player limb 모델 ID 자동 탐색 후 적용 */
+    public BossModel attachMinionModel(Entity entity, String modelId, List<String> fallbackIds,
+                                       boolean hideBaseEntity, double modelScale, double hitboxScale) {
+        String resolvedId = resolveFirstAvailableModelId(modelId, fallbackIds);
+        if (!resolvedId.equals(modelId)) {
+            plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
+        }
+        return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
+    }
+
+    public String resolveFirstAvailableModelId(String primaryId, List<String> fallbackIds) {
+        Set<String> candidates = new LinkedHashSet<>();
+        if (primaryId != null && !primaryId.isBlank()) {
+            candidates.add(primaryId);
+        }
+        if (fallbackIds != null) {
+            candidates.addAll(fallbackIds);
+        }
+        for (String id : candidates) {
+            if (blueprintExists(id)) {
+                return id;
+            }
+        }
+        return primaryId != null ? primaryId : "skin";
+    }
+
+    private boolean blueprintExists(String modelId) {
+        if (getBlueprint == null || modelId == null || modelId.isBlank()) {
+            return false;
+        }
+        try {
+            return getBlueprint.invoke(null, modelId) != null;
+        } catch (ReflectiveOperationException ex) {
+            return false;
+        }
+    }
+
+    private BossModel attachModelResolved(Entity entity, String modelId, boolean hideBaseEntity,
+                                          double modelScale, double hitboxScale) {
         if (!available) {
             throw new IllegalStateException("ModelEngine 사용 불가");
         }
@@ -180,35 +230,83 @@ public final class ModelEngineBridge {
         }
     }
 
-    /** ModelEngine player 림 모델에 마인크래프트 유저 스킨 적용 (EMP4348 등) */
-    public void applyPlayerSkin(BossModel model, String username) {
+    /** ModelEngine PlayerLimb 본에 마인크래프트 유저 스킨 적용 (EMP4348 등) */
+    public void applyPlayerSkin(BossModel model, Entity entity, String username, double syncRadius) {
         if (model == null || username == null || username.isBlank()) {
             return;
         }
-        Object activeModel = model.activeModel();
-        Object modeledEntity = model.modeledEntity();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            Object profile = fetchMojangProfile(username);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!entity.isValid() || entity.isDead()) {
+                    return;
+                }
+                if (profile == null) {
+                    plugin.getLogger().warning("스킨 조회 실패: " + username
+                            + " — 닉네임·인터넷 연결을 확인하세요.");
+                    return;
+                }
+                int limbs = applyProfileToPlayerLimbs(model.activeModel(), profile);
+                if (limbs > 0) {
+                    plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
+                    syncNearbyPlayers(model, entity, syncRadius);
+                } else {
+                    plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
+                            + " ModelEngine 기본 예시: skin (/meg models list)");
+                }
+            });
+        });
+    }
 
-        if (tryInvoke(activeModel, "setPlayerSkin", new Class<?>[]{String.class}, username)) {
-            return;
-        }
-        if (tryInvoke(activeModel, "setSkinUsername", new Class<?>[]{String.class}, username)) {
-            return;
-        }
-        if (tryInvoke(modeledEntity, "setPlayerSkin", new Class<?>[]{String.class}, username)) {
-            return;
-        }
-
+    private Object fetchMojangProfile(String username) {
         try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Object playerSkin = invokeStaticOptional(apiClass, "getPlayerSkin", username);
-            if (playerSkin != null) {
-                tryInvoke(activeModel, "setPlayerSkinData", new Class<?>[]{playerSkin.getClass()}, playerSkin);
+            Class<?> mojangApi = Class.forName("com.ticxo.modelengine.api.utils.MojangAPI");
+            UUID uuid = (UUID) mojangApi.getMethod("getUUIDFromUsername", String.class).invoke(null, username);
+            if (uuid == null) {
+                return null;
             }
-        } catch (ReflectiveOperationException ignored) {
+            return mojangApi.getMethod("fromUUID", UUID.class).invoke(null, uuid);
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.WARNING, "MojangAPI 스킨 조회 실패: " + username, ex);
+            return null;
+        }
+    }
+
+    private int applyProfileToPlayerLimbs(Object activeModel, Object profile) {
+        Class<?> playerLimbClass;
+        try {
+            playerLimbClass = Class.forName("com.ticxo.modelengine.api.model.bone.type.PlayerLimb");
+        } catch (ClassNotFoundException ex) {
+            return 0;
         }
 
-        plugin.getLogger().info("스킨 적용 시도: " + username
-                + " — ModelEngine에 player 림 모델(model-id)이 있어야 합니다. (/meg reload)");
+        Object bonesMap = invokeOptional(activeModel, "getBones");
+        if (!(bonesMap instanceof Map<?, ?> bones)) {
+            return 0;
+        }
+
+        int applied = 0;
+        Class<?> profileType = profile.getClass();
+        try {
+            profileType = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
+        } catch (ClassNotFoundException ignored) {
+        }
+        Class<?>[] textureParam = new Class<?>[]{profileType};
+        for (Object bone : bones.values()) {
+            Object behaviors = invokeOptional(bone, "getImmutableBoneBehaviors");
+            if (!(behaviors instanceof Iterable<?> iterable)) {
+                continue;
+            }
+            for (Object behavior : iterable) {
+                if (!playerLimbClass.isInstance(behavior)) {
+                    continue;
+                }
+                if (tryInvoke(behavior, "setTexture", textureParam, profile)) {
+                    applied++;
+                }
+            }
+        }
+        return applied;
     }
 
     private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {

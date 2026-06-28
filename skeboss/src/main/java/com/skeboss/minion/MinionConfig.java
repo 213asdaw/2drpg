@@ -5,9 +5,13 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class MinionConfig {
 
     private final String modelId;
+    private final List<String> modelFallbackIds;
     private final String displayName;
     private final String skinUsername;
     private final String skriptTag;
@@ -37,7 +41,8 @@ public final class MinionConfig {
 
     public MinionConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
-        modelId = config.getString("minion.model-id", "player");
+        modelId = config.getString("minion.model-id", "skin");
+        modelFallbackIds = readModelFallbackIds(config);
         displayName = config.getString("minion.display-name", "&7EMP4348");
         skinUsername = config.getString("minion.skin-username", "EMP4348");
         skriptTag = config.getString("minion.skript-tag", "EMP4348");
@@ -82,8 +87,22 @@ public final class MinionConfig {
         }
     }
 
+    private static List<String> readModelFallbackIds(FileConfiguration config) {
+        List<String> ids = new ArrayList<>(config.getStringList("minion.model-fallback-ids"));
+        if (ids.isEmpty()) {
+            ids.add("skin");
+            ids.add("player_model");
+            ids.add("player");
+        }
+        return List.copyOf(ids);
+    }
+
     public String getModelId() {
         return modelId;
+    }
+
+    public List<String> getModelFallbackIds() {
+        return modelFallbackIds;
     }
 
     public String getDisplayName() {
