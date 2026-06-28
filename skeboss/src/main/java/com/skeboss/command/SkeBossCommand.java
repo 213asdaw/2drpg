@@ -7,6 +7,8 @@ import com.skeboss.boss.SkillDefinition;
 import com.skeboss.util.TextUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -51,7 +53,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
                 return handleWeapon(sender, args);
             }
             case "spawn" -> {
-                return requireAdmin(sender, () -> handleSpawn((Player) sender));
+                return handleSpawnCommand(sender, args);
             }
             case "remove", "kill" -> {
                 return requireAdmin(sender, () -> handleRemove((Player) sender));
@@ -181,16 +183,79 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private void handleSpawn(Player player) {
+    private boolean handleSpawnCommand(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("skeboss.admin")) {
+            sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7/skeboss help"));
+            return true;
+        }
+
+        Location location = resolveSpawnLocation(sender, args);
+        if (location == null) {
+            return true;
+        }
+
         try {
-            SkeBoss boss = bossManager.spawn(player.getLocation());
-            player.sendMessage(TextUtil.color("&a해골 보스 스폰 완료! &7(UUID: " + boss.getId() + ")"));
+            SkeBoss boss = bossManager.spawn(location);
+            String pos = String.format("%.1f, %.1f, %.1f", location.getX(), location.getY(), location.getZ());
+            sender.sendMessage(TextUtil.color(
+                    "&a인조인간 스폰 완료! &7" + location.getWorld().getName()
+                            + " &f(" + pos + ") &7UUID: " + boss.getId()
+            ));
         } catch (IllegalStateException ex) {
-            player.sendMessage(TextUtil.color("&c스폰 실패: &f" + ex.getMessage()));
-            com.skeboss.SkeBossPlugin.getInstance().getLogger().severe("보스 스폰 실패: " + ex.getMessage());
+            sender.sendMessage(TextUtil.color("&c스폰 실패: &f" + ex.getMessage()));
+            SkeBossPlugin.getInstance().getLogger().severe("보스 스폰 실패: " + ex.getMessage());
             if (ex.getCause() != null) {
                 ex.getCause().printStackTrace();
             }
+        }
+        return true;
+    }
+
+    private Location resolveSpawnLocation(CommandSender sender, String[] args) {
+        if (args.length == 1) {
+            if (sender instanceof Player player) {
+                return player.getLocation();
+            }
+            sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn <world> <x> <y> <z>"));
+            return null;
+        }
+
+        if (args.length == 4) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn <world> <x> <y> <z>"));
+                return null;
+            }
+            return parseSpawnLocation(sender, player.getWorld(), args[1], args[2], args[3]);
+        }
+
+        if (args.length == 5) {
+            World world = Bukkit.getWorld(args[1]);
+            if (world == null) {
+                sender.sendMessage(TextUtil.color("&c월드를 찾을 수 없습니다: &f" + args[1]));
+                return null;
+            }
+            return parseSpawnLocation(sender, world, args[2], args[3], args[4]);
+        }
+
+        sender.sendMessage(TextUtil.color("&c/skeboss spawn [x y z]"));
+        sender.sendMessage(TextUtil.color("&c/skeboss spawn <world> <x> <y> <z>"));
+        return null;
+    }
+
+    private Location parseSpawnLocation(CommandSender sender, World world, String xRaw, String yRaw, String zRaw) {
+        try {
+            double x = Double.parseDouble(xRaw);
+            double y = Double.parseDouble(yRaw);
+            double z = Double.parseDouble(zRaw);
+            Location location = new Location(world, x, y, z);
+            if (sender instanceof Player player) {
+                location.setYaw(player.getLocation().getYaw());
+                location.setPitch(player.getLocation().getPitch());
+            }
+            return location;
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(TextUtil.color("&c좌표는 숫자로 입력하세요. 예: &f/skeboss spawn 100 64 -200"));
+            return null;
         }
     }
 
@@ -261,7 +326,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&7  무기 우클릭으로도 사용 가능 (OP 불필요)"));
         }
         if (sender.hasPermission("skeboss.admin")) {
-            sender.sendMessage(TextUtil.color("&e/skeboss spawn &7- 보스 스폰"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn &7- 내 위치에 보스 스폰"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn <x> <y> <z> &7- 좌표에 스폰 (내 월드)"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn <world> <x> <y> <z> &7- 월드·좌표 지정"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
@@ -300,6 +367,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && args[0].equalsIgnoreCase("weapon")
                 && (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin"))) {
             return filter(weaponManager.getWeaponConfig().getWeaponIds(), args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("spawn") && sender.hasPermission("skeboss.admin")) {
+            return filter(Bukkit.getWorlds().stream().map(World::getName).toList(), args[1]);
         }
         return List.of();
     }
