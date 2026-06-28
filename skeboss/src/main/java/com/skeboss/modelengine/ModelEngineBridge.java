@@ -99,6 +99,10 @@ public final class ModelEngineBridge {
         return primaryId != null ? primaryId : "skin";
     }
 
+    public boolean hasBlueprint(String modelId) {
+        return blueprintExists(modelId);
+    }
+
     private boolean blueprintExists(String modelId) {
         if (getBlueprint == null || modelId == null || modelId.isBlank()) {
             return false;

@@ -316,8 +316,13 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleMinion(Player player, String[] args) {
+        if (args.length >= 2 && args[1].equalsIgnoreCase("check")) {
+            handleMinionCheck(player);
+            return;
+        }
+
         if (args.length < 2) {
-            player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
+            player.sendMessage(TextUtil.color("&c/skeboss minion <check|spawner> ..."));
             return;
         }
 
@@ -392,6 +397,38 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void handleMinionCheck(Player player) {
+        var config = minionManager.getConfig();
+        var me = minionManager.getModelEngine();
+
+        player.sendMessage(TextUtil.color("&6&l━━━━ 잡몹 진단 ━━━━"));
+        player.sendMessage(TextUtil.color("&7스킨 닉네임: &f" + config.getSkinUsername()));
+        player.sendMessage(TextUtil.color("&7config model-id: &f" + config.getModelId()));
+
+        String resolved = me.resolveFirstAvailableModelId(config.getModelId(), config.getModelFallbackIds());
+        if (me.hasBlueprint(resolved)) {
+            player.sendMessage(TextUtil.color("&a사용할 모델: &f" + resolved + " &a(있음)"));
+        } else {
+            player.sendMessage(TextUtil.color("&c사용할 모델: &f" + resolved + " &c(없음!)"));
+            player.sendMessage(TextUtil.color("&e→ plugins/ModelEngine/blueprints/ 에 &fplayer_model.bbmodel"));
+            player.sendMessage(TextUtil.color("&e→ 넣고 &f/meg reload models &e후 config model-id: player_model"));
+        }
+
+        player.sendMessage(TextUtil.color("&7폴백 목록:"));
+        for (String id : config.getModelFallbackIds()) {
+            String status = me.hasBlueprint(id) ? "&a있음" : "&c없음";
+            player.sendMessage(TextUtil.color("  &f" + id + " " + status));
+        }
+
+        if (me.hasBlueprint("ske")) {
+            player.sendMessage(TextUtil.color("&7인조인간 모델(ske): &a있음 &7— 리소스팩은 보스 기준으로 적용됨"));
+        }
+
+        player.sendMessage(TextUtil.color("&7player limb 없으면 &c좀비만&7 보입니다. 스킨 PNG만으로는 안 됩니다."));
+        player.sendMessage(TextUtil.color("&7위키: &fhttps://git.mythiccraft.io/mythiccraft/model-engine-4/-/wikis/Modeling/Bone-Behaviors"));
+        player.sendMessage(TextUtil.color("&7→ player_model.bbmodel 링크 저장 → blueprints 폴더"));
+    }
+
     private SkeBoss getTargetBoss(Player player) {
         if (player.getTargetEntity(20) instanceof LivingEntity living && bossManager.isBoss(living)) {
             return bossManager.getBoss(living.getUniqueId());
@@ -416,6 +453,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss spawn <world> <x> <y> <z> &7- 월드·좌표 지정"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner create <ID> &7- 잡몹 스포너 생성"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner remove <ID> &7- 잡몹 스포너 삭제"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner list &7- 스포너 목록"));
@@ -459,8 +497,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && args[0].equalsIgnoreCase("spawn") && sender.hasPermission("skeboss.admin")) {
             return filter(Bukkit.getWorlds().stream().map(World::getName).toList(), args[1]);
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("minion") && sender.hasPermission("skeboss.admin")) {
-            return filter(List.of("spawner"), args[1]);
+        if (args.length == 2 && args[0].equalsIgnoreCase("minion")
+                && sender.hasPermission("skeboss.admin")) {
+            return filter(List.of("check", "spawner"), args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("minion")
                 && args[1].equalsIgnoreCase("spawner") && sender.hasPermission("skeboss.admin")) {
