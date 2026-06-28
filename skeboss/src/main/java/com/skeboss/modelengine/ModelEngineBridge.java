@@ -436,10 +436,13 @@ public final class ModelEngineBridge {
             return;
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Object mojangProfile = fetchMojangProfile(username);
-            Object resolvedProfile = mojangProfile != null ? mojangProfile : fetchBukkitProfile(username);
+            Object resolvedProfile = resolveSkinProfile(username);
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!entity.isValid() || entity.isDead()) {
+                    plugin.getLogger().warning("잡몹 스킨 적용 중단 — 엔티티가 없습니다: " + username);
+                    if (onComplete != null) {
+                        onComplete.accept(0);
+                    }
                     return;
                 }
                 if (resolvedProfile == null) {
@@ -451,20 +454,71 @@ public final class ModelEngineBridge {
                     return;
                 }
                 warmupUserLimbRegistry(username, resolvedProfile);
-                ensureModelBonesReady(model.activeModel());
-                int limbs = applySkinToPlayerLimbs(model.activeModel(), username, resolvedProfile);
+                int limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, resolvedProfile);
                 if (limbs > 0) {
-                    finalizePlayerLimbModel(model, entity, syncRadius);
                     plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
                 } else {
-                    plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
-                            + " ModelEngine 기본 예시: skin (/meg models list)");
+                    int detected = countPlayerLimbsOnActiveModel(model.activeModel());
+                    if (detected > 0) {
+                        plugin.getLogger().warning("PlayerLimb " + detected
+                                + "개 있으나 setTexture 실패 — EMP4348 스킨 미적용");
+                    } else {
+                        plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
+                                + " ModelEngine 기본 예시: skin (/meg models list)");
+                    }
                 }
                 if (onComplete != null) {
                     onComplete.accept(limbs);
                 }
             });
         });
+    }
+
+    /** Paper PlayerProfile 우선, MojangAPI 폴백 */
+    private Object resolveSkinProfile(String username) {
+        UUID uuid = resolveUsernameUuid(username);
+        if (uuid != null) {
+            try {
+                Object profile = Bukkit.createProfile(uuid, username);
+                if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)
+                        && extractTexturesProperty(profile) != null) {
+                    return profile;
+                }
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.FINE, "Bukkit profile 조회 실패: " + username, ex);
+            }
+        }
+        Object mojangProfile = fetchMojangProfile(username);
+        if (mojangProfile == null) {
+            return fetchBukkitProfile(username);
+        }
+        return toPaperProfile(username, uuid != null ? uuid : resolveUsernameUuid(username), mojangProfile);
+    }
+
+    private Object toPaperProfile(String username, UUID uuid, Object sourceProfile) {
+        if (uuid == null || sourceProfile == null) {
+            return sourceProfile;
+        }
+        String textures = extractTexturesProperty(sourceProfile);
+        if (textures == null) {
+            return sourceProfile;
+        }
+        try {
+            Object profile = Bukkit.createProfile(uuid, username);
+            if (tryInvoke(profile, "setProperty",
+                    new Class<?>[]{String.class, String.class, String.class},
+                    "textures", textures, null)) {
+                return profile;
+            }
+            Object properties = invokeOptional(profile, "getProperties");
+            if (properties != null) {
+                invokeOptional(properties, "put", "textures", textures);
+            }
+            return profile;
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.FINE, "Paper profile 변환 실패: " + username, ex);
+            return sourceProfile;
+        }
     }
 
     private Object fetchMojangProfile(String username) {
@@ -640,28 +694,57 @@ public final class ModelEngineBridge {
     }
 
     private boolean applyTextureToPlayerLimb(Object playerLimb, Object profile) {
-        if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{profile.getClass()}, profile)) {
-            return true;
-        }
-        try {
-            Class<?> paperProfile = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
-            if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{paperProfile}, profile)) {
-                return true;
-            }
-        } catch (ClassNotFoundException ignored) {
-        }
-        if (profile instanceof org.bukkit.entity.Player player) {
+        org.bukkit.entity.Player player = profile instanceof org.bukkit.entity.Player p ? p : null;
+        if (player != null) {
             return tryInvoke(playerLimb, "setTexture",
                     new Class<?>[]{org.bukkit.entity.Player.class}, player);
+        }
+
+        Object paperProfile = toPaperProfileForTexture(profile);
+        if (paperProfile != null) {
+            if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{paperProfile.getClass()}, paperProfile)) {
+                return true;
+            }
+            for (String className : List.of(
+                    "com.destroystokyo.paper.profile.PlayerProfile",
+                    "org.bukkit.profile.PlayerProfile")) {
+                try {
+                    Class<?> type = Class.forName(className);
+                    if (type.isInstance(paperProfile)
+                            && tryInvoke(playerLimb, "setTexture", new Class<?>[]{type}, paperProfile)) {
+                        return true;
+                    }
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+        }
+
+        if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{profile.getClass()}, profile)) {
+            return true;
         }
         return false;
     }
 
+    private Object toPaperProfileForTexture(Object profile) {
+        if (profile == null) {
+            return null;
+        }
+        for (String className : List.of(
+                "com.destroystokyo.paper.profile.PlayerProfile",
+                "org.bukkit.profile.PlayerProfile")) {
+            try {
+                if (Class.forName(className).isInstance(profile)) {
+                    return profile;
+                }
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return profile;
+    }
+
     private void warmupUserLimbRegistry(String username, Object profile) {
         try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Method getRegistry = apiClass.getMethod("getUserLimbRegistry");
-            Object registry = getRegistry.invoke(null);
+            Object registry = getUserLimbRegistry();
             if (registry == null) {
                 return;
             }
@@ -693,13 +776,34 @@ public final class ModelEngineBridge {
         }
     }
 
-    private void finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius) {
+    private Object getUserLimbRegistry() throws ReflectiveOperationException {
+        Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+        Method staticGetter = findStaticMethod(apiClass, "getUserLimbRegistry");
+        if (staticGetter != null) {
+            return staticGetter.invoke(null);
+        }
+        Method getApi = findStaticMethod(apiClass, "getAPI");
+        if (getApi != null) {
+            Object api = getApi.invoke(null);
+            if (api != null) {
+                return invokeOptional(api, "getUserLimbRegistry");
+            }
+        }
+        return null;
+    }
+
+    /** generateModel → 스킨 → initializeRenderer 순서 (generateModel이 스킨을 지우지 않도록) */
+    private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
+                                        String username, Object profile) {
         Object activeModel = model.activeModel();
         Object modeledEntity = model.modeledEntity();
+
+        invokeOptional(activeModel, "generateModel");
+        int applied = applySkinToPlayerLimbs(activeModel, username, profile);
+
         for (Object bone : activeModelBones(activeModel).values()) {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
         }
-        invokeOptional(activeModel, "generateModel");
         invokeOptional(activeModel, "initializeRenderer");
         registerModeledEntityForTracking(modeledEntity, entity);
         startDesyncMonitor(entity.getUniqueId());
@@ -718,6 +822,7 @@ public final class ModelEngineBridge {
             }
             forceResyncNearbyPlayers(model, entity, syncRadius);
         }, 40L);
+        return applied;
     }
 
     private String extractTexturesProperty(Object profile) {
