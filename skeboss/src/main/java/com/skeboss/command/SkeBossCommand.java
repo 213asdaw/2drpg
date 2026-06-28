@@ -472,7 +472,8 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage(TextUtil.color("&7EMP4348 스킨은 플러그인이 자동 적용. &cbbmodel 없으면 좀비만 보임."));
-        player.sendMessage(TextUtil.color("&7리소스팩 미적용 시 모델 안 보일 수 있음."));
+        player.sendMessage(TextUtil.color("&7머리만 떠다니면 &f/meg reload &7후 리소스팩 &c다시 받기&7 (player_model 추가됨)"));
+        player.sendMessage(TextUtil.color("&7셰이더 켜져 있으면 PlayerLimb 안 보일 수 있음 (바닐라/소듐 권장)"));
     }
 
     private SkeBoss getTargetBoss(Player player) {

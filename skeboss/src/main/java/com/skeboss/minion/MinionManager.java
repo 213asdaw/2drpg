@@ -181,9 +181,15 @@ public final class MinionManager {
             minion.setModel(model);
             double syncRadius = config.getViewerSyncRadius();
             modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
-                if (appliedLimbs >= 4 && config.isHideBaseEntity()) {
-                    modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
-                } else if (appliedLimbs > 0 && appliedLimbs < 4) {
+                if (appliedLimbs >= 6 && config.isHideBaseEntity()) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!entity.isValid() || entity.isDead()) {
+                            return;
+                        }
+                        modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
+                        modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
+                    }, 20L);
+                } else if (appliedLimbs > 0 && appliedLimbs < 6) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs
                             + "개) — 좀비 본체 유지");
@@ -192,7 +198,6 @@ public final class MinionManager {
                     plugin.getLogger().warning("잡몹 스킨 미적용 — 좀비 본체를 유지합니다.");
                 }
             });
-            modelEngine.syncNearbyPlayers(model, entity, syncRadius);
             registerBossBarViewers(minion);
             minion.setReady(true);
             plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " (모델: " + resolvedModelId
@@ -276,7 +281,6 @@ public final class MinionManager {
         }
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
         entity.setRotation(yaw, entityLoc.getPitch());
-        modelEngine.syncBodyRotation(minion.getModel(), yaw);
     }
 
     public void meleeAttack(SkeMinion minion, Player target) {

@@ -86,7 +86,7 @@ public final class ModelEngineBridge {
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, true);
     }
 
     /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
@@ -131,6 +131,11 @@ public final class ModelEngineBridge {
 
     private BossModel attachModelResolved(Entity entity, String modelId, boolean hideBaseEntity,
                                           double modelScale, double hitboxScale) {
+        return attachModelResolved(entity, modelId, hideBaseEntity, modelScale, hitboxScale, false);
+    }
+
+    private BossModel attachModelResolved(Entity entity, String modelId, boolean hideBaseEntity,
+                                          double modelScale, double hitboxScale, boolean deferRendererInit) {
         if (!available) {
             throw new IllegalStateException("ModelEngine 사용 불가");
         }
@@ -146,13 +151,14 @@ public final class ModelEngineBridge {
             applyScale(activeModel, modelScale, hitboxScale);
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
-            invokeOptional(activeModel, "generateModel");
-            invokeOptional(activeModel, "initializeRenderer");
 
-            // 모델 먼저 플레이어에게 보이게 한 뒤 좀비 숨김
-            syncNearbyPlayers(modeledEntity, entity, 64.0);
+            if (!deferRendererInit) {
+                invokeOptional(activeModel, "generateModel");
+                invokeOptional(activeModel, "initializeRenderer");
+                syncNearbyPlayers(modeledEntity, entity, 64.0);
+            }
 
-            if (hideBaseEntity) {
+            if (hideBaseEntity && !deferRendererInit) {
                 tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
                 syncNearbyPlayers(modeledEntity, entity, 64.0);
             }
@@ -167,6 +173,24 @@ public final class ModelEngineBridge {
 
     public void syncNearbyPlayers(BossModel model, Entity entity, double radius) {
         syncNearbyPlayers(model.modeledEntity(), entity, radius);
+    }
+
+    /** 클라이언트에 player limb 모델을 다시 밀어 넣음 */
+    public void forceResyncNearbyPlayers(BossModel model, Entity entity, double radius) {
+        Object rangeManager = invokeOptional(model.modeledEntity(), "getRangeManager");
+        if (rangeManager == null) {
+            syncNearbyPlayers(model, entity, radius);
+            return;
+        }
+        double radiusSq = radius * radius;
+        for (org.bukkit.entity.Player player : entity.getWorld().getPlayers()) {
+            if (!player.isValid() || player.getLocation().distanceSquared(entity.getLocation()) > radiusSq) {
+                continue;
+            }
+            tryInvoke(rangeManager, "removePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            tryInvoke(rangeManager, "forceSpawn", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            tryInvoke(rangeManager, "updatePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+        }
     }
 
     private void syncNearbyPlayers(Object modeledEntity, Entity entity, double radius) {
@@ -312,9 +336,9 @@ public final class ModelEngineBridge {
                     return;
                 }
                 warmupUserLimbRegistry(username, resolvedProfile);
-                int limbs = applyProfileToPlayerLimbs(model.activeModel(), resolvedProfile);
+                int limbs = applySkinToPlayerLimbs(model.activeModel(), username, resolvedProfile);
                 if (limbs > 0) {
-                    refreshPlayerLimbModel(model, entity, syncRadius);
+                    finalizePlayerLimbModel(model, entity, syncRadius);
                     plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
                 } else {
                     plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
@@ -366,6 +390,37 @@ public final class ModelEngineBridge {
         } catch (ReflectiveOperationException ex) {
             return null;
         }
+    }
+
+    private int applySkinToPlayerLimbs(Object activeModel, String username, Object profile) {
+        org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
+        if (online != null) {
+            int fromPlayer = applyPlayerToPlayerLimbs(activeModel, online);
+            if (fromPlayer > 0) {
+                return fromPlayer;
+            }
+        }
+        return applyProfileToPlayerLimbs(activeModel, profile);
+    }
+
+    private int applyPlayerToPlayerLimbs(Object activeModel, org.bukkit.entity.Player player) {
+        Class<?> playerLimbClass = playerLimbClass();
+        if (playerLimbClass == null) {
+            return 0;
+        }
+        int applied = 0;
+        for (Object bone : activeModelBones(activeModel).values()) {
+            for (Object behavior : iterateBoneBehaviors(bone)) {
+                if (!playerLimbClass.isInstance(behavior)) {
+                    continue;
+                }
+                if (tryInvoke(behavior, "setTexture",
+                        new Class<?>[]{org.bukkit.entity.Player.class}, player)) {
+                    applied++;
+                }
+            }
+        }
+        return applied;
     }
 
     private int applyProfileToPlayerLimbs(Object activeModel, Object profile) {
@@ -469,6 +524,8 @@ public final class ModelEngineBridge {
                 return;
             }
 
+            invokeOptional(registry, "generateDefaults");
+
             org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
             if (online != null && tryInvoke(registry, "generate",
                     new Class<?>[]{org.bukkit.entity.Player.class}, online)) {
@@ -480,6 +537,12 @@ public final class ModelEngineBridge {
                 return;
             }
             boolean slim = isSlimSkin(texturesValue);
+            UUID uuid = resolveUsernameUuid(username);
+            if (uuid != null) {
+                tryInvoke(registry, "generate",
+                        new Class<?>[]{String.class, String.class, boolean.class},
+                        uuid.toString(), texturesValue, slim);
+            }
             tryInvoke(registry, "generate",
                     new Class<?>[]{String.class, String.class, boolean.class},
                     username, texturesValue, slim);
@@ -488,23 +551,29 @@ public final class ModelEngineBridge {
         }
     }
 
-    private void refreshPlayerLimbModel(BossModel model, Entity entity, double syncRadius) {
+    private void finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius) {
         Object activeModel = model.activeModel();
+        Object modeledEntity = model.modeledEntity();
+        for (Object bone : activeModelBones(activeModel).values()) {
+            tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
+        }
         invokeOptional(activeModel, "generateModel");
         invokeOptional(activeModel, "initializeRenderer");
-        syncNearbyPlayers(model, entity, syncRadius);
+        invokeOptional(modeledEntity, "tick");
+        invokeOptional(activeModel, "tick");
+        forceResyncNearbyPlayers(model, entity, syncRadius);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
-            syncNearbyPlayers(model, entity, syncRadius);
-        }, 5L);
+            forceResyncNearbyPlayers(model, entity, syncRadius);
+        }, 10L);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
-            syncNearbyPlayers(model, entity, syncRadius);
-        }, 20L);
+            forceResyncNearbyPlayers(model, entity, syncRadius);
+        }, 40L);
     }
 
     private String extractTexturesProperty(Object profile) {
