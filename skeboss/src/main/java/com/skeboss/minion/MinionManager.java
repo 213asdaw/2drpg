@@ -117,9 +117,6 @@ public final class MinionManager {
             entity.setRemoveWhenFarAway(false);
             entity.setShouldBurnInDay(false);
             entity.setFireTicks(0);
-            if (config.isHideBaseEntity()) {
-                entity.setInvisible(true);
-            }
             entity.setCustomNameVisible(true);
             entity.setCustomName(TextUtil.color(config.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));
@@ -176,6 +173,7 @@ public final class MinionManager {
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 모델 적용 실패 — 좀비만 사용 (/meg reload, model-id: "
                     + config.getModelId() + ")", ex);
+            modelEngine.restoreBaseEntityVisibility(entity);
             registerBossBarViewers(minion);
             minion.setReady(true);
         }

@@ -425,6 +425,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage(TextUtil.color("&7player limb 없으면 &c좀비만&7 보입니다. 스킨 PNG만으로는 안 됩니다."));
+        player.sendMessage(TextUtil.color("&7완전 투명하면 &f/skeboss minion check &7로 blueprint 확인 후 &f/meg reload models"));
         player.sendMessage(TextUtil.color("&7위키: &fhttps://git.mythiccraft.io/mythiccraft/model-engine-4/-/wikis/Modeling/Bone-Behaviors"));
         player.sendMessage(TextUtil.color("&7→ player_model.bbmodel 링크 저장 → blueprints 폴더"));
     }

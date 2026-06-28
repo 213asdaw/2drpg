@@ -23,6 +23,7 @@ public final class ModelEngineBridge {
 
     private Method getOrCreateModeledEntity;
     private Method createModeledEntity;
+    private Method getModeledEntity;
     private Method createActiveModel;
     private Method createActiveModelFromBlueprint;
     private Method getBlueprint;
@@ -41,6 +42,7 @@ public final class ModelEngineBridge {
 
             getOrCreateModeledEntity = findStaticMethod(apiClass, "getOrCreateModeledEntity", Entity.class);
             createModeledEntity = findStaticMethod(apiClass, "createModeledEntity", Entity.class);
+            getModeledEntity = findStaticMethod(apiClass, "getModeledEntity", Entity.class);
             createActiveModel = findStaticMethod(apiClass, "createActiveModel", String.class);
             getBlueprint = findStaticMethod(apiClass, "getBlueprint", String.class);
 
@@ -231,6 +233,22 @@ public final class ModelEngineBridge {
             invokeFirst(model.modeledEntity(), "destroy");
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "ModeledEntity destroy 실패", ex);
+        }
+    }
+
+    /** 모델 로드 실패 시 좀비 본체가 다시 보이도록 복구 */
+    public void restoreBaseEntityVisibility(Entity entity) {
+        entity.setInvisible(false);
+        if (!available || getModeledEntity == null) {
+            return;
+        }
+        try {
+            Object modeledEntity = getModeledEntity.invoke(null, entity);
+            if (modeledEntity != null) {
+                tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, true);
+            }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "restoreBaseEntityVisibility", ex);
         }
     }
 
