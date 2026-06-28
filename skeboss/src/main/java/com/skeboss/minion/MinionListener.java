@@ -10,6 +10,7 @@ import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 
 public final class MinionListener implements Listener {
@@ -80,8 +81,16 @@ public final class MinionListener implements Listener {
                 continue;
             }
             if (entity.getLocation().distanceSquared(player.getLocation()) <= radiusSq) {
-                minionManager.getModelEngine().syncNearbyPlayers(model, entity, config.getViewerSyncRadius());
+                minionManager.syncMinionViewers(minion, player);
             }
+        }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        for (SkeMinion minion : minionManager.getMinions()) {
+            minion.removeViewer(player);
         }
     }
 

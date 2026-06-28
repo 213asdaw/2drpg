@@ -139,7 +139,7 @@ public final class MinionManager {
             }
         });
 
-        SkeMinion minion = new SkeMinion(zombie, spawnerId);
+        SkeMinion minion = new SkeMinion(zombie, spawnerId, config);
         minions.put(zombie.getUniqueId(), minion);
 
         int delay = Math.max(1, config.getSpawnDelayTicks());
@@ -166,12 +166,55 @@ public final class MinionManager {
             modelEngine.applyPlayerSkin(model, config.getSkinUsername());
             playWalk(minion);
             modelEngine.syncNearbyPlayers(model, entity, config.getViewerSyncRadius());
+            registerBossBarViewers(minion);
             minion.setReady(true);
             plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " @ " + entity.getLocation());
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 모델 적용 실패 — 좀비만 사용 (/meg reload, model-id: "
                     + config.getModelId() + ")", ex);
+            registerBossBarViewers(minion);
             minion.setReady(true);
+        }
+    }
+
+    private void registerBossBarViewers(SkeMinion minion) {
+        if (!minion.hasBossBar()) {
+            return;
+        }
+        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        LivingEntity entity = minion.getEntity();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!player.getWorld().equals(entity.getWorld())) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                minion.addViewer(player);
+            }
+        }
+    }
+
+    public void syncMinionViewers(SkeMinion minion, Player player) {
+        if (minion.getModel() != null) {
+            modelEngine.syncNearbyPlayers(minion.getModel(), minion.getEntity(), config.getViewerSyncRadius());
+        }
+        minion.addViewer(player);
+    }
+
+    public void syncBossBarViewers(SkeMinion minion) {
+        if (!minion.hasBossBar()) {
+            return;
+        }
+        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        LivingEntity entity = minion.getEntity();
+        for (Player player : entity.getWorld().getPlayers()) {
+            if (!player.isValid() || player.isDead()) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                minion.addViewer(player);
+            } else {
+                minion.removeViewer(player);
+            }
         }
     }
 
@@ -258,6 +301,7 @@ public final class MinionManager {
 
     public void remove(SkeMinion minion) {
         LivingEntity entity = minion.getEntity();
+        minion.removeAllViewers();
         if (minion.getModel() != null) {
             modelEngine.destroy(minion.getModel());
         }

@@ -143,6 +143,10 @@ minion:
   spawn-delay-ticks: 2
   ai-interval-ticks: 5
   spawner-respawn-seconds: 30
+  boss-bar:
+    enabled: true
+    color: YELLOW
+    style: SEGMENTED_6
   walk-animation: walk
   blend-in: 0.15
   blend-out: 0.25

@@ -1,6 +1,10 @@
 package com.skeboss.minion;
 
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.util.TextUtil;
+import org.bukkit.Bukkit;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
@@ -11,14 +15,25 @@ public final class SkeMinion {
     private final UUID id;
     private final LivingEntity entity;
     private final String spawnerId;
+    private final BossBar bossBar;
     private ModelEngineBridge.BossModel model;
     private boolean ready;
     private long lastMeleeMs;
 
-    public SkeMinion(LivingEntity entity, String spawnerId) {
+    public SkeMinion(LivingEntity entity, String spawnerId, MinionConfig config) {
         this.id = entity.getUniqueId();
         this.entity = entity;
         this.spawnerId = spawnerId;
+        if (config.isBossBarEnabled()) {
+            this.bossBar = Bukkit.createBossBar(
+                    TextUtil.color(config.getDisplayName()),
+                    config.getBossBarColor(),
+                    config.getBossBarStyle()
+            );
+            bossBar.setProgress(1.0);
+        } else {
+            this.bossBar = null;
+        }
     }
 
     public UUID getId() {
@@ -31,6 +46,44 @@ public final class SkeMinion {
 
     public String getSpawnerId() {
         return spawnerId;
+    }
+
+    public BossBar getBossBar() {
+        return bossBar;
+    }
+
+    public boolean hasBossBar() {
+        return bossBar != null;
+    }
+
+    public void updateBossBar() {
+        if (bossBar == null) {
+            return;
+        }
+        var maxAttr = entity.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        if (maxAttr == null) {
+            return;
+        }
+        double max = maxAttr.getValue();
+        bossBar.setProgress(Math.max(0.0, Math.min(1.0, entity.getHealth() / max)));
+    }
+
+    public void addViewer(Player player) {
+        if (bossBar != null && player != null) {
+            bossBar.addPlayer(player);
+        }
+    }
+
+    public void removeViewer(Player player) {
+        if (bossBar != null && player != null) {
+            bossBar.removePlayer(player);
+        }
+    }
+
+    public void removeAllViewers() {
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
     }
 
     public ModelEngineBridge.BossModel getModel() {

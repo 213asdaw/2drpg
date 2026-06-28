@@ -30,6 +30,9 @@ public final class MinionAI implements Runnable {
                 entity.setFireTicks(0);
             }
 
+            manager.syncBossBarViewers(minion);
+            minion.updateBossBar();
+
             Player target = minion.findNearestPlayer(config.getFollowRange());
             if (target == null) {
                 if (entity instanceof Mob mob) {

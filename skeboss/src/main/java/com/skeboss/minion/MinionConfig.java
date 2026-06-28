@@ -1,6 +1,8 @@
 package com.skeboss.minion;
 
 import com.skeboss.SkeBossPlugin;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public final class MinionConfig {
@@ -29,6 +31,9 @@ public final class MinionConfig {
     private final String skriptDefenseVariable;
     private final double fallbackAttack;
     private final double fallbackDefense;
+    private final boolean bossBarEnabled;
+    private final BarColor bossBarColor;
+    private final BarStyle bossBarStyle;
 
     public MinionConfig(SkeBossPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
@@ -56,6 +61,25 @@ public final class MinionConfig {
         skriptDefenseVariable = config.getString("minion.rpg.skript-defense-variable", "방어력");
         fallbackAttack = config.getDouble("minion.rpg.fallback-attack", 5.0);
         fallbackDefense = config.getDouble("minion.rpg.fallback-defense", 0.0);
+        bossBarEnabled = config.getBoolean("minion.boss-bar.enabled", true);
+        bossBarColor = parseBarColor(config.getString("minion.boss-bar.color", "YELLOW"));
+        bossBarStyle = parseBarStyle(config.getString("minion.boss-bar.style", "SEGMENTED_6"));
+    }
+
+    private static BarColor parseBarColor(String raw) {
+        try {
+            return BarColor.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarColor.YELLOW;
+        }
+    }
+
+    private static BarStyle parseBarStyle(String raw) {
+        try {
+            return BarStyle.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarStyle.SEGMENTED_6;
+        }
     }
 
     public String getModelId() {
@@ -152,5 +176,17 @@ public final class MinionConfig {
 
     public double getFallbackDefense() {
         return fallbackDefense;
+    }
+
+    public boolean isBossBarEnabled() {
+        return bossBarEnabled;
+    }
+
+    public BarColor getBossBarColor() {
+        return bossBarColor;
+    }
+
+    public BarStyle getBossBarStyle() {
+        return bossBarStyle;
     }
 }
