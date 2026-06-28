@@ -153,7 +153,7 @@ minion:
     enabled: true
     color: YELLOW
     style: SEGMENTED_6
-  walk-animation: walk
+  walk-animation: none
   blend-in: 0.15
   blend-out: 0.25
   rpg:

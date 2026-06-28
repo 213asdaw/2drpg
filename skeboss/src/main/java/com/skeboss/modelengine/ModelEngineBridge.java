@@ -311,10 +311,11 @@ public final class ModelEngineBridge {
                     }
                     return;
                 }
+                warmupUserLimbRegistry(username, resolvedProfile);
                 int limbs = applyProfileToPlayerLimbs(model.activeModel(), resolvedProfile);
                 if (limbs > 0) {
+                    refreshPlayerLimbModel(model, entity, syncRadius);
                     plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
-                    syncNearbyPlayers(model, entity, syncRadius);
                 } else {
                     plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
                             + " ModelEngine 기본 예시: skin (/meg models list)");
@@ -457,6 +458,89 @@ public final class ModelEngineBridge {
                     new Class<?>[]{org.bukkit.entity.Player.class}, player);
         }
         return false;
+    }
+
+    private void warmupUserLimbRegistry(String username, Object profile) {
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Method getRegistry = apiClass.getMethod("getUserLimbRegistry");
+            Object registry = getRegistry.invoke(null);
+            if (registry == null) {
+                return;
+            }
+
+            org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
+            if (online != null && tryInvoke(registry, "generate",
+                    new Class<?>[]{org.bukkit.entity.Player.class}, online)) {
+                return;
+            }
+
+            String texturesValue = extractTexturesProperty(profile);
+            if (texturesValue == null) {
+                return;
+            }
+            boolean slim = isSlimSkin(texturesValue);
+            tryInvoke(registry, "generate",
+                    new Class<?>[]{String.class, String.class, boolean.class},
+                    username, texturesValue, slim);
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "UserLimbRegistry warmup 실패: " + username, ex);
+        }
+    }
+
+    private void refreshPlayerLimbModel(BossModel model, Entity entity, double syncRadius) {
+        Object activeModel = model.activeModel();
+        invokeOptional(activeModel, "generateModel");
+        invokeOptional(activeModel, "initializeRenderer");
+        syncNearbyPlayers(model, entity, syncRadius);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!entity.isValid() || entity.isDead()) {
+                return;
+            }
+            syncNearbyPlayers(model, entity, syncRadius);
+        }, 5L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!entity.isValid() || entity.isDead()) {
+                return;
+            }
+            syncNearbyPlayers(model, entity, syncRadius);
+        }, 20L);
+    }
+
+    private String extractTexturesProperty(Object profile) {
+        Object properties = invokeOptional(profile, "getProperties");
+        if (properties == null) {
+            return null;
+        }
+        Object direct = invokeOptional(properties, "get", "textures");
+        if (direct != null) {
+            Object value = invokeOptional(direct, "getValue");
+            if (value instanceof String string) {
+                return string;
+            }
+        }
+        if (properties instanceof Iterable<?> iterable) {
+            for (Object property : iterable) {
+                Object name = invokeOptional(property, "getName");
+                if (!"textures".equals(name)) {
+                    continue;
+                }
+                Object value = invokeOptional(property, "getValue");
+                if (value instanceof String string) {
+                    return string;
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isSlimSkin(String texturesValue) {
+        try {
+            String decoded = new String(java.util.Base64.getDecoder().decode(texturesValue));
+            return decoded.contains("\"slim\"");
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {

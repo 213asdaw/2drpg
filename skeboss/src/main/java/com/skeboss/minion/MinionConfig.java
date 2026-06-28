@@ -59,7 +59,7 @@ public final class MinionConfig {
         spawnDelayTicks = config.getInt("minion.spawn-delay-ticks", 2);
         aiIntervalTicks = config.getInt("minion.ai-interval-ticks", 5);
         spawnerRespawnSeconds = config.getInt("minion.spawner-respawn-seconds", 30);
-        walkAnimation = config.getString("minion.walk-animation", "walk");
+        walkAnimation = config.getString("minion.walk-animation", "none");
         blendIn = config.getDouble("minion.blend-in", 0.15);
         blendOut = config.getDouble("minion.blend-out", 0.25);
         skriptAttackVariable = config.getString("minion.rpg.skript-attack-variable", "공격력");

@@ -181,14 +181,17 @@ public final class MinionManager {
             minion.setModel(model);
             double syncRadius = config.getViewerSyncRadius();
             modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
-                if (appliedLimbs > 0 && config.isHideBaseEntity()) {
+                if (appliedLimbs >= 4 && config.isHideBaseEntity()) {
                     modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
+                } else if (appliedLimbs > 0 && appliedLimbs < 4) {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs
+                            + "개) — 좀비 본체 유지");
                 } else if (appliedLimbs == 0) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     plugin.getLogger().warning("잡몹 스킨 미적용 — 좀비 본체를 유지합니다.");
                 }
             });
-            playWalk(minion);
             modelEngine.syncNearbyPlayers(model, entity, syncRadius);
             registerBossBarViewers(minion);
             minion.setReady(true);
@@ -260,14 +263,20 @@ public final class MinionManager {
         if (minion.getModel() == null || target == null) {
             return;
         }
-        Location entityLoc = minion.getEntity().getLocation();
+        LivingEntity entity = minion.getEntity();
+        if (!entity.isValid()) {
+            return;
+        }
+        Location entityLoc = entity.getLocation();
         Location targetLoc = target.getLocation();
         double dx = targetLoc.getX() - entityLoc.getX();
         double dz = targetLoc.getZ() - entityLoc.getZ();
+        if (dx * dx + dz * dz < 0.0001) {
+            return;
+        }
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        entity.setRotation(yaw, entityLoc.getPitch());
         modelEngine.syncBodyRotation(minion.getModel(), yaw);
-        entityLoc.setYaw(yaw);
-        minion.getEntity().teleport(entityLoc);
     }
 
     public void meleeAttack(SkeMinion minion, Player target) {
