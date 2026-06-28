@@ -405,11 +405,11 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(TextUtil.color("&7스킨 닉네임: &f" + config.getSkinUsername()));
         player.sendMessage(TextUtil.color("&7config model-id: &f" + config.getModelId()));
 
-        String resolved = me.resolveFirstAvailableModelId(config.getModelId(), config.getModelFallbackIds());
-        if (me.hasBlueprint(resolved)) {
-            player.sendMessage(TextUtil.color("&a사용할 모델: &f" + resolved + " &a(있음)"));
+        String resolved = me.resolveAvailableModelId(config.getModelId(), config.getModelFallbackIds());
+        if (resolved != null) {
+            player.sendMessage(TextUtil.color("&a사용할 모델: &f" + resolved + " &a(blueprint 있음)"));
         } else {
-            player.sendMessage(TextUtil.color("&c사용할 모델: &f" + resolved + " &c(없음!)"));
+            player.sendMessage(TextUtil.color("&c사용할 모델: &f없음 &c(blueprint 미등록)"));
             player.sendMessage(TextUtil.color("&e→ plugins/ModelEngine/blueprints/ 에 &fplayer_model.bbmodel"));
             player.sendMessage(TextUtil.color("&e→ 넣고 &f/meg reload models &e후 config model-id: player_model"));
         }
@@ -425,7 +425,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage(TextUtil.color("&7player limb 없으면 &c좀비만&7 보입니다. 스킨 PNG만으로는 안 됩니다."));
-        player.sendMessage(TextUtil.color("&7완전 투명하면 &f/skeboss minion check &7로 blueprint 확인 후 &f/meg reload models"));
+        player.sendMessage(TextUtil.color("&7투명하면 ModelEngine 리소스팩 적용 여부 확인 (&f/meg reload &7→ 팩 받기)"));
         player.sendMessage(TextUtil.color("&7위키: &fhttps://git.mythiccraft.io/mythiccraft/model-engine-4/-/wikis/Modeling/Bone-Behaviors"));
         player.sendMessage(TextUtil.color("&7→ player_model.bbmodel 링크 저장 → blueprints 폴더"));
     }

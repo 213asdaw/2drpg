@@ -154,22 +154,50 @@ public final class MinionManager {
             return;
         }
 
+        String resolvedModelId = modelEngine.resolveAvailableModelId(
+                config.getModelId(), config.getModelFallbackIds());
+        if (resolvedModelId == null) {
+            plugin.getLogger().warning("잡몹 blueprint 없음 — 좀비만 표시합니다. /skeboss minion check");
+            registerBossBarViewers(minion);
+            minion.setReady(true);
+            return;
+        }
+
         try {
             ModelEngineBridge.BossModel model = modelEngine.attachMinionModel(
                     entity,
                     config.getModelId(),
                     config.getModelFallbackIds(),
-                    config.isHideBaseEntity(),
                     config.getModelScale(),
                     config.getHitboxScale()
             );
+
+            int limbBones = modelEngine.countPlayerLimbs(model);
+            if (limbBones == 0) {
+                plugin.getLogger().warning("잡몹 모델에 PlayerLimb 본 없음 (" + resolvedModelId
+                        + ") — 좀비만 표시. player_model.bbmodel 확인");
+                modelEngine.destroy(model);
+                registerBossBarViewers(minion);
+                minion.setReady(true);
+                return;
+            }
+
             minion.setModel(model);
-            modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), config.getViewerSyncRadius());
+            double syncRadius = config.getViewerSyncRadius();
+            modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
+                if (appliedLimbs > 0 && config.isHideBaseEntity()) {
+                    modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
+                } else if (appliedLimbs == 0) {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    plugin.getLogger().warning("잡몹 스킨 미적용 — 좀비 본체를 유지합니다.");
+                }
+            });
             playWalk(minion);
-            modelEngine.syncNearbyPlayers(model, entity, config.getViewerSyncRadius());
+            modelEngine.syncNearbyPlayers(model, entity, syncRadius);
             registerBossBarViewers(minion);
             minion.setReady(true);
-            plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " @ " + entity.getLocation());
+            plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " (모델: " + resolvedModelId
+                    + ", PlayerLimb " + limbBones + "개) @ " + entity.getLocation());
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 모델 적용 실패 — 좀비만 사용 (/meg reload, model-id: "
                     + config.getModelId() + ")", ex);

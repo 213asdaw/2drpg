@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntConsumer;
 import java.util.logging.Level;
 
 /**
@@ -75,17 +76,21 @@ public final class ModelEngineBridge {
         return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
     }
 
-    /** player limb 모델 ID 자동 탐색 후 적용 */
+    /** player limb 모델 ID 자동 탐색 후 적용 (좀비는 스킨 확인 전까지 유지) */
     public BossModel attachMinionModel(Entity entity, String modelId, List<String> fallbackIds,
-                                       boolean hideBaseEntity, double modelScale, double hitboxScale) {
-        String resolvedId = resolveFirstAvailableModelId(modelId, fallbackIds);
+                                       double modelScale, double hitboxScale) {
+        String resolvedId = resolveAvailableModelId(modelId, fallbackIds);
+        if (resolvedId == null) {
+            throw new IllegalStateException("잡몹 blueprint 없음 — /skeboss minion check");
+        }
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale);
     }
 
-    public String resolveFirstAvailableModelId(String primaryId, List<String> fallbackIds) {
+    /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
+    public String resolveAvailableModelId(String primaryId, List<String> fallbackIds) {
         Set<String> candidates = new LinkedHashSet<>();
         if (primaryId != null && !primaryId.isBlank()) {
             candidates.add(primaryId);
@@ -97,6 +102,14 @@ public final class ModelEngineBridge {
             if (blueprintExists(id)) {
                 return id;
             }
+        }
+        return null;
+    }
+
+    public String resolveFirstAvailableModelId(String primaryId, List<String> fallbackIds) {
+        String available = resolveAvailableModelId(primaryId, fallbackIds);
+        if (available != null) {
+            return available;
         }
         return primaryId != null ? primaryId : "skin";
     }
@@ -252,9 +265,33 @@ public final class ModelEngineBridge {
         }
     }
 
+    public void setBaseEntityVisible(BossModel model, Entity entity, boolean visible, double syncRadius) {
+        if (model == null) {
+            return;
+        }
+        tryInvoke(model.modeledEntity(), "setBaseEntityVisible", new Class<?>[]{boolean.class}, visible);
+        syncNearbyPlayers(model, entity, syncRadius);
+    }
+
+    public int countPlayerLimbs(BossModel model) {
+        if (model == null) {
+            return 0;
+        }
+        return countPlayerLimbsOnActiveModel(model.activeModel());
+    }
+
     /** ModelEngine PlayerLimb 본에 마인크래프트 유저 스킨 적용 (EMP4348 등) */
     public void applyPlayerSkin(BossModel model, Entity entity, String username, double syncRadius) {
+        applyPlayerSkin(model, entity, username, syncRadius, null);
+    }
+
+    /** 스킨 적용 후 PlayerLimb 개수를 콜백으로 전달 (0이면 좀비 유지용) */
+    public void applyPlayerSkin(BossModel model, Entity entity, String username, double syncRadius,
+                                IntConsumer onComplete) {
         if (model == null || username == null || username.isBlank()) {
+            if (onComplete != null) {
+                onComplete.accept(0);
+            }
             return;
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -266,6 +303,9 @@ public final class ModelEngineBridge {
                 if (profile == null) {
                     plugin.getLogger().warning("스킨 조회 실패: " + username
                             + " — 닉네임·인터넷 연결을 확인하세요.");
+                    if (onComplete != null) {
+                        onComplete.accept(0);
+                    }
                     return;
                 }
                 int limbs = applyProfileToPlayerLimbs(model.activeModel(), profile);
@@ -275,6 +315,9 @@ public final class ModelEngineBridge {
                 } else {
                     plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
                             + " ModelEngine 기본 예시: skin (/meg models list)");
+                }
+                if (onComplete != null) {
+                    onComplete.accept(limbs);
                 }
             });
         });
@@ -329,6 +372,34 @@ public final class ModelEngineBridge {
             }
         }
         return applied;
+    }
+
+    private int countPlayerLimbsOnActiveModel(Object activeModel) {
+        Class<?> playerLimbClass;
+        try {
+            playerLimbClass = Class.forName("com.ticxo.modelengine.api.model.bone.type.PlayerLimb");
+        } catch (ClassNotFoundException ex) {
+            return 0;
+        }
+
+        Object bonesMap = invokeOptional(activeModel, "getBones");
+        if (!(bonesMap instanceof Map<?, ?> bones)) {
+            return 0;
+        }
+
+        int count = 0;
+        for (Object bone : bones.values()) {
+            Object behaviors = invokeOptional(bone, "getImmutableBoneBehaviors");
+            if (!(behaviors instanceof Iterable<?> iterable)) {
+                continue;
+            }
+            for (Object behavior : iterable) {
+                if (playerLimbClass.isInstance(behavior)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {

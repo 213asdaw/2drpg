@@ -140,6 +140,7 @@ minion:
   melee-range: 2.5
   melee-damage: 4.0
   fire-immune: true
+  # true면 스킨 적용 성공 후에만 좀비 숨김 (모델 없을 때 투명 방지)
   hide-base-entity: true
   model-scale: 1.0
   hitbox-scale: 1.0
