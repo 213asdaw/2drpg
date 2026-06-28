@@ -4,9 +4,13 @@
 		"model_format": "free",
 		"box_uv": false
 	},
-	"name": "skin_2",
-	"model_identifier": "",
-	"visible_box": [1, 1, 0],
+	"name": "player_model",
+	"model_identifier": "player_model",
+	"visible_box": [
+		1,
+		1,
+		0
+	],
 	"variable_placeholders": "",
 	"variable_placeholder_buttons": [],
 	"timeline_setups": [],
@@ -23,35 +27,80 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-3.76, 11.28, -1.88],
-			"to": [3.76, 22.56, 1.88],
+			"from": [
+				-3.76,
+				11.28,
+				-1.88
+			],
+			"to": [
+				3.76,
+				22.56,
+				1.88
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [0, 22.56, 0],
-			"uv_offset": [16, 16],
+			"origin": [
+				0,
+				22.56,
+				0
+			],
+			"uv_offset": [
+				16,
+				16
+			],
 			"faces": {
 				"north": {
-					"uv": [20, 20, 28, 32],
+					"uv": [
+						20,
+						20,
+						28,
+						32
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [16, 20, 20, 32],
+					"uv": [
+						16,
+						20,
+						20,
+						32
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [32, 20, 40, 32],
+					"uv": [
+						32,
+						20,
+						40,
+						32
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [28, 20, 32, 32],
+					"uv": [
+						28,
+						20,
+						32,
+						32
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [28, 20, 20, 16],
+					"uv": [
+						28,
+						20,
+						20,
+						16
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [36, 16, 28, 20],
+					"uv": [
+						36,
+						16,
+						28,
+						20
+					],
 					"texture": 0
 				}
 			},
@@ -65,35 +114,80 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-3.76, 0, -1.88],
-			"to": [0, 11.28, 1.88],
+			"from": [
+				-3.76,
+				0,
+				-1.88
+			],
+			"to": [
+				0,
+				11.28,
+				1.88
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [-1.88, 11.28, 0],
-			"uv_offset": [16, 48],
+			"origin": [
+				-1.88,
+				11.28,
+				0
+			],
+			"uv_offset": [
+				16,
+				48
+			],
 			"faces": {
 				"north": {
-					"uv": [20, 52, 24, 64],
+					"uv": [
+						20,
+						52,
+						24,
+						64
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [16, 52, 20, 64],
+					"uv": [
+						16,
+						52,
+						20,
+						64
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [28, 52, 32, 64],
+					"uv": [
+						28,
+						52,
+						32,
+						64
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [24, 52, 28, 64],
+					"uv": [
+						24,
+						52,
+						28,
+						64
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [24, 52, 20, 48],
+					"uv": [
+						24,
+						52,
+						20,
+						48
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [28, 48, 24, 52],
+					"uv": [
+						28,
+						48,
+						24,
+						52
+					],
 					"texture": 0
 				}
 			},
@@ -107,35 +201,80 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [0, 0, -1.88],
-			"to": [3.76, 11.28, 1.88],
+			"from": [
+				0,
+				0,
+				-1.88
+			],
+			"to": [
+				3.76,
+				11.28,
+				1.88
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [1.88, 11.28, 0],
-			"uv_offset": [0, 16],
+			"origin": [
+				1.88,
+				11.28,
+				0
+			],
+			"uv_offset": [
+				0,
+				16
+			],
 			"faces": {
 				"north": {
-					"uv": [4, 20, 8, 32],
+					"uv": [
+						4,
+						20,
+						8,
+						32
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [0, 20, 4, 32],
+					"uv": [
+						0,
+						20,
+						4,
+						32
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [12, 20, 16, 32],
+					"uv": [
+						12,
+						20,
+						16,
+						32
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [8, 20, 12, 32],
+					"uv": [
+						8,
+						20,
+						12,
+						32
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [8, 20, 4, 16],
+					"uv": [
+						8,
+						20,
+						4,
+						16
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [12, 16, 8, 20],
+					"uv": [
+						12,
+						16,
+						8,
+						20
+					],
 					"texture": 0
 				}
 			},
@@ -149,35 +288,80 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [3.76, 11.28, -1.88],
-			"to": [7.52, 22.56, 1.88],
+			"from": [
+				3.76,
+				11.28,
+				-1.88
+			],
+			"to": [
+				7.52,
+				22.56,
+				1.88
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [5.64, 22.56, 0],
-			"uv_offset": [40, 16],
+			"origin": [
+				5.64,
+				22.56,
+				0
+			],
+			"uv_offset": [
+				40,
+				16
+			],
 			"faces": {
 				"north": {
-					"uv": [44, 20, 48, 32],
+					"uv": [
+						44,
+						20,
+						48,
+						32
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [40, 20, 44, 32],
+					"uv": [
+						40,
+						20,
+						44,
+						32
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [52, 20, 56, 32],
+					"uv": [
+						52,
+						20,
+						56,
+						32
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [48, 20, 52, 32],
+					"uv": [
+						48,
+						20,
+						52,
+						32
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [48, 20, 44, 16],
+					"uv": [
+						48,
+						20,
+						44,
+						16
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [52, 16, 48, 20],
+					"uv": [
+						52,
+						16,
+						48,
+						20
+					],
 					"texture": 0
 				}
 			},
@@ -191,35 +375,80 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-7.52, 11.28, -1.88],
-			"to": [-3.76, 22.56, 1.88],
+			"from": [
+				-7.52,
+				11.28,
+				-1.88
+			],
+			"to": [
+				-3.76,
+				22.56,
+				1.88
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [-5.64, 22.56, 0],
-			"uv_offset": [32, 48],
+			"origin": [
+				-5.64,
+				22.56,
+				0
+			],
+			"uv_offset": [
+				32,
+				48
+			],
 			"faces": {
 				"north": {
-					"uv": [36, 52, 40, 64],
+					"uv": [
+						36,
+						52,
+						40,
+						64
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [32, 52, 36, 64],
+					"uv": [
+						32,
+						52,
+						36,
+						64
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [44, 52, 48, 64],
+					"uv": [
+						44,
+						52,
+						48,
+						64
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [40, 52, 44, 64],
+					"uv": [
+						40,
+						52,
+						44,
+						64
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [40, 52, 36, 48],
+					"uv": [
+						40,
+						52,
+						36,
+						48
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [44, 48, 40, 52],
+					"uv": [
+						44,
+						48,
+						40,
+						52
+					],
 					"texture": 0
 				}
 			},
@@ -233,34 +462,76 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-3.76, 22.56, -3.76],
-			"to": [3.76, 30.08, 3.76],
+			"from": [
+				-3.76,
+				22.56,
+				-3.76
+			],
+			"to": [
+				3.76,
+				30.08,
+				3.76
+			],
 			"autouv": 0,
 			"color": 0,
-			"origin": [0, 22.56, 0],
+			"origin": [
+				0,
+				22.56,
+				0
+			],
 			"faces": {
 				"north": {
-					"uv": [8, 8, 16, 16],
+					"uv": [
+						8,
+						8,
+						16,
+						16
+					],
 					"texture": 0
 				},
 				"east": {
-					"uv": [0, 8, 8, 16],
+					"uv": [
+						0,
+						8,
+						8,
+						16
+					],
 					"texture": 0
 				},
 				"south": {
-					"uv": [24, 8, 32, 16],
+					"uv": [
+						24,
+						8,
+						32,
+						16
+					],
 					"texture": 0
 				},
 				"west": {
-					"uv": [16, 8, 24, 16],
+					"uv": [
+						16,
+						8,
+						24,
+						16
+					],
 					"texture": 0
 				},
 				"up": {
-					"uv": [16, 8, 8, 0],
+					"uv": [
+						16,
+						8,
+						8,
+						0
+					],
 					"texture": 0
 				},
 				"down": {
-					"uv": [24, 0, 16, 8],
+					"uv": [
+						24,
+						0,
+						16,
+						8
+					],
 					"texture": 0
 				}
 			},
@@ -274,30 +545,72 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-4.8, 0, -4.8],
-			"to": [4.8, 28.8, 4.8],
+			"from": [
+				-4.8,
+				0,
+				-4.8
+			],
+			"to": [
+				4.8,
+				28.8,
+				4.8
+			],
 			"autouv": 1,
 			"color": 0,
 			"visibility": false,
-			"origin": [0, 0, 0],
+			"origin": [
+				0,
+				0,
+				0
+			],
 			"faces": {
 				"north": {
-					"uv": [0, 0, 9.6, 28.8]
+					"uv": [
+						0,
+						0,
+						9.6,
+						28.8
+					]
 				},
 				"east": {
-					"uv": [0, 0, 9.6, 28.8]
+					"uv": [
+						0,
+						0,
+						9.6,
+						28.8
+					]
 				},
 				"south": {
-					"uv": [0, 0, 9.6, 28.8]
+					"uv": [
+						0,
+						0,
+						9.6,
+						28.8
+					]
 				},
 				"west": {
-					"uv": [0, 0, 9.6, 28.8]
+					"uv": [
+						0,
+						0,
+						9.6,
+						28.8
+					]
 				},
 				"up": {
-					"uv": [0, 0, 9.6, 9.6]
+					"uv": [
+						0,
+						0,
+						9.6,
+						9.6
+					]
 				},
 				"down": {
-					"uv": [0, 0, 9.6, 9.6]
+					"uv": [
+						0,
+						0,
+						9.6,
+						9.6
+					]
 				}
 			},
 			"type": "cube",
@@ -310,29 +623,71 @@
 			"locked": false,
 			"render_order": "default",
 			"allow_mirror_modeling": true,
-			"from": [-8, 0, -8],
-			"to": [8, 0, 8],
+			"from": [
+				-8,
+				0,
+				-8
+			],
+			"to": [
+				8,
+				0,
+				8
+			],
 			"autouv": 1,
 			"color": 0,
-			"origin": [0, 0, 0],
+			"origin": [
+				0,
+				0,
+				0
+			],
 			"faces": {
 				"north": {
-					"uv": [0, 0, 16, 0]
+					"uv": [
+						0,
+						0,
+						16,
+						0
+					]
 				},
 				"east": {
-					"uv": [0, 0, 16, 0]
+					"uv": [
+						0,
+						0,
+						16,
+						0
+					]
 				},
 				"south": {
-					"uv": [0, 0, 16, 0]
+					"uv": [
+						0,
+						0,
+						16,
+						0
+					]
 				},
 				"west": {
-					"uv": [0, 0, 16, 0]
+					"uv": [
+						0,
+						0,
+						16,
+						0
+					]
 				},
 				"up": {
-					"uv": [0, 0, 16, 16]
+					"uv": [
+						0,
+						0,
+						16,
+						16
+					]
 				},
 				"down": {
-					"uv": [0, 0, 16, 16]
+					"uv": [
+						0,
+						0,
+						16,
+						16
+					]
 				}
 			},
 			"type": "cube",
@@ -342,7 +697,11 @@
 	"outliner": [
 		{
 			"name": "root",
-			"origin": [0, 0, 0],
+			"origin": [
+				0,
+				0,
+				0
+			],
 			"color": 0,
 			"uuid": "ddbf4508-8078-4eba-5bc7-cafa127567ba",
 			"export": true,
@@ -354,7 +713,11 @@
 			"children": [
 				{
 					"name": "plleg_left_leg",
-					"origin": [-1.88, 11.28, 0],
+					"origin": [
+						-1.88,
+						11.28,
+						0
+					],
 					"color": 0,
 					"uuid": "cc8652ca-4b33-a3a5-5d99-30fbe70337b0",
 					"export": true,
@@ -363,11 +726,17 @@
 					"locked": false,
 					"visibility": true,
 					"autouv": 0,
-					"children": ["ce382057-09cd-ee9e-109c-16b025354878"]
+					"children": [
+						"ce382057-09cd-ee9e-109c-16b025354878"
+					]
 				},
 				{
 					"name": "prleg_right_leg",
-					"origin": [1.88, 11.28, 0],
+					"origin": [
+						1.88,
+						11.28,
+						0
+					],
 					"color": 0,
 					"uuid": "bfa2c841-657c-fc07-1d54-13873b40edb6",
 					"export": true,
@@ -376,11 +745,17 @@
 					"locked": false,
 					"visibility": true,
 					"autouv": 0,
-					"children": ["25ccda17-6683-4c6f-fdab-96b538200ad3"]
+					"children": [
+						"25ccda17-6683-4c6f-fdab-96b538200ad3"
+					]
 				},
 				{
 					"name": "pbody_body",
-					"origin": [0, 22.56, 0],
+					"origin": [
+						0,
+						22.56,
+						0
+					],
 					"color": 0,
 					"uuid": "72d95e0d-c793-7d21-b3a5-8aefc0638648",
 					"export": true,
@@ -393,7 +768,11 @@
 						"d1489637-f240-082a-654e-018405844b3c",
 						{
 							"name": "h_phead_head",
-							"origin": [0, 22.56, 0],
+							"origin": [
+								0,
+								22.56,
+								0
+							],
 							"color": 0,
 							"uuid": "dd6c7a46-c729-4a03-9cac-1016b3079b09",
 							"export": true,
@@ -402,11 +781,17 @@
 							"locked": false,
 							"visibility": true,
 							"autouv": 0,
-							"children": ["7b84f68a-480f-e288-06c7-b9b26bd6431b"]
+							"children": [
+								"7b84f68a-480f-e288-06c7-b9b26bd6431b"
+							]
 						},
 						{
 							"name": "prarm_right_arm",
-							"origin": [4.7, 20.68, 0],
+							"origin": [
+								4.7,
+								20.68,
+								0
+							],
 							"color": 0,
 							"uuid": "5f91f345-413b-9ac8-48d0-1737e4ab99b7",
 							"export": true,
@@ -419,7 +804,11 @@
 								"8de25d82-0ef7-3969-f4ac-4fad83eaaeac",
 								{
 									"name": "ir_right_hand",
-									"origin": [5, 12, -1],
+									"origin": [
+										5,
+										12,
+										-1
+									],
 									"color": 0,
 									"uuid": "c9ccbb53-b781-91c2-0821-0ac1bcf6ebd7",
 									"export": true,
@@ -434,7 +823,11 @@
 						},
 						{
 							"name": "plarm_left_arm",
-							"origin": [-4.7, 20.68, 0],
+							"origin": [
+								-4.7,
+								20.68,
+								0
+							],
 							"color": 0,
 							"uuid": "877e6b3e-ead5-3871-3242-555fffb316bd",
 							"export": true,
@@ -443,7 +836,9 @@
 							"locked": false,
 							"visibility": true,
 							"autouv": 0,
-							"children": ["ef7c81b0-ccef-6dd5-9cb5-3427f64e4cce"]
+							"children": [
+								"ef7c81b0-ccef-6dd5-9cb5-3427f64e4cce"
+							]
 						}
 					]
 				}
@@ -451,7 +846,11 @@
 		},
 		{
 			"name": "hitbox",
-			"origin": [0, 25.92, 0],
+			"origin": [
+				0,
+				25.92,
+				0
+			],
 			"color": 0,
 			"uuid": "10d89684-e744-6f8c-9d30-89eee045b6ea",
 			"export": true,
@@ -460,11 +859,17 @@
 			"locked": false,
 			"visibility": false,
 			"autouv": 0,
-			"children": ["8e59d926-c299-04c9-0131-56e629c54075"]
+			"children": [
+				"8e59d926-c299-04c9-0131-56e629c54075"
+			]
 		},
 		{
 			"name": "shadow",
-			"origin": [0, 0, 0],
+			"origin": [
+				0,
+				0,
+				0
+			],
 			"color": 0,
 			"uuid": "d3eee0b8-5dd9-c38d-0ac1-0e9853ab8027",
 			"export": true,
@@ -473,7 +878,9 @@
 			"locked": false,
 			"visibility": true,
 			"autouv": 0,
-			"children": ["f569337d-9d77-248b-5e8d-dae75bb3d93f"]
+			"children": [
+				"f569337d-9d77-248b-5e8d-dae75bb3d93f"
+			]
 		}
 	],
 	"textures": [
@@ -788,7 +1195,13 @@
 		"4383f772-ddd1-083b-6049-75d504ab47fc": {
 			"animation": {
 				"frametime": 2,
-				"frames": [0, 1, 2, 3, 4]
+				"frames": [
+					0,
+					1,
+					2,
+					3,
+					4
+				]
 			}
 		}
 	}

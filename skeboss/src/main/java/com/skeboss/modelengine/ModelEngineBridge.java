@@ -146,6 +146,8 @@ public final class ModelEngineBridge {
             applyScale(activeModel, modelScale, hitboxScale);
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
+            invokeOptional(activeModel, "generateModel");
+            invokeOptional(activeModel, "initializeRenderer");
 
             // 모델 먼저 플레이어에게 보이게 한 뒤 좀비 숨김
             syncNearbyPlayers(modeledEntity, entity, 64.0);
@@ -295,12 +297,13 @@ public final class ModelEngineBridge {
             return;
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Object profile = fetchMojangProfile(username);
+            Object mojangProfile = fetchMojangProfile(username);
+            Object resolvedProfile = mojangProfile != null ? mojangProfile : fetchBukkitProfile(username);
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!entity.isValid() || entity.isDead()) {
                     return;
                 }
-                if (profile == null) {
+                if (resolvedProfile == null) {
                     plugin.getLogger().warning("스킨 조회 실패: " + username
                             + " — 닉네임·인터넷 연결을 확인하세요.");
                     if (onComplete != null) {
@@ -308,7 +311,7 @@ public final class ModelEngineBridge {
                     }
                     return;
                 }
-                int limbs = applyProfileToPlayerLimbs(model.activeModel(), profile);
+                int limbs = applyProfileToPlayerLimbs(model.activeModel(), resolvedProfile);
                 if (limbs > 0) {
                     plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
                     syncNearbyPlayers(model, entity, syncRadius);
@@ -337,36 +340,51 @@ public final class ModelEngineBridge {
         }
     }
 
-    private int applyProfileToPlayerLimbs(Object activeModel, Object profile) {
-        Class<?> playerLimbClass;
+    private Object fetchBukkitProfile(String username) {
+        UUID uuid = resolveUsernameUuid(username);
+        if (uuid == null) {
+            return null;
+        }
         try {
-            playerLimbClass = Class.forName("com.ticxo.modelengine.api.model.bone.type.PlayerLimb");
-        } catch (ClassNotFoundException ex) {
+            Object profile = Bukkit.class.getMethod("createProfile", UUID.class, String.class)
+                    .invoke(null, uuid, username);
+            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)) {
+                plugin.getLogger().info("Bukkit PlayerProfile 스킨 로드: " + username);
+                return profile;
+            }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "Bukkit profile 실패: " + username, ex);
+        }
+        return null;
+    }
+
+    private UUID resolveUsernameUuid(String username) {
+        try {
+            Class<?> mojangApi = Class.forName("com.ticxo.modelengine.api.utils.MojangAPI");
+            return (UUID) mojangApi.getMethod("getUUIDFromUsername", String.class).invoke(null, username);
+        } catch (ReflectiveOperationException ex) {
+            return null;
+        }
+    }
+
+    private int applyProfileToPlayerLimbs(Object activeModel, Object profile) {
+        Class<?> playerLimbClass = playerLimbClass();
+        if (playerLimbClass == null) {
             return 0;
         }
 
-        Object bonesMap = invokeOptional(activeModel, "getBones");
-        if (!(bonesMap instanceof Map<?, ?> bones)) {
+        Map<String, Object> bones = activeModelBones(activeModel);
+        if (bones.isEmpty()) {
             return 0;
         }
 
         int applied = 0;
-        Class<?> profileType = profile.getClass();
-        try {
-            profileType = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
-        } catch (ClassNotFoundException ignored) {
-        }
-        Class<?>[] textureParam = new Class<?>[]{profileType};
         for (Object bone : bones.values()) {
-            Object behaviors = invokeOptional(bone, "getImmutableBoneBehaviors");
-            if (!(behaviors instanceof Iterable<?> iterable)) {
-                continue;
-            }
-            for (Object behavior : iterable) {
+            for (Object behavior : iterateBoneBehaviors(bone)) {
                 if (!playerLimbClass.isInstance(behavior)) {
                     continue;
                 }
-                if (tryInvoke(behavior, "setTexture", textureParam, profile)) {
+                if (applyTextureToPlayerLimb(behavior, profile)) {
                     applied++;
                 }
             }
@@ -375,31 +393,70 @@ public final class ModelEngineBridge {
     }
 
     private int countPlayerLimbsOnActiveModel(Object activeModel) {
-        Class<?> playerLimbClass;
-        try {
-            playerLimbClass = Class.forName("com.ticxo.modelengine.api.model.bone.type.PlayerLimb");
-        } catch (ClassNotFoundException ex) {
-            return 0;
-        }
-
-        Object bonesMap = invokeOptional(activeModel, "getBones");
-        if (!(bonesMap instanceof Map<?, ?> bones)) {
+        Class<?> playerLimbClass = playerLimbClass();
+        if (playerLimbClass == null) {
             return 0;
         }
 
         int count = 0;
-        for (Object bone : bones.values()) {
-            Object behaviors = invokeOptional(bone, "getImmutableBoneBehaviors");
-            if (!(behaviors instanceof Iterable<?> iterable)) {
-                continue;
-            }
-            for (Object behavior : iterable) {
+        for (Object bone : activeModelBones(activeModel).values()) {
+            for (Object behavior : iterateBoneBehaviors(bone)) {
                 if (playerLimbClass.isInstance(behavior)) {
                     count++;
                 }
             }
         }
         return count;
+    }
+
+    private Class<?> playerLimbClass() {
+        try {
+            return Class.forName("com.ticxo.modelengine.api.model.bone.type.PlayerLimb");
+        } catch (ClassNotFoundException ex) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> activeModelBones(Object activeModel) {
+        Object bonesMap = invokeOptional(activeModel, "getBones");
+        if (bonesMap instanceof Map<?, ?> bones) {
+            return (Map<String, Object>) bones;
+        }
+        return Map.of();
+    }
+
+    private List<Object> iterateBoneBehaviors(Object bone) {
+        Object behaviors = invokeOptional(bone, "getImmutableBoneBehaviors");
+        if (behaviors instanceof Map<?, ?> map) {
+            return new ArrayList<>(map.values());
+        }
+        if (behaviors instanceof Iterable<?> iterable) {
+            List<Object> list = new ArrayList<>();
+            for (Object behavior : iterable) {
+                list.add(behavior);
+            }
+            return list;
+        }
+        return List.of();
+    }
+
+    private boolean applyTextureToPlayerLimb(Object playerLimb, Object profile) {
+        if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{profile.getClass()}, profile)) {
+            return true;
+        }
+        try {
+            Class<?> paperProfile = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
+            if (tryInvoke(playerLimb, "setTexture", new Class<?>[]{paperProfile}, profile)) {
+                return true;
+            }
+        } catch (ClassNotFoundException ignored) {
+        }
+        if (profile instanceof org.bukkit.entity.Player player) {
+            return tryInvoke(playerLimb, "setTexture",
+                    new Class<?>[]{org.bukkit.entity.Player.class}, player);
+        }
+        return false;
     }
 
     private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {

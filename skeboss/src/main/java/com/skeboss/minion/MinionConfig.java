@@ -91,6 +91,7 @@ public final class MinionConfig {
         List<String> ids = new ArrayList<>(config.getStringList("minion.model-fallback-ids"));
         if (ids.isEmpty()) {
             ids.add("player_model");
+            ids.add("skin_2");
             ids.add("skin");
             ids.add("player");
         }

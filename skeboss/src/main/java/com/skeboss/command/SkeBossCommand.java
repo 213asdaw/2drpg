@@ -459,6 +459,13 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             String status = me.hasBlueprint(id) ? "&a있음" : "&c없음";
             player.sendMessage(TextUtil.color("  &f" + id + " " + status));
         }
+        for (String extraId : List.of("skin_2")) {
+            if (config.getModelFallbackIds().contains(extraId)) {
+                continue;
+            }
+            String status = me.hasBlueprint(extraId) ? "&a있음" : "&c없음";
+            player.sendMessage(TextUtil.color("  &f" + extraId + " " + status + " &7(bbmodel 내부 이름)"));
+        }
 
         if (me.hasBlueprint("ske")) {
             player.sendMessage(TextUtil.color("&7인조인간 모델(ske): &a있음"));

@@ -174,12 +174,8 @@ public final class MinionManager {
 
             int limbBones = modelEngine.countPlayerLimbs(model);
             if (limbBones == 0) {
-                plugin.getLogger().warning("잡몹 모델에 PlayerLimb 본 없음 (" + resolvedModelId
-                        + ") — 좀비만 표시. player_model.bbmodel 확인");
-                modelEngine.destroy(model);
-                registerBossBarViewers(minion);
-                minion.setReady(true);
-                return;
+                plugin.getLogger().warning("잡몹 PlayerLimb 탐지 0개 (" + resolvedModelId
+                        + ") — 스킨 적용은 계속 시도합니다.");
             }
 
             minion.setModel(model);
