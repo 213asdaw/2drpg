@@ -152,15 +152,17 @@ public final class ModelEngineBridge {
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
+            registerModeledEntityForTracking(modeledEntity, entity);
+
             if (!deferRendererInit) {
                 invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
-                syncNearbyPlayers(modeledEntity, entity, 64.0);
+                syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
 
             if (hideBaseEntity && !deferRendererInit) {
                 tryInvoke(modeledEntity, "setBaseEntityVisible", new Class<?>[]{boolean.class}, false);
-                syncNearbyPlayers(modeledEntity, entity, 64.0);
+                syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
 
             plugin.getLogger().info("ModelEngine 모델 적용: " + modelId + " → " + entity.getUniqueId());
@@ -172,41 +174,156 @@ public final class ModelEngineBridge {
     }
 
     public void syncNearbyPlayers(BossModel model, Entity entity, double radius) {
-        syncNearbyPlayers(model.modeledEntity(), entity, radius);
+        syncNearbyPlayers(model.modeledEntity(), model.activeModel(), entity, radius, false);
     }
 
     /** 클라이언트에 player limb 모델을 다시 밀어 넣음 */
     public void forceResyncNearbyPlayers(BossModel model, Entity entity, double radius) {
-        Object rangeManager = invokeOptional(model.modeledEntity(), "getRangeManager");
-        if (rangeManager == null) {
-            syncNearbyPlayers(model, entity, radius);
+        syncNearbyPlayers(model.modeledEntity(), model.activeModel(), entity, radius, true);
+    }
+
+    private void syncNearbyPlayers(Object modeledEntity, Object activeModel, Entity entity, double radius,
+                                   boolean forceResync) {
+        Object rangeManager = resolveRangeManager(modeledEntity);
+        if (rangeManager != null) {
+            syncNearbyPlayersWithRangeManager(rangeManager, entity, radius, forceResync);
             return;
         }
+        if (syncNearbyPlayersModern(modeledEntity, activeModel, entity, radius, forceResync)) {
+            return;
+        }
+        plugin.getLogger().warning("모델 시청자 동기화 실패 — ModelEngine R3/R4 API를 찾지 못했습니다.");
+    }
+
+    private void syncNearbyPlayersWithRangeManager(Object rangeManager, Entity entity, double radius,
+                                                   boolean forceResync) {
         double radiusSq = radius * radius;
         for (org.bukkit.entity.Player player : entity.getWorld().getPlayers()) {
             if (!player.isValid() || player.getLocation().distanceSquared(entity.getLocation()) > radiusSq) {
                 continue;
             }
-            tryInvoke(rangeManager, "removePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            if (forceResync) {
+                tryInvoke(rangeManager, "removePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            }
             tryInvoke(rangeManager, "forceSpawn", new Class<?>[]{org.bukkit.entity.Player.class}, player);
             tryInvoke(rangeManager, "updatePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            tryInvoke(rangeManager, "addPlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
         }
     }
 
-    private void syncNearbyPlayers(Object modeledEntity, Entity entity, double radius) {
+    /** R3: ModeledEntity/BaseEntity RangeManager. R4에서는 null. */
+    private Object resolveRangeManager(Object modeledEntity) {
         Object rangeManager = invokeOptional(modeledEntity, "getRangeManager");
-        if (rangeManager == null) {
-            plugin.getLogger().warning("RangeManager 없음 — 모델이 안 보일 수 있습니다.");
-            return;
+        if (rangeManager != null) {
+            return rangeManager;
+        }
+        Object base = invokeOptional(modeledEntity, "getBase");
+        if (base == null) {
+            return null;
+        }
+        rangeManager = invokeOptional(base, "getRangeManager");
+        if (rangeManager != null) {
+            return rangeManager;
+        }
+        return invokeOptional(base, "wrapRangeManager", modeledEntity);
+    }
+
+    /** ModelEngine R4: RangeManager 대신 ModelUpdaters + renderer resync 사용 */
+    private boolean syncNearbyPlayersModern(Object modeledEntity, Object activeModel, Entity entity, double radius,
+                                            boolean forceResync) {
+        boolean synced = registerModeledEntityForTracking(modeledEntity, entity);
+        Object base = invokeOptional(modeledEntity, "getBase");
+        if (base != null) {
+            int renderRadius = Math.max(16, (int) Math.ceil(radius));
+            synced |= tryInvoke(base, "setRenderRadius", new Class<?>[]{int.class}, renderRadius);
+        }
+        synced |= startDesyncMonitor(entity.getUniqueId());
+
+        invokeOptional(modeledEntity, "tick");
+        if (activeModel != null) {
+            invokeOptional(activeModel, "tick");
+            Object renderer = invokeOptional(activeModel, "getModelRenderer");
+            if (renderer != null) {
+                tryInvoke(renderer, "pollFirstSpawn", new Class<?>[]{});
+                synced = true;
+                double radiusSq = radius * radius;
+                for (org.bukkit.entity.Player player : entity.getWorld().getPlayers()) {
+                    if (!player.isValid()
+                            || player.getLocation().distanceSquared(entity.getLocation()) > radiusSq) {
+                        continue;
+                    }
+                    UUID playerId = player.getUniqueId();
+                    if (forceResync) {
+                        synced |= tryInvoke(renderer, "pushFullUpdate", new Class<?>[]{UUID.class}, playerId);
+                    }
+                    synced |= tryInvoke(renderer, "pollFullUpdate", new Class<?>[]{UUID.class}, playerId);
+                }
+            }
+        }
+        return synced;
+    }
+
+    private boolean registerModeledEntityForTracking(Object modeledEntity, Entity entity) {
+        if (tryInvoke(modeledEntity, "registerSelf", new Class<?>[]{})) {
+            return true;
         }
 
-        double radiusSq = radius * radius;
-        for (org.bukkit.entity.Player player : entity.getWorld().getPlayers()) {
-            if (!player.isValid() || player.getLocation().distanceSquared(entity.getLocation()) > radiusSq) {
-                continue;
+        Object base = invokeOptional(modeledEntity, "getBase");
+        if (base == null) {
+            return false;
+        }
+
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Object updaters = getModelUpdaters(apiClass);
+            if (updaters != null) {
+                Object registered = invokeOptional(updaters, "registerModeledEntity", base, modeledEntity);
+                if (registered != null || modeledEntity.equals(invokeOptional(updaters, "getModeledEntity",
+                        entity.getUniqueId()))) {
+                    return true;
+                }
             }
-            tryInvoke(rangeManager, "forceSpawn", new Class<?>[]{org.bukkit.entity.Player.class}, player);
-            tryInvoke(rangeManager, "updatePlayer", new Class<?>[]{org.bukkit.entity.Player.class}, player);
+
+            Method registerStatic = findStaticMethod(apiClass, "registerModeledEntity",
+                    Class.forName("com.ticxo.modelengine.api.entity.BaseEntity"),
+                    Class.forName("com.ticxo.modelengine.api.model.ModeledEntity"));
+            if (registerStatic != null) {
+                registerStatic.invoke(null, base, modeledEntity);
+                return true;
+            }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "ModelEngine 등록 실패: " + entity.getUniqueId(), ex);
+        }
+        return false;
+    }
+
+    private Object getModelUpdaters(Class<?> apiClass) throws ReflectiveOperationException {
+        Method staticGetter = findStaticMethod(apiClass, "getModelUpdaters");
+        if (staticGetter != null) {
+            return staticGetter.invoke(null);
+        }
+        Method getApi = findStaticMethod(apiClass, "getAPI");
+        if (getApi != null) {
+            Object api = getApi.invoke(null);
+            if (api != null) {
+                return invokeOptional(api, "getModelUpdaters");
+            }
+        }
+        return null;
+    }
+
+    private boolean startDesyncMonitor(UUID entityId) {
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Object updaters = getModelUpdaters(apiClass);
+            if (updaters == null) {
+                return false;
+            }
+            invokeOptional(updaters, "startDesyncMonitor", entityId);
+            return true;
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "DesyncMonitor 시작 실패: " + entityId, ex);
+            return false;
         }
     }
 
