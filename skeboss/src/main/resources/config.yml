@@ -80,6 +80,9 @@ skills:
 # pvp: true = 플레이어에게도 레이저·사슬 적용
 weapons:
   plugin-right-click: true
+  # 인조 무기 레이저: Skript {공격력} × 배율 + 고정 데미지
+  beam-attack-multiplier: 2.0
+  beam-base-damage: 3.0
   # true = /skeboss weapon 으로 받은 무기(NBT)만 우클릭 인식 — 불꽃검기 등 다른 스킬과 충돌 방지
   require-nbt: true
   # untitled 불꽃검기: 손 아이템이 검기로 바뀌면 복구
@@ -109,7 +112,7 @@ weapons:
     lore:
       - "&7인조인간의 레이저 기술"
       - "&7우클릭: 레이저 발사"
-      - "&7데미지: Skript {공격력} × 배율"
+      - "&7데미지: {공격력} ×2 + 3"
     skill: laser
     cooldown-seconds: 8
   chain-hook:

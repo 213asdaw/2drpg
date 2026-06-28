@@ -216,12 +216,15 @@ public final class WeaponManager {
 
     public double getPlayerBeamDamage(Player player) {
         BossConfig config = bossManager.getConfig();
+        WeaponConfig weapons = weaponConfig;
         double attack = skriptBridge.getEntityStat(
                 player,
                 config.getSkriptAttackVariable(),
                 config.getFallbackAttackStat()
         );
-        return Math.max(0.0, attack * config.getBeamAttackMultiplier());
+        double multiplier = weapons.getBeamAttackMultiplier();
+        double base = weapons.getBeamBaseDamage();
+        return Math.max(0.0, attack * multiplier + base);
     }
 
     public double getPlayerSkillDamage(Player player, SkillDefinition skill) {

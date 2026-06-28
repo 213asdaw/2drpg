@@ -21,6 +21,8 @@ public final class WeaponConfig {
     private final boolean restoreAfterSkill;
     private final boolean restoreNearBoss;
     private final double restoreRadius;
+    private final double beamAttackMultiplier;
+    private final double beamBaseDamage;
     private final List<String> restoreKeywords;
     private final Map<String, WeaponDefinition> weapons;
 
@@ -34,6 +36,8 @@ public final class WeaponConfig {
         restoreAfterSkill = root == null || root.getBoolean("restore-after-skill", true);
         restoreNearBoss = root == null || root.getBoolean("restore-near-boss", true);
         restoreRadius = root == null ? 48.0 : root.getDouble("restore-radius", 48.0);
+        beamAttackMultiplier = root == null ? 2.0 : root.getDouble("beam-attack-multiplier", 2.0);
+        beamBaseDamage = root == null ? 3.0 : root.getDouble("beam-base-damage", 3.0);
         restoreKeywords = loadRestoreKeywords(root);
         weapons = loadWeapons(root);
     }
@@ -62,7 +66,8 @@ public final class WeaponConfig {
             if (key.equals("pvp") || key.equals("target-boss") || key.equals("target-mobs")
                     || key.equals("plugin-right-click") || key.equals("require-nbt")
                     || key.equals("restore-after-skill") || key.equals("restore-keywords")
-                    || key.equals("restore-near-boss") || key.equals("restore-radius")) {
+                    || key.equals("restore-near-boss") || key.equals("restore-radius")
+                    || key.equals("beam-attack-multiplier") || key.equals("beam-base-damage")) {
                 continue;
             }
             ConfigurationSection section = root.getConfigurationSection(key);
@@ -166,6 +171,14 @@ public final class WeaponConfig {
 
     public double getRestoreRadius() {
         return restoreRadius;
+    }
+
+    public double getBeamAttackMultiplier() {
+        return beamAttackMultiplier;
+    }
+
+    public double getBeamBaseDamage() {
+        return beamBaseDamage;
     }
 
     public List<String> getRestoreKeywords() {
