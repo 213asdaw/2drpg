@@ -180,6 +180,45 @@ public final class ModelEngineBridge {
         }
     }
 
+    /** ModelEngine player 림 모델에 마인크래프트 유저 스킨 적용 (EMP4348 등) */
+    public void applyPlayerSkin(BossModel model, String username) {
+        if (model == null || username == null || username.isBlank()) {
+            return;
+        }
+        Object activeModel = model.activeModel();
+        Object modeledEntity = model.modeledEntity();
+
+        if (tryInvoke(activeModel, "setPlayerSkin", new Class<?>[]{String.class}, username)) {
+            return;
+        }
+        if (tryInvoke(activeModel, "setSkinUsername", new Class<?>[]{String.class}, username)) {
+            return;
+        }
+        if (tryInvoke(modeledEntity, "setPlayerSkin", new Class<?>[]{String.class}, username)) {
+            return;
+        }
+
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Object playerSkin = invokeStaticOptional(apiClass, "getPlayerSkin", username);
+            if (playerSkin != null) {
+                tryInvoke(activeModel, "setPlayerSkinData", new Class<?>[]{playerSkin.getClass()}, playerSkin);
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        plugin.getLogger().info("스킨 적용 시도: " + username
+                + " — ModelEngine에 player 림 모델(model-id)이 있어야 합니다. (/meg reload)");
+    }
+
+    private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {
+        Method match = findMethodByNameAndArity(clazz, method, args.length);
+        if (match == null) {
+            return null;
+        }
+        return match.invoke(null, convertArgs(match.getParameterTypes(), args));
+    }
+
     public void playLoopAnimation(BossModel model, String animation, double blendIn, double blendOut) {
         Object handler = animationHandler(model);
         if (!tryPlayAnimation(handler, animation, blendIn, blendOut)) {

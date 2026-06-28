@@ -4,6 +4,8 @@ import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
+import com.skeboss.minion.MinionManager;
+import com.skeboss.minion.MinionSpawner;
 import com.skeboss.util.TextUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.Bukkit;
@@ -24,10 +26,12 @@ import java.util.Locale;
 public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
     private final BossManager bossManager;
+    private final MinionManager minionManager;
     private final WeaponManager weaponManager;
 
-    public SkeBossCommand(BossManager bossManager, WeaponManager weaponManager) {
+    public SkeBossCommand(BossManager bossManager, MinionManager minionManager, WeaponManager weaponManager) {
         this.bossManager = bossManager;
+        this.minionManager = minionManager;
         this.weaponManager = weaponManager;
     }
 
@@ -63,6 +67,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             case "reload" -> {
                 return requireAdmin(sender, () -> handleReload(sender));
+            }
+            case "minion" -> {
+                return requireAdmin(sender, () -> handleMinion((Player) sender, args));
             }
             default -> {
                 sender.sendMessage(TextUtil.color("&c알 수 없는 명령입니다. &7/skeboss help"));
@@ -303,8 +310,86 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         SkeBossPlugin plugin = com.skeboss.SkeBossPlugin.getInstance();
         plugin.mergeAndReloadConfig();
         weaponManager.reload();
-        sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스는 재시작 권장)"));
+        minionManager.reload();
+        sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스·잡몹은 재시작 권장)"));
         sender.sendMessage(TextUtil.color("&7무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
+    }
+
+    private void handleMinion(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
+            return;
+        }
+
+        String sub = args[1].toLowerCase(Locale.ROOT);
+        if (!sub.equals("spawner")) {
+            player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
+            return;
+        }
+
+        if (args.length < 3) {
+            player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
+            return;
+        }
+
+        String action = args[2].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "create", "add" -> {
+                if (args.length < 4) {
+                    player.sendMessage(TextUtil.color("&c/skeboss minion spawner create <ID>"));
+                    player.sendMessage(TextUtil.color("&7현재 위치에 EMP4348 잡몹 스포너를 만듭니다."));
+                    return;
+                }
+                String id = args[3];
+                try {
+                    MinionSpawner spawner = minionManager.createSpawner(id, player.getLocation());
+                    String pos = String.format("%.1f, %.1f, %.1f",
+                            player.getLocation().getX(),
+                            player.getLocation().getY(),
+                            player.getLocation().getZ());
+                    player.sendMessage(TextUtil.color(
+                            "&a잡몹 스포너 생성: &f" + spawner.getId()
+                                    + " &7@ " + player.getWorld().getName() + " (" + pos + ")"
+                    ));
+                    player.sendMessage(TextUtil.color("&7죽으면 &f" + minionManager.getConfig().getSpawnerRespawnSeconds()
+                            + "초&7 후 리스폰"));
+                } catch (IllegalStateException ex) {
+                    player.sendMessage(TextUtil.color("&c스포너 생성 실패: &f" + ex.getMessage()));
+                }
+            }
+            case "remove", "delete", "del" -> {
+                if (args.length < 4) {
+                    player.sendMessage(TextUtil.color("&c/skeboss minion spawner remove <ID>"));
+                    return;
+                }
+                String id = args[3];
+                if (minionManager.removeSpawner(id)) {
+                    player.sendMessage(TextUtil.color("&a잡몹 스포너 삭제: &f" + id));
+                } else {
+                    player.sendMessage(TextUtil.color("&c스포너를 찾을 수 없습니다: &f" + id));
+                }
+            }
+            case "list" -> {
+                var spawners = minionManager.getSpawnerStorage().all();
+                if (spawners.isEmpty()) {
+                    player.sendMessage(TextUtil.color("&7등록된 잡몹 스포너가 없습니다."));
+                    return;
+                }
+                player.sendMessage(TextUtil.color("&6&l━━━━ 잡몹 스포너 ━━━━"));
+                for (MinionSpawner spawner : spawners) {
+                    Location loc = spawner.toLocation();
+                    if (loc == null) {
+                        player.sendMessage(TextUtil.color("&f" + spawner.getId() + " &c(월드 없음)"));
+                        continue;
+                    }
+                    String pos = String.format("%.1f, %.1f, %.1f", loc.getX(), loc.getY(), loc.getZ());
+                    String active = spawner.getActiveMinionId() != null ? "&a활성" : "&7대기";
+                    player.sendMessage(TextUtil.color("&f" + spawner.getId() + " &7" + loc.getWorld().getName()
+                            + " (" + pos + ") " + active));
+                }
+            }
+            default -> player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
+        }
     }
 
     private SkeBoss getTargetBoss(Player player) {
@@ -331,6 +416,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss spawn <world> <x> <y> <z> &7- 월드·좌표 지정"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion spawner create <ID> &7- 잡몹 스포너 생성"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion spawner remove <ID> &7- 잡몹 스포너 삭제"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion spawner list &7- 스포너 목록"));
             sender.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
         }
         if (!sender.hasPermission("skeboss.weapon.give")
@@ -346,7 +434,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> options = new ArrayList<>();
             if (sender.hasPermission("skeboss.admin")) {
-                options.addAll(List.of("spawn", "skill", "remove", "reload"));
+                options.addAll(List.of("spawn", "skill", "remove", "reload", "minion"));
             }
             if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
                 options.add("weapon");
@@ -370,6 +458,18 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("spawn") && sender.hasPermission("skeboss.admin")) {
             return filter(Bukkit.getWorlds().stream().map(World::getName).toList(), args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("minion") && sender.hasPermission("skeboss.admin")) {
+            return filter(List.of("spawner"), args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("minion")
+                && args[1].equalsIgnoreCase("spawner") && sender.hasPermission("skeboss.admin")) {
+            return filter(List.of("create", "remove", "list"), args[2]);
+        }
+        if (args.length == 4 && args[0].equalsIgnoreCase("minion")
+                && args[1].equalsIgnoreCase("spawner") && args[2].equalsIgnoreCase("remove")
+                && sender.hasPermission("skeboss.admin")) {
+            return filter(minionManager.getSpawnerStorage().all().stream().map(MinionSpawner::getId).toList(), args[3]);
         }
         return List.of();
     }

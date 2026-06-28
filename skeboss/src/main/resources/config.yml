@@ -123,3 +123,31 @@ weapons:
       - "&7우클릭: 사슬 발사·끌어오기"
     skill: chain
     cooldown-seconds: 10
+
+# EMP4348 잡몹 — ModelEngine player 림 모델 + 스킨
+minion:
+  model-id: player
+  display-name: "&7EMP4348"
+  skin-username: "EMP4348"
+  skript-tag: "EMP4348"
+  max-health: 20.0
+  movement-speed: 0.32
+  follow-range: 24.0
+  melee-range: 2.5
+  melee-damage: 4.0
+  fire-immune: true
+  hide-base-entity: true
+  model-scale: 1.0
+  hitbox-scale: 1.0
+  viewer-sync-radius: 48.0
+  spawn-delay-ticks: 2
+  ai-interval-ticks: 5
+  spawner-respawn-seconds: 30
+  walk-animation: walk
+  blend-in: 0.15
+  blend-out: 0.25
+  rpg:
+    skript-attack-variable: "공격력"
+    skript-defense-variable: "방어력"
+    fallback-attack: 5.0
+    fallback-defense: 0.0
