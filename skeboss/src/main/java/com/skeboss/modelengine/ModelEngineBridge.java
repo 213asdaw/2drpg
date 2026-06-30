@@ -447,15 +447,8 @@ public final class ModelEngineBridge {
                 return;
             }
 
-            Object profile = resolveSkinProfile(username, uuid, textures);
-            if (profile == null) {
-                plugin.getLogger().warning("프로필 생성 실패: " + username);
-                ensureMinionRenderer(model, entity, syncRadius, "프로필 생성 실패");
-                return;
-            }
-
             warmupUserLimbRegistry(username, uuid, textures);
-            limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, profile);
+            limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, uuid, textures);
             if (limbs > 0) {
                 plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
             } else {
@@ -476,18 +469,6 @@ public final class ModelEngineBridge {
                 onComplete.accept(limbs);
             }
         }
-    }
-
-    private Object resolveSkinProfile(String username, UUID uuid, String textures) {
-        Object paperProfile = buildPaperProfile(uuid, username, textures);
-        if (paperProfile != null) {
-            return paperProfile;
-        }
-        Object mojangProfile = fetchMojangProfile(username);
-        if (mojangProfile != null) {
-            return mojangProfile;
-        }
-        return fetchProfileOnMainThread(username, uuid);
     }
 
     private Object fetchProfileOnMainThread(String username, UUID uuid) {
@@ -669,7 +650,7 @@ public final class ModelEngineBridge {
         }
     }
 
-    private int applySkinToPlayerLimbs(Object activeModel, String username, Object profile) {
+    private int applySkinToPlayerLimbs(Object activeModel, String username, UUID uuid, String textures) {
         org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
         if (online != null) {
             int fromPlayer = applyPlayerToPlayerLimbs(activeModel, online);
@@ -677,7 +658,7 @@ public final class ModelEngineBridge {
                 return fromPlayer;
             }
         }
-        return applyProfileToPlayerLimbs(activeModel, profile);
+        return applyProfileToPlayerLimbs(activeModel, uuid, username, textures);
     }
 
     private int applyPlayerToPlayerLimbs(Object activeModel, org.bukkit.entity.Player player) {
@@ -700,9 +681,9 @@ public final class ModelEngineBridge {
         return applied;
     }
 
-    private int applyProfileToPlayerLimbs(Object activeModel, Object profile) {
+    private int applyProfileToPlayerLimbs(Object activeModel, UUID uuid, String username, String textures) {
         Class<?> playerLimbClass = playerLimbClass();
-        if (playerLimbClass == null) {
+        if (playerLimbClass == null || uuid == null || textures == null || textures.isBlank()) {
             return 0;
         }
 
@@ -717,7 +698,7 @@ public final class ModelEngineBridge {
                 if (!playerLimbClass.isInstance(behavior)) {
                     continue;
                 }
-                if (applyTextureToPlayerLimb(behavior, profile)) {
+                if (applyTextureToPlayerLimb(behavior, uuid, username, textures)) {
                     applied++;
                 }
             }
@@ -800,56 +781,120 @@ public final class ModelEngineBridge {
         return List.of();
     }
 
-    private boolean applyTextureToPlayerLimb(Object playerLimb, Object profile) {
-        org.bukkit.entity.Player player = profile instanceof org.bukkit.entity.Player p ? p : null;
-        if (player != null) {
-            if (tryInvoke(playerLimb, "setTexture",
-                    new Class<?>[]{org.bukkit.entity.Player.class}, player)) {
+    private boolean applyTextureToPlayerLimb(Object playerLimb, UUID uuid, String username, String textures) {
+        org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
+        for (Method method : playerLimb.getClass().getMethods()) {
+            if (!"setTexture".equals(method.getName()) || method.getParameterCount() != 1) {
+                continue;
+            }
+            Class<?> paramType = method.getParameterTypes()[0];
+            if (!org.bukkit.entity.Player.class.isAssignableFrom(paramType)) {
+                continue;
+            }
+            if (online == null) {
+                continue;
+            }
+            try {
+                method.invoke(playerLimb, online);
                 return true;
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.FINE, "setTexture(Player) 실패", ex);
             }
         }
 
-        for (Object candidate : List.of(profile, toPaperProfileForTexture(profile))) {
-            if (candidate == null) {
+        for (Method method : playerLimb.getClass().getMethods()) {
+            if (!"setTexture".equals(method.getName()) || method.getParameterCount() != 1) {
                 continue;
             }
-            if (invokeSetTexture(playerLimb, candidate)) {
+            Class<?> paramType = method.getParameterTypes()[0];
+            if (org.bukkit.entity.Player.class.isAssignableFrom(paramType)) {
+                continue;
+            }
+            Object profileArg = createProfileForParamType(paramType, uuid, username, textures);
+            if (profileArg == null) {
+                continue;
+            }
+            try {
+                method.invoke(playerLimb, profileArg);
                 return true;
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.FINE, "setTexture(" + paramType.getName() + ") 실패", ex);
             }
         }
         return false;
     }
 
-    private boolean invokeSetTexture(Object playerLimb, Object textureSource) {
-        Method match = findMethodByNameAndArity(playerLimb.getClass(), "setTexture", 1);
-        if (match == null) {
-            return false;
-        }
-        try {
-            Object[] args = convertArgs(match.getParameterTypes(), new Object[]{textureSource});
-            match.invoke(playerLimb, args);
-            return true;
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "setTexture(" + textureSource.getClass().getSimpleName() + ") 실패", ex);
-            return false;
-        }
-    }
-
-    private Object toPaperProfileForTexture(Object profile) {
-        if (profile == null) {
+    private Object createProfileForParamType(Class<?> paramType, UUID uuid, String username, String textures) {
+        if (uuid == null || textures == null || textures.isBlank()) {
             return null;
         }
+        Object destroyTokyo = tryCreateDestroyTokyoProfile(paramType, uuid, username, textures);
+        if (destroyTokyo != null) {
+            return destroyTokyo;
+        }
+        try {
+            Object profile = Bukkit.createProfile(uuid, username);
+            addTexturesProperty(profile, textures);
+            if (paramType.isInstance(profile)) {
+                return profile;
+            }
+            for (Method adapter : profile.getClass().getMethods()) {
+                if (adapter.getParameterCount() != 0 || !paramType.isAssignableFrom(adapter.getReturnType())) {
+                    continue;
+                }
+                try {
+                    Object adapted = adapter.invoke(profile);
+                    if (adapted != null && paramType.isInstance(adapted)) {
+                        return adapted;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+            for (Method factory : paramType.getMethods()) {
+                if (!Modifier.isStatic(factory.getModifiers()) || !paramType.isAssignableFrom(factory.getReturnType())) {
+                    continue;
+                }
+                if (factory.getParameterCount() == 2
+                        && factory.getParameterTypes()[0] == UUID.class
+                        && factory.getParameterTypes()[1] == String.class) {
+                    Object created = factory.invoke(null, uuid, username);
+                    addTexturesProperty(created, textures);
+                    return created;
+                }
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.FINE, "프로필 타입 변환 실패: " + paramType.getName(), ex);
+        }
+        return null;
+    }
+
+    /** ModelEngine R4 setTexture는 com.destroystokyo.paper.profile.PlayerProfile 을 요구 */
+    private Object tryCreateDestroyTokyoProfile(Class<?> paramType, UUID uuid, String username, String textures) {
         for (String className : List.of(
                 "com.destroystokyo.paper.profile.PlayerProfile",
-                "org.bukkit.profile.PlayerProfile")) {
+                paramType.getName())) {
             try {
-                if (Class.forName(className).isInstance(profile)) {
+                Class<?> profileClass = Class.forName(className);
+                if (!paramType.isAssignableFrom(profileClass)) {
+                    continue;
+                }
+                Method create = findStaticMethod(profileClass, "create", UUID.class, String.class);
+                if (create == null) {
+                    continue;
+                }
+                Object profile = create.invoke(null, uuid, username);
+                if (addTexturesProperty(profile, textures)) {
                     return profile;
                 }
-            } catch (ClassNotFoundException ignored) {
+                tryInvoke(profile, "setProperty",
+                        new Class<?>[]{String.class, String.class, String.class},
+                        "textures", textures, null);
+                return profile;
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.FINE, "DestroyTokyo profile 생성 실패: " + className, ex);
             }
         }
-        return profile;
+        return null;
     }
 
     private void warmupUserLimbRegistry(String username, UUID uuid, String texturesValue) {
@@ -906,12 +951,12 @@ public final class ModelEngineBridge {
 
     /** setTexture → generateModel → initializeRenderer */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
-                                        String username, Object profile) {
+                                        String username, UUID uuid, String textures) {
         Object activeModel = model.activeModel();
         Object modeledEntity = model.modeledEntity();
 
         ensureModelBonesReady(activeModel);
-        int applied = applySkinToPlayerLimbs(activeModel, username, profile);
+        int applied = applySkinToPlayerLimbs(activeModel, username, uuid, textures);
 
         for (Object bone : activeModelBones(activeModel).values()) {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
