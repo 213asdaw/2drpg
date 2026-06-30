@@ -6,9 +6,11 @@
 플레이어가 검기에 **우클릭**하면 마크 기본 동작으로 거치대 아이템이 바뀌거나, 손 무기가 검기로 바뀐 것처럼 보이는 현상.
 
 **수정:**
-- FLINT 장착 제거 → **파티클 + 데미지**만 유지 (invisible marker 아머스탠드)
-- 검기 마커에 **우클릭/아머스탠드 조작 이벤트 차단** (`PlayerInteractEntityEvent` 등)
+- **FLINT(리소스팩 검기) 이펙트 유지** — 아머스탠드에 FLINT 장착
+- 검기 마커 **우클릭/아머스탠드 조작 이벤트 차단** + 매 틱 FLINT 장착 복구
 - 검기 사용 후 손이 FLINT로 바뀌면 **자동 복구**
+
+리소스팩 `custom_model_data` 값이 다르면 `plugins/slash/config.yml` 의 `wave-visual.custom-model-data` 를 수정하세요.
 
 ## 서버 적용
 

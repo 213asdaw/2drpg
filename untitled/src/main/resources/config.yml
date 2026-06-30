@@ -1,0 +1,4 @@
+# 검기 이펙트 (아머스탠드 FLINT) — 리소스팩 custom_model_data 에 맞게 수정
+wave-visual:
+  material: FLINT
+  custom-model-data: 1

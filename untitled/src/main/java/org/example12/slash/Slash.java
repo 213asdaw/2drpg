@@ -23,6 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
@@ -40,11 +41,59 @@ public final class Slash extends JavaPlugin implements Listener {
     private final Map<UUID, Long> shieldCooldowns = new HashMap<>();
     private final Map<UUID, ItemStack> handBackups = new HashMap<>();
     private final Set<UUID> waveEntities = new HashSet<>();
+    private ItemStack waveVisualTemplate = new ItemStack(Material.FLINT);
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+        reloadWaveVisual();
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("폭풍의 검 (검기 + 불꽃 방패 + 스탯 연동) 플러그인이 켜졌습니다!");
+    }
+
+    private void reloadWaveVisual() {
+        String materialName = getConfig().getString("wave-visual.material", "FLINT");
+        Material material = Material.matchMaterial(materialName);
+        if (material == null || !material.isItem()) {
+            material = Material.FLINT;
+        }
+
+        waveVisualTemplate = new ItemStack(material);
+        int cmd = getConfig().getInt("wave-visual.custom-model-data", 1);
+        if (cmd > 0) {
+            ItemMeta templateMeta = waveVisualTemplate.getItemMeta();
+            if (templateMeta != null) {
+                templateMeta.setCustomModelData(cmd);
+                waveVisualTemplate.setItemMeta(templateMeta);
+            }
+        }
+    }
+
+    private ItemStack createWaveVisual() {
+        return waveVisualTemplate.clone();
+    }
+
+    private void equipWaveVisual(ArmorStand wave) {
+        if (wave.getEquipment() == null) {
+            return;
+        }
+        ItemStack current = wave.getEquipment().getItemInMainHand();
+        if (!isSameWaveVisual(current)) {
+            wave.getEquipment().setItemInMainHand(createWaveVisual());
+        }
+    }
+
+    private boolean isSameWaveVisual(ItemStack item) {
+        if (item == null || item.getType() != waveVisualTemplate.getType()) {
+            return false;
+        }
+        int expectedCmd = waveVisualTemplate.getItemMeta() != null
+                ? waveVisualTemplate.getItemMeta().getCustomModelData()
+                : 0;
+        if (!item.hasItemMeta()) {
+            return expectedCmd == 0;
+        }
+        return item.getItemMeta().getCustomModelData() == expectedCmd;
     }
 
     private double getScriptAttackPower(Player player) {
@@ -230,11 +279,12 @@ public final class Slash extends JavaPlugin implements Listener {
         playerCenter.getWorld().spawnParticle(Particle.SMALL_FLAME, playerCenter, 60, 0.5, 0.5, 0.5, 0.3);
         playerCenter.getWorld().spawnParticle(Particle.LAVA, playerCenter, 15, 0.3, 0.3, 0.3, 0.1);
 
-        // 히트박스용 invisible 마커 (손에 아이템 없음 — 검기 FLINT 장착 제거)
+        // FLINT(리소스팩 검기) 이펙트 — 우클릭 교체는 이벤트 차단 + 매 틱 장착 복구
+        final ItemStack waveVisual = createWaveVisual();
         final ArmorStand wave = startLoc.getWorld().spawn(startLoc, ArmorStand.class, armorStand -> {
             armorStand.setVisible(false);
             armorStand.setGravity(false);
-            armorStand.setArms(false);
+            armorStand.setArms(true);
             armorStand.setBasePlate(false);
             armorStand.setMarker(true);
             armorStand.setSmall(true);
@@ -242,6 +292,10 @@ public final class Slash extends JavaPlugin implements Listener {
             armorStand.setCustomNameVisible(false);
             armorStand.setInvulnerable(true);
             armorStand.setCanPickupItems(false);
+            armorStand.setRightArmPose(new EulerAngle(Math.toRadians(-15.0), 0.0, 0.0));
+            if (armorStand.getEquipment() != null) {
+                armorStand.getEquipment().setItemInMainHand(waveVisual);
+            }
         });
         waveEntities.add(wave.getUniqueId());
 
@@ -263,6 +317,7 @@ public final class Slash extends JavaPlugin implements Listener {
                 currentLoc.setYaw(yaw);
                 currentLoc.setPitch(pitch);
                 wave.teleport(currentLoc);
+                equipWaveVisual(wave);
 
                 currentLoc.getWorld().spawnParticle(
                         Particle.FLAME,
