@@ -77,7 +77,7 @@ public final class ModelEngineBridge {
         return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
     }
 
-    /** player limb: 스킨 적용 후 generateModel → initializeRenderer (Steve 머리만 뜨는 것 방지) */
+    /** player limb: 모델 먼저 부착 → 스킨은 applyPlayerSkin (ME modelplayerskin 순서) */
     public BossModel attachMinionModel(Entity entity, String modelId, List<String> fallbackIds,
                                        double modelScale, double hitboxScale) {
         String resolvedId = resolveAvailableModelId(modelId, fallbackIds);
@@ -87,7 +87,7 @@ public final class ModelEngineBridge {
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, true);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, false);
     }
 
     /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
@@ -392,62 +392,7 @@ public final class ModelEngineBridge {
             }
             return;
         }
-
-        boolean slim = isSlimSkin(textures);
-        Object cache = registerUserLimbCache(username, uuid, textures, slim);
-        Runnable apply = () -> applyPlayerSkinOnMainThread(model, entity, username, syncRadius,
-                uuid, textures, onComplete);
-
-        if (cache == null || isUserLimbCacheReady(cache, slim)) {
-            apply.run();
-            return;
-        }
-
-        final int[] ticks = {0};
-        Bukkit.getScheduler().runTaskTimer(plugin, task -> {
-            if (!entity.isValid() || entity.isDead()) {
-                task.cancel();
-                if (onComplete != null) {
-                    onComplete.accept(0);
-                }
-                return;
-            }
-            if (isUserLimbCacheReady(cache, slim) || ++ticks[0] >= 40) {
-                task.cancel();
-                if (ticks[0] >= 40 && !isUserLimbCacheReady(cache, slim)) {
-                    plugin.getLogger().warning("UserLimbCache 대기 타임아웃 — 기본 렌더 시도: " + username);
-                }
-                apply.run();
-            }
-        }, 1L, 1L);
-    }
-
-    private Object registerUserLimbCache(String username, UUID uuid, String textures, boolean slim) {
-        try {
-            Object registry = getUserLimbRegistry();
-            if (registry == null) {
-                return null;
-            }
-            invokeOptional(registry, "generateDefaults");
-            Object cache = invokeRegistryGenerate(registry, username, textures, slim);
-            finalizeUserLimbCache(cache, slim, username);
-            if (uuid != null) {
-                Object cacheByUuid = invokeRegistryGenerate(registry, uuid.toString(), textures, slim);
-                finalizeUserLimbCache(cacheByUuid, slim, uuid.toString());
-            }
-            return cache;
-        } catch (Exception ex) {
-            plugin.getLogger().log(Level.WARNING, "UserLimbRegistry 등록 실패: " + username, ex);
-            return null;
-        }
-    }
-
-    private boolean isUserLimbCacheReady(Object cache, boolean slim) {
-        if (cache == null) {
-            return true;
-        }
-        Object ready = invokeOptional(cache, "isGenerated", slim);
-        return !(ready instanceof Boolean b) || b;
+        applyPlayerSkinOnMainThread(model, entity, username, syncRadius, uuid, textures, onComplete);
     }
 
     public UUID lookupUsernameUuid(String username) {
@@ -502,11 +447,9 @@ public final class ModelEngineBridge {
                 return;
             }
 
-            warmupUserLimbRegistry(username, uuid, textures);
-            String registryKey = username;
-            limbs = finalizePlayerLimbModel(model, entity, syncRadius, registryKey, username, uuid, textures);
+            limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, uuid, textures);
             if (limbs > 0) {
-                plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
+                plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개, MojangAPI)");
             } else {
                 int detected = countPlayerLimbsOnActiveModel(model.activeModel());
                 if (detected > 0) {
@@ -703,8 +646,7 @@ public final class ModelEngineBridge {
         }
     }
 
-    private int applySkinToPlayerLimbs(Object activeModel, String registryKey, String username, UUID uuid,
-                                       String textures) {
+    private int applySkinToPlayerLimbs(Object activeModel, String username, UUID uuid, String textures) {
         org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
         if (online != null) {
             int fromPlayer = applyPlayerToPlayerLimbs(activeModel, online);
@@ -712,7 +654,7 @@ public final class ModelEngineBridge {
                 return fromPlayer;
             }
         }
-        return applyProfileToPlayerLimbs(activeModel, registryKey, uuid, username, textures);
+        return applyProfileToPlayerLimbs(activeModel, uuid, username, textures);
     }
 
     private int applyPlayerToPlayerLimbs(Object activeModel, org.bukkit.entity.Player player) {
@@ -721,79 +663,122 @@ public final class ModelEngineBridge {
             return 0;
         }
         int applied = 0;
-        for (Object bone : activeModelBones(activeModel).values()) {
-            for (Object behavior : iterateBoneBehaviors(bone)) {
-                if (!playerLimbClass.isInstance(behavior)) {
-                    continue;
-                }
-                if (tryInvoke(behavior, "setTexture",
-                        new Class<?>[]{org.bukkit.entity.Player.class}, player)) {
-                    applied++;
-                }
+        for (Object limb : collectPlayerLimbs(activeModel)) {
+            if (tryInvoke(limb, "setTexture",
+                    new Class<?>[]{org.bukkit.entity.Player.class}, player)) {
+                applied++;
             }
         }
         return applied;
     }
 
-    private int applyProfileToPlayerLimbs(Object activeModel, String registryKey, UUID uuid, String username,
-                                          String textures) {
-        Class<?> playerLimbClass = playerLimbClass();
-        if (playerLimbClass == null || uuid == null || textures == null || textures.isBlank()) {
+    private int applyProfileToPlayerLimbs(Object activeModel, UUID uuid, String username, String textures) {
+        Object profile = createModelEngineProfile(textures, uuid, username);
+        if (profile == null) {
+            plugin.getLogger().warning("MojangAPI 프로필 없음 — setTexture 불가: " + username);
             return 0;
         }
 
-        Map<String, Object> bones = activeModelBones(activeModel);
-        if (bones.isEmpty()) {
+        Class<?> profileParam;
+        try {
+            profileParam = Class.forName("com.destroystokyo.paper.profile.PlayerProfile");
+        } catch (ClassNotFoundException ex) {
+            plugin.getLogger().warning("PlayerProfile 클래스 없음 — Paper 1.21+ 필요");
             return 0;
         }
 
         int applied = 0;
-        for (Object bone : bones.values()) {
-            for (Object behavior : iterateBoneBehaviors(bone)) {
-                if (!playerLimbClass.isInstance(behavior)) {
-                    continue;
+        for (Object limb : collectPlayerLimbs(activeModel)) {
+            if (tryInvoke(limb, "setTexture", new Class<?>[]{profileParam}, profile)) {
+                applied++;
+                Object limbType = invokeOptional(limb, "getLimbType");
+                if (limbType != null) {
+                    plugin.getLogger().info("PlayerLimb OK: " + limbType);
                 }
-                if (applySkinToLimb(behavior, registryKey, uuid, username, textures)) {
-                    applied++;
-                }
+            } else {
+                plugin.getLogger().warning("PlayerLimb setTexture 실패");
             }
         }
         return applied;
     }
 
-    /** setTexture(프로필) 우선 — setPlaceholder만 쓰면 머리만 뜨는 경우가 있음 */
-    private boolean applySkinToLimb(Object playerLimb, String registryKey, UUID uuid, String username,
-                                    String textures) {
-        if (applyTextureToPlayerLimb(playerLimb, uuid, username, textures)) {
-            return true;
-        }
-        if (registryKey != null && !registryKey.isBlank()) {
-            if (tryInvoke(playerLimb, "setPlaceholder", new Class<?>[]{String.class}, registryKey)) {
-                return true;
+    /** ME 4.0.9: MojangAPI.fromBase64 / fromUUID 로 만든 프로필만 PlayerLimb가 올바르게 인식 */
+    private Object createModelEngineProfile(String textures, UUID uuid, String username) {
+        try {
+            Class<?> mojangApi = Class.forName("com.ticxo.modelengine.api.utils.MojangAPI");
+            if (textures != null && !textures.isBlank()) {
+                Object fromBase64 = mojangApi.getMethod("fromBase64", String.class).invoke(null, textures);
+                if (fromBase64 != null) {
+                    plugin.getLogger().info("MojangAPI.fromBase64 프로필: " + username);
+                    return fromBase64;
+                }
             }
-            if (uuid != null && tryInvoke(playerLimb, "setPlaceholder", new Class<?>[]{String.class},
-                    uuid.toString())) {
-                return true;
+            if (uuid != null) {
+                Object fromUuid = mojangApi.getMethod("fromUUID", UUID.class).invoke(null, uuid);
+                if (fromUuid != null) {
+                    plugin.getLogger().info("MojangAPI.fromUUID 프로필: " + username);
+                    return fromUuid;
+                }
             }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.WARNING, "MojangAPI 프로필 생성 실패: " + username, ex);
         }
-        return false;
+        return buildPaperProfile(uuid, username, textures);
     }
 
-    /** 서버 시작 시 스킨 캐시 예열 — 스폰 직후 즉시 적용 */
+    private List<Object> collectPlayerLimbs(Object activeModel) {
+        Class<?> playerLimbClass = playerLimbClass();
+        if (playerLimbClass == null) {
+            return List.of();
+        }
+        Object limbType = playerLimbBehaviorType();
+        List<Object> limbs = new ArrayList<>();
+        for (Object bone : activeModelBones(activeModel).values()) {
+            Object limb = null;
+            if (limbType != null) {
+                limb = unwrapOptional(invokeOptional(bone, "getBoneBehavior", limbType));
+            }
+            if (limb == null) {
+                for (Object behavior : iterateBoneBehaviors(bone)) {
+                    if (playerLimbClass.isInstance(behavior)) {
+                        limb = behavior;
+                        break;
+                    }
+                }
+            }
+            if (limb != null) {
+                limbs.add(limb);
+            }
+        }
+        return limbs;
+    }
+
+    private Object playerLimbBehaviorType() {
+        try {
+            Class<?> types = Class.forName("com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes");
+            return types.getField("PLAYER_LIMB").get(null);
+        } catch (ReflectiveOperationException ex) {
+            return null;
+        }
+    }
+
+    /** 서버 시작 시 MojangAPI 스킨 캐시 예열 */
     public void preloadPlayerSkin(String username) {
         if (username == null || username.isBlank()) {
             return;
         }
         UUID uuid = resolveUsernameUuid(username);
-        String textures = fetchTexturesOnMainThread(username, uuid);
-        if (uuid == null || textures == null || textures.isBlank()) {
-            plugin.getLogger().warning("잡몹 스킨 예열 실패: " + username);
+        if (uuid == null) {
+            plugin.getLogger().warning("잡몹 스킨 예열 실패 (UUID 없음): " + username);
             return;
         }
-        boolean slim = isSlimSkin(textures);
-        registerUserLimbCache(username, uuid, textures, slim);
-        warmupUserLimbRegistry(username, uuid, textures);
-        plugin.getLogger().info("잡몹 스킨 캐시 예열 완료: " + username);
+        try {
+            Class<?> mojangApi = Class.forName("com.ticxo.modelengine.api.utils.MojangAPI");
+            mojangApi.getMethod("fromUUID", UUID.class).invoke(null, uuid);
+            plugin.getLogger().info("잡몹 스킨 캐시 예열 완료 (MojangAPI): " + username);
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.WARNING, "잡몹 스킨 예열 실패: " + username, ex);
+        }
     }
 
     private int countPlayerLimbsOnActiveModel(Object activeModel) {
@@ -871,244 +856,28 @@ public final class ModelEngineBridge {
         return List.of();
     }
 
-    private boolean applyTextureToPlayerLimb(Object playerLimb, UUID uuid, String username, String textures) {
-        org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
-        for (Method method : playerLimb.getClass().getMethods()) {
-            if (!"setTexture".equals(method.getName()) || method.getParameterCount() != 1) {
-                continue;
-            }
-            Class<?> paramType = method.getParameterTypes()[0];
-            if (!org.bukkit.entity.Player.class.isAssignableFrom(paramType)) {
-                continue;
-            }
-            if (online == null) {
-                continue;
-            }
-            try {
-                method.invoke(playerLimb, online);
-                return true;
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.FINE, "setTexture(Player) 실패", ex);
-            }
-        }
-
-        for (Method method : playerLimb.getClass().getMethods()) {
-            if (!"setTexture".equals(method.getName()) || method.getParameterCount() != 1) {
-                continue;
-            }
-            Class<?> paramType = method.getParameterTypes()[0];
-            if (org.bukkit.entity.Player.class.isAssignableFrom(paramType)) {
-                continue;
-            }
-            Object profileArg = createProfileForParamType(paramType, uuid, username, textures);
-            if (profileArg == null) {
-                continue;
-            }
-            try {
-                method.invoke(playerLimb, profileArg);
-                return true;
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.FINE, "setTexture(" + paramType.getName() + ") 실패", ex);
-            }
-        }
-        return false;
-    }
-
-    private Object createProfileForParamType(Class<?> paramType, UUID uuid, String username, String textures) {
-        if (uuid == null || textures == null || textures.isBlank()) {
-            return null;
-        }
-        Object destroyTokyo = tryCreateDestroyTokyoProfile(paramType, uuid, username, textures);
-        if (destroyTokyo != null) {
-            tryInvoke(destroyTokyo, "complete", new Class<?>[]{boolean.class}, true);
-            return destroyTokyo;
-        }
-        try {
-            Object profile = Bukkit.createProfile(uuid, username);
-            tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true);
-            if (!addTexturesProperty(profile, textures)) {
-                tryInvoke(profile, "setProperty",
-                        new Class<?>[]{String.class, String.class, String.class},
-                        "textures", textures, null);
-            }
-            if (paramType.isInstance(profile)) {
-                return profile;
-            }
-            for (Method adapter : profile.getClass().getMethods()) {
-                if (adapter.getParameterCount() != 0 || !paramType.isAssignableFrom(adapter.getReturnType())) {
-                    continue;
-                }
-                try {
-                    Object adapted = adapter.invoke(profile);
-                    if (adapted != null && paramType.isInstance(adapted)) {
-                        return adapted;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            for (Method factory : paramType.getMethods()) {
-                if (!Modifier.isStatic(factory.getModifiers()) || !paramType.isAssignableFrom(factory.getReturnType())) {
-                    continue;
-                }
-                if (factory.getParameterCount() == 2
-                        && factory.getParameterTypes()[0] == UUID.class
-                        && factory.getParameterTypes()[1] == String.class) {
-                    Object created = factory.invoke(null, uuid, username);
-                    addTexturesProperty(created, textures);
-                    return created;
-                }
-            }
-        } catch (Exception ex) {
-            plugin.getLogger().log(Level.FINE, "프로필 타입 변환 실패: " + paramType.getName(), ex);
-        }
-        return null;
-    }
-
-    /** ModelEngine R4 setTexture는 com.destroystokyo.paper.profile.PlayerProfile 을 요구 */
-    private Object tryCreateDestroyTokyoProfile(Class<?> paramType, UUID uuid, String username, String textures) {
-        for (String className : List.of(
-                "com.destroystokyo.paper.profile.PlayerProfile",
-                paramType.getName())) {
-            try {
-                Class<?> profileClass = Class.forName(className);
-                if (!paramType.isAssignableFrom(profileClass)) {
-                    continue;
-                }
-                Method create = findStaticMethod(profileClass, "create", UUID.class, String.class);
-                if (create == null) {
-                    continue;
-                }
-                Object profile = create.invoke(null, uuid, username);
-                if (addTexturesProperty(profile, textures)) {
-                    return profile;
-                }
-                tryInvoke(profile, "setProperty",
-                        new Class<?>[]{String.class, String.class, String.class},
-                        "textures", textures, null);
-                return profile;
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.FINE, "DestroyTokyo profile 생성 실패: " + className, ex);
-            }
-        }
-        return null;
-    }
-
-    private void warmupUserLimbRegistry(String username, UUID uuid, String texturesValue) {
-        try {
-            Object registry = getUserLimbRegistry();
-            if (registry == null) {
-                plugin.getLogger().warning("UserLimbRegistry 없음 — player limb 스킨 캐시 불가");
-                return;
-            }
-
-            invokeOptional(registry, "generateDefaults");
-
-            org.bukkit.entity.Player online = Bukkit.getPlayerExact(username);
-            if (online != null) {
-                invokeOptional(registry, "generate", online);
-                plugin.getLogger().info("UserLimbRegistry 온라인 플레이어 등록: " + username);
-                return;
-            }
-
-            if (texturesValue == null || texturesValue.isBlank()) {
-                return;
-            }
-            boolean slim = isSlimSkin(texturesValue);
-
-            Object cacheByName = invokeRegistryGenerate(registry, username, texturesValue, slim);
-            if (finalizeUserLimbCache(cacheByName, slim, username)) {
-                plugin.getLogger().info("UserLimbRegistry 스킨 분할 완료: " + username);
-            }
-
-            if (uuid != null) {
-                Object cacheByUuid = invokeRegistryGenerate(registry, uuid.toString(), texturesValue, slim);
-                finalizeUserLimbCache(cacheByUuid, slim, uuid.toString());
-            }
-        } catch (Exception ex) {
-            plugin.getLogger().log(Level.WARNING, "UserLimbRegistry warmup 실패: " + username, ex);
-        }
-    }
-
-    private Object invokeRegistryGenerate(Object registry, String key, String textures, boolean slim) {
-        try {
-            Method generate = findMethod(registry.getClass(), "generate",
-                    new Class<?>[]{String.class, String.class, boolean.class});
-            if (generate != null) {
-                return generate.invoke(registry, key, textures, slim);
-            }
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "UserLimbRegistry.generate 실패: " + key, ex);
-        }
-        return null;
-    }
-
-    private boolean finalizeUserLimbCache(Object cache, boolean slim, String key) {
-        if (cache == null) {
-            return false;
-        }
-        invokeOptional(cache, "initialize");
-        Object skinGenerator = getSkinGeneratorService();
-        if (skinGenerator != null) {
-            invokeOptional(cache, "generate", skinGenerator, slim);
-        }
-        Object generated = invokeOptional(cache, "isGenerated", slim);
-        if (generated instanceof Boolean ready && !ready) {
-            plugin.getLogger().warning("UserLimbCache 미완료: " + key + " — 리소스팩 /meg reload 확인");
-            return false;
-        }
-        return true;
-    }
-
-    private Object getSkinGeneratorService() {
-        try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Method getter = findStaticMethod(apiClass, "getSkinGeneratorService");
-            return invokeStatic(getter);
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "SkinGeneratorService 없음", ex);
-            return null;
-        }
-    }
-
-    private Object getUserLimbRegistry() {
-        try {
-            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-            Method staticGetter = findStaticMethod(apiClass, "getUserLimbRegistry");
-            Object registry = invokeStatic(staticGetter);
-            if (registry != null) {
-                return registry;
-            }
-            Method getApi = findStaticMethod(apiClass, "getAPI");
-            Object api = invokeStatic(getApi);
-            if (api != null) {
-                return invokeOptional(api, "getUserLimbRegistry");
-            }
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "getUserLimbRegistry 실패", ex);
-        }
-        return null;
-    }
-
-    /** generateModel → setPlaceholder → initializeRenderer (ME 4.0.9) */
-    private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius, String registryKey,
+    /** 모델 부착 후 스킨 적용 → 렌더 데이터 갱신 (ME wiki: model → modelplayerskin 순서) */
+    private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, UUID uuid, String textures) {
         Object activeModel = model.activeModel();
-
         invokeOptional(activeModel, "generateModel");
 
-        int applied = applySkinToPlayerLimbs(activeModel, registryKey, username, uuid, textures);
-
-        for (Object bone : activeModelBones(activeModel).values()) {
-            tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
-        }
-        try {
-            invokeOptional(activeModel, "initializeRenderer");
-            forceResyncNearbyPlayers(model, entity, syncRadius);
-        } catch (Exception ex) {
-            plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 초기화/동기화 실패: " + username, ex);
-        }
+        int applied = applySkinToPlayerLimbs(activeModel, username, uuid, textures);
+        refreshPlayerLimbRenderer(activeModel);
+        forceResyncNearbyPlayers(model, entity, syncRadius);
         schedulePlayerLimbResync(model, entity, syncRadius, 2L);
         return applied;
+    }
+
+    private void refreshPlayerLimbRenderer(Object activeModel) {
+        Object renderer = invokeOptional(activeModel, "getModelRenderer");
+        invokeOptional(renderer, "readModelData");
+        Object limbType = playerLimbBehaviorType();
+        if (limbType == null) {
+            return;
+        }
+        Object behaviorRenderer = unwrapOptional(invokeOptional(activeModel, "getBehaviorRenderer", limbType));
+        invokeOptional(behaviorRenderer, "readBoneData");
     }
 
     private void schedulePlayerLimbResync(BossModel model, Entity entity, double syncRadius, long delayTicks) {
@@ -1149,15 +918,6 @@ public final class ModelEngineBridge {
             }
         }
         return null;
-    }
-
-    private boolean isSlimSkin(String texturesValue) {
-        try {
-            String decoded = new String(java.util.Base64.getDecoder().decode(texturesValue));
-            return decoded.contains("\"slim\"");
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
     }
 
     private Object invokeStaticOptional(Class<?> clazz, String method, Object... args) throws ReflectiveOperationException {
