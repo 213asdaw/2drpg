@@ -5,6 +5,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -878,23 +879,26 @@ public final class ModelEngineBridge {
             tryInvoke(registry, "generate",
                     new Class<?>[]{String.class, String.class, boolean.class},
                     username, texturesValue, slim);
-        } catch (ReflectiveOperationException ex) {
+        } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "UserLimbRegistry warmup 실패: " + username, ex);
         }
     }
 
-    private Object getUserLimbRegistry() throws ReflectiveOperationException {
-        Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
-        Method staticGetter = findStaticMethod(apiClass, "getUserLimbRegistry");
-        if (staticGetter != null) {
-            return staticGetter.invoke(null);
-        }
-        Method getApi = findStaticMethod(apiClass, "getAPI");
-        if (getApi != null) {
-            Object api = getApi.invoke(null);
+    private Object getUserLimbRegistry() {
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Method staticGetter = findStaticMethod(apiClass, "getUserLimbRegistry");
+            Object registry = invokeStatic(staticGetter);
+            if (registry != null) {
+                return registry;
+            }
+            Method getApi = findStaticMethod(apiClass, "getAPI");
+            Object api = invokeStatic(getApi);
             if (api != null) {
                 return invokeOptional(api, "getUserLimbRegistry");
             }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "getUserLimbRegistry 실패", ex);
         }
         return null;
     }
@@ -1027,10 +1031,18 @@ public final class ModelEngineBridge {
 
     private static Method findStaticMethod(Class<?> clazz, String name, Class<?>... paramTypes) {
         try {
-            return clazz.getMethod(name, paramTypes);
+            Method method = clazz.getMethod(name, paramTypes);
+            return Modifier.isStatic(method.getModifiers()) ? method : null;
         } catch (NoSuchMethodException ignored) {
             return null;
         }
+    }
+
+    private static Object invokeStatic(Method method) throws ReflectiveOperationException {
+        if (method == null || !Modifier.isStatic(method.getModifiers())) {
+            return null;
+        }
+        return method.invoke(null);
     }
 
     private boolean tryInvoke(Object target, String method, Class<?>[] paramTypes, Object... args) {
@@ -1048,6 +1060,9 @@ public final class ModelEngineBridge {
     }
 
     private Object invokeOptional(Object target, String method, Object... args) {
+        if (target == null) {
+            return null;
+        }
         try {
             return invokeFirst(target, method, args);
         } catch (IllegalStateException ex) {
@@ -1056,6 +1071,9 @@ public final class ModelEngineBridge {
     }
 
     private Object invokeFirst(Object target, String method, Object... args) {
+        if (target == null) {
+            throw new IllegalStateException("ModelEngine 호출 실패: " + method + " (target null)");
+        }
         Method match = findMethodByNameAndArity(target.getClass(), method, args.length);
         if (match == null) {
             throw new IllegalStateException("ModelEngine 호출 실패: " + method + " (메서드 없음, 클래스="
