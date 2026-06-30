@@ -378,83 +378,131 @@ public final class ModelEngineBridge {
             }
             return;
         }
+        plugin.getLogger().info("잡몹 스킨 조회 시작: " + username);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            Object resolvedProfile = resolveSkinProfile(username);
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!entity.isValid() || entity.isDead()) {
-                    plugin.getLogger().warning("잡몹 스킨 적용 중단 — 엔티티가 없습니다: " + username);
-                    if (onComplete != null) {
-                        onComplete.accept(0);
-                    }
-                    return;
-                }
-                if (resolvedProfile == null) {
-                    plugin.getLogger().warning("스킨 조회 실패: " + username
-                            + " — 닉네임·인터넷 연결을 확인하세요.");
-                    if (onComplete != null) {
-                        onComplete.accept(0);
-                    }
-                    return;
-                }
-                warmupUserLimbRegistry(username, resolvedProfile);
-                int limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, resolvedProfile);
-                if (limbs > 0) {
-                    plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
-                } else {
-                    int detected = countPlayerLimbsOnActiveModel(model.activeModel());
-                    if (detected > 0) {
-                        plugin.getLogger().warning("PlayerLimb " + detected
-                                + "개 있으나 setTexture 실패 — EMP4348 스킨 미적용");
-                    } else {
-                        plugin.getLogger().warning("PlayerLimb 본 없음 — model-id가 플레이어 림 모델이어야 합니다."
-                                + " ModelEngine 기본 예시: skin (/meg models list)");
-                    }
-                }
-                if (onComplete != null) {
-                    onComplete.accept(limbs);
-                }
-            });
+            UUID uuid = resolveUsernameUuid(username);
+            String textures = fetchTexturesBase64(username, uuid);
+            Bukkit.getScheduler().runTask(plugin, () -> applyPlayerSkinOnMainThread(
+                    model, entity, username, syncRadius, uuid, textures, onComplete));
         });
     }
 
-    /** Paper PlayerProfile 우선, MojangAPI 폴백 */
-    private Object resolveSkinProfile(String username) {
-        UUID uuid = resolveUsernameUuid(username);
-        if (uuid != null) {
+    private void applyPlayerSkinOnMainThread(BossModel model, Entity entity, String username, double syncRadius,
+                                             UUID uuid, String textures, IntConsumer onComplete) {
+        int limbs = 0;
         try {
-            Object profile = Bukkit.createProfile(uuid, username);
-            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)
-                    && extractTexturesProperty(profile) != null) {
-                return profile;
+            if (!entity.isValid() || entity.isDead()) {
+                plugin.getLogger().warning("잡몹 스킨 적용 중단 — 엔티티가 없습니다: " + username);
+                return;
             }
-            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, false)
-                    && extractTexturesProperty(profile) != null) {
-                return profile;
+            if (uuid == null || textures == null || textures.isBlank()) {
+                plugin.getLogger().warning("스킨 조회 실패: " + username
+                        + " — 닉네임이 실제 마인크래프트 계정인지, 서버 인터넷 연결을 확인하세요.");
+                return;
+            }
+
+            Object profile = buildPaperProfile(uuid, username, textures);
+            if (profile == null) {
+                plugin.getLogger().warning("Paper 프로필 생성 실패: " + username);
+                return;
+            }
+
+            warmupUserLimbRegistry(username, uuid, textures);
+            limbs = finalizePlayerLimbModel(model, entity, syncRadius, username, profile);
+            if (limbs > 0) {
+                plugin.getLogger().info("잡몹 스킨 적용: " + username + " (PlayerLimb " + limbs + "개)");
+            } else {
+                int detected = countPlayerLimbsOnActiveModel(model.activeModel());
+                if (detected > 0) {
+                    plugin.getLogger().warning("PlayerLimb " + detected
+                            + "개 있으나 setTexture 실패 — " + username + " 스킨 미적용");
+                } else {
+                    plugin.getLogger().warning("PlayerLimb 본 없음 — /meg reload models 후 player_model 확인");
+                }
             }
         } catch (Exception ex) {
-                plugin.getLogger().log(Level.FINE, "Bukkit profile 조회 실패: " + username, ex);
+            plugin.getLogger().log(Level.SEVERE, "잡몹 스킨 적용 중 예외: " + username, ex);
+        } finally {
+            if (onComplete != null) {
+                onComplete.accept(limbs);
+            }
+        }
+    }
+
+    private String fetchTexturesBase64(String username, UUID uuid) {
+        if (uuid != null) {
+            try {
+                Object profile = Bukkit.createProfile(uuid, username);
+                if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)) {
+                    String textures = extractTexturesProperty(profile);
+                    if (textures != null) {
+                        return textures;
+                    }
+                }
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.FINE, "Bukkit profile async 조회 실패: " + username, ex);
             }
         }
         Object mojangProfile = fetchMojangProfile(username);
-        if (mojangProfile == null) {
-            return fetchBukkitProfile(username);
+        if (mojangProfile != null) {
+            return extractTexturesProperty(mojangProfile);
         }
-        return toPaperProfile(username, uuid != null ? uuid : resolveUsernameUuid(username), mojangProfile);
+        return null;
     }
 
-    private Object toPaperProfile(String username, UUID uuid, Object sourceProfile) {
-        if (uuid == null || sourceProfile == null) {
-            return sourceProfile;
-        }
-        String textures = extractTexturesProperty(sourceProfile);
-        if (textures == null) {
-            return sourceProfile;
-        }
+    private Object buildPaperProfile(UUID uuid, String username, String textures) {
         try {
             Object profile = Bukkit.createProfile(uuid, username);
+            if (addTexturesProperty(profile, textures)) {
+                return profile;
+            }
             if (tryInvoke(profile, "setProperty",
                     new Class<?>[]{String.class, String.class, String.class},
                     "textures", textures, null)) {
+                return profile;
+            }
+            return toPaperProfile(username, uuid, textures);
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "Paper 프로필 빌드 실패: " + username, ex);
+            return null;
+        }
+    }
+
+    private boolean addTexturesProperty(Object profile, String textures) {
+        try {
+            Object properties = invokeOptional(profile, "getProperties");
+            if (properties == null) {
+                return false;
+            }
+            for (String propertyClassName : List.of(
+                    "com.destroystokyo.paper.profile.ProfileProperty",
+                    "org.bukkit.profile.PlayerProfile$Property")) {
+                try {
+                    Class<?> propertyClass = Class.forName(propertyClassName);
+                    Object property = propertyClass.getConstructor(String.class, String.class, String.class)
+                            .newInstance("textures", textures, null);
+                    if (tryInvoke(properties, "add", new Class<?>[]{propertyClass}, property)) {
+                        return true;
+                    }
+                    if (tryInvoke(properties, "add", new Class<?>[]{Object.class}, property)) {
+                        return true;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.FINE, "ProfileProperty 추가 실패", ex);
+        }
+        return false;
+    }
+
+    private Object toPaperProfile(String username, UUID uuid, String textures) {
+        if (uuid == null || textures == null) {
+            return null;
+        }
+        try {
+            Object profile = Bukkit.createProfile(uuid, username);
+            if (addTexturesProperty(profile, textures)) {
                 return profile;
             }
             Object properties = invokeOptional(profile, "getProperties");
@@ -464,7 +512,7 @@ public final class ModelEngineBridge {
             return profile;
         } catch (Exception ex) {
             plugin.getLogger().log(Level.FINE, "Paper profile 변환 실패: " + username, ex);
-            return sourceProfile;
+            return null;
         }
     }
 
@@ -680,10 +728,11 @@ public final class ModelEngineBridge {
         return profile;
     }
 
-    private void warmupUserLimbRegistry(String username, Object profile) {
+    private void warmupUserLimbRegistry(String username, UUID uuid, String texturesValue) {
         try {
             Object registry = getUserLimbRegistry();
             if (registry == null) {
+                plugin.getLogger().warning("UserLimbRegistry 없음 — player limb 스킨 캐시 불가");
                 return;
             }
 
@@ -695,12 +744,10 @@ public final class ModelEngineBridge {
                 return;
             }
 
-            String texturesValue = extractTexturesProperty(profile);
             if (texturesValue == null) {
                 return;
             }
             boolean slim = isSlimSkin(texturesValue);
-            UUID uuid = resolveUsernameUuid(username);
             if (uuid != null) {
                 tryInvoke(registry, "generate",
                         new Class<?>[]{String.class, String.class, boolean.class},
@@ -710,7 +757,7 @@ public final class ModelEngineBridge {
                     new Class<?>[]{String.class, String.class, boolean.class},
                     username, texturesValue, slim);
         } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "UserLimbRegistry warmup 실패: " + username, ex);
+            plugin.getLogger().log(Level.WARNING, "UserLimbRegistry warmup 실패: " + username, ex);
         }
     }
 
@@ -730,34 +777,31 @@ public final class ModelEngineBridge {
         return null;
     }
 
-    /** generateModel → 스킨 → initializeRenderer (ME 자동 등록 사용, registerSelf 금지) */
+    /** 스킨 → initializeRenderer (ME 자동 등록, registerSelf 사용 안 함) */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, Object profile) {
         Object activeModel = model.activeModel();
         Object modeledEntity = model.modeledEntity();
 
-        invokeOptional(activeModel, "generateModel");
         int applied = applySkinToPlayerLimbs(activeModel, username, profile);
 
         for (Object bone : activeModelBones(activeModel).values()) {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
         }
-        invokeOptional(activeModel, "initializeRenderer");
-        invokeOptional(modeledEntity, "tick");
-        invokeOptional(activeModel, "tick");
-        forceResyncNearbyPlayers(model, entity, syncRadius);
+        try {
+            invokeOptional(activeModel, "initializeRenderer");
+            invokeOptional(modeledEntity, "tick");
+            invokeOptional(activeModel, "tick");
+            forceResyncNearbyPlayers(model, entity, syncRadius);
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 초기화/동기화 실패: " + username, ex);
+        }
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
             forceResyncNearbyPlayers(model, entity, syncRadius);
         }, 5L);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!entity.isValid() || entity.isDead()) {
-                return;
-            }
-            forceResyncNearbyPlayers(model, entity, syncRadius);
-        }, 20L);
         return applied;
     }
 
