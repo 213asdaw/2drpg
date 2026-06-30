@@ -10,8 +10,12 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -30,9 +34,12 @@ import java.util.UUID;
 
 public final class Slash extends JavaPlugin implements Listener {
 
+    private static final String WAVE_MARKER = "SWORD_WAVE";
+
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> shieldCooldowns = new HashMap<>();
     private final Map<UUID, ItemStack> handBackups = new HashMap<>();
+    private final Set<UUID> waveEntities = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -52,6 +59,37 @@ public final class Slash extends JavaPlugin implements Listener {
         } catch (Exception ignored) {
         }
         return 0.0;
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWaveEntityInteract(PlayerInteractEntityEvent event) {
+        if (isWaveEntity(event.getRightClicked())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWaveEntityInteractAt(PlayerInteractAtEntityEvent event) {
+        if (isWaveEntity(event.getRightClicked())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWaveArmorStandManipulate(PlayerArmorStandManipulateEvent event) {
+        if (isWaveEntity(event.getRightClicked())) {
+            event.setCancelled(true);
+        }
+    }
+
+    private boolean isWaveEntity(Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        if (waveEntities.contains(entity.getUniqueId())) {
+            return true;
+        }
+        return WAVE_MARKER.equals(entity.getCustomName());
     }
 
     @EventHandler
@@ -128,10 +166,11 @@ public final class Slash extends JavaPlugin implements Listener {
         handBackups.remove(id);
     }
 
-    private static void removeWaveMarker(ArmorStand wave) {
+    private void removeWaveMarker(ArmorStand wave) {
         if (wave == null || !wave.isValid()) {
             return;
         }
+        waveEntities.remove(wave.getUniqueId());
         if (wave.getEquipment() != null) {
             wave.getEquipment().clear();
         }
@@ -199,9 +238,12 @@ public final class Slash extends JavaPlugin implements Listener {
             armorStand.setBasePlate(false);
             armorStand.setMarker(true);
             armorStand.setSmall(true);
-            armorStand.setCustomName("SWORD_WAVE");
+            armorStand.setCustomName(WAVE_MARKER);
             armorStand.setCustomNameVisible(false);
+            armorStand.setInvulnerable(true);
+            armorStand.setCanPickupItems(false);
         });
+        waveEntities.add(wave.getUniqueId());
 
         new BukkitRunnable() {
             int ticks = 0;
