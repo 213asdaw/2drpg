@@ -74,7 +74,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
 
-        getLogger().info("SkeBoss 활성화 (minion-skin-v5) — /skeboss help | /skeweapon | /skeboss minion spawner");
+        getLogger().info("SkeBoss 활성화 (minion-skin-v6) — /skeboss help | /skeweapon | /skeboss minion spawner");
     }
 
     public void mergeAndReloadConfig() {

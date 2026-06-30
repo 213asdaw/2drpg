@@ -244,9 +244,7 @@ public final class ModelEngineBridge {
             synced |= tryInvoke(base, "setRenderRadius", new Class<?>[]{int.class}, renderRadius);
         }
 
-        invokeOptional(modeledEntity, "tick");
         if (activeModel != null) {
-            invokeOptional(activeModel, "tick");
             Object renderer = invokeOptional(activeModel, "getModelRenderer");
             if (renderer != null) {
                 tryInvoke(renderer, "pollFirstSpawn", new Class<?>[]{});
@@ -390,8 +388,8 @@ public final class ModelEngineBridge {
             }
             final UUID resolvedUuid = uuid;
             final String resolvedTextures = textures;
-            Bukkit.getScheduler().runTask(plugin, () -> applyPlayerSkinOnMainThread(
-                    model, entity, username, syncRadius, resolvedUuid, resolvedTextures, onComplete));
+            Bukkit.getScheduler().runTaskLater(plugin, () -> applyPlayerSkinOnMainThread(
+                    model, entity, username, syncRadius, resolvedUuid, resolvedTextures, onComplete), 2L);
         });
     }
 
@@ -528,14 +526,11 @@ public final class ModelEngineBridge {
     private void ensureMinionRenderer(BossModel model, Entity entity, double syncRadius, String reason) {
         try {
             Object activeModel = model.activeModel();
-            ensureModelBonesReady(activeModel);
             invokeOptional(activeModel, "generateModel");
             for (Object bone : activeModelBones(activeModel).values()) {
                 tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
             }
             invokeOptional(activeModel, "initializeRenderer");
-            invokeOptional(model.modeledEntity(), "tick");
-            invokeOptional(activeModel, "tick");
             forceResyncNearbyPlayers(model, entity, syncRadius);
             plugin.getLogger().info("잡몹 렌더러 동기화(폴백): " + reason);
         } catch (Exception ex) {
@@ -830,11 +825,17 @@ public final class ModelEngineBridge {
         }
         Object destroyTokyo = tryCreateDestroyTokyoProfile(paramType, uuid, username, textures);
         if (destroyTokyo != null) {
+            tryInvoke(destroyTokyo, "complete", new Class<?>[]{boolean.class}, true);
             return destroyTokyo;
         }
         try {
             Object profile = Bukkit.createProfile(uuid, username);
-            addTexturesProperty(profile, textures);
+            tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true);
+            if (!addTexturesProperty(profile, textures)) {
+                tryInvoke(profile, "setProperty",
+                        new Class<?>[]{String.class, String.class, String.class},
+                        "textures", textures, null);
+            }
             if (paramType.isInstance(profile)) {
                 return profile;
             }
@@ -949,30 +950,30 @@ public final class ModelEngineBridge {
         return null;
     }
 
-    /** setTexture → generateModel → initializeRenderer */
+    /** generateModel → setTexture → initializeRenderer → setTexture (ME 4.0.9, tick 호출 금지) */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, UUID uuid, String textures) {
         Object activeModel = model.activeModel();
-        Object modeledEntity = model.modeledEntity();
 
-        ensureModelBonesReady(activeModel);
+        invokeOptional(activeModel, "generateModel");
+
         int applied = applySkinToPlayerLimbs(activeModel, username, uuid, textures);
 
         for (Object bone : activeModelBones(activeModel).values()) {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
         }
         try {
-            invokeOptional(activeModel, "generateModel");
             invokeOptional(activeModel, "initializeRenderer");
-            invokeOptional(modeledEntity, "tick");
-            invokeOptional(activeModel, "tick");
+            int afterInit = applySkinToPlayerLimbs(activeModel, username, uuid, textures);
+            if (afterInit > applied) {
+                applied = afterInit;
+            }
             forceResyncNearbyPlayers(model, entity, syncRadius);
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 초기화/동기화 실패: " + username, ex);
         }
-        schedulePlayerLimbResync(model, entity, syncRadius, 5L);
-        schedulePlayerLimbResync(model, entity, syncRadius, 20L);
-        schedulePlayerLimbResync(model, entity, syncRadius, 40L);
+        schedulePlayerLimbResync(model, entity, syncRadius, 10L);
+        schedulePlayerLimbResync(model, entity, syncRadius, 30L);
         return applied;
     }
 
