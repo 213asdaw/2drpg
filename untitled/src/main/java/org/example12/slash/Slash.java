@@ -4,6 +4,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -36,41 +38,27 @@ import java.util.UUID;
 public final class Slash extends JavaPlugin implements Listener {
 
     private static final String WAVE_MARKER = "SWORD_WAVE";
+    private static final int WAVE_CUSTOM_MODEL_DATA = 1001;
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
     private final Map<UUID, Long> shieldCooldowns = new HashMap<>();
     private final Map<UUID, ItemStack> handBackups = new HashMap<>();
     private final Set<UUID> waveEntities = new HashSet<>();
-    private ItemStack waveVisualTemplate = new ItemStack(Material.FLINT);
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
-        reloadWaveVisual();
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("폭풍의 검 (검기 + 불꽃 방패 + 스탯 연동) 플러그인이 켜졌습니다!");
     }
 
-    private void reloadWaveVisual() {
-        String materialName = getConfig().getString("wave-visual.material", "FLINT");
-        Material material = Material.matchMaterial(materialName);
-        if (material == null || !material.isItem()) {
-            material = Material.FLINT;
-        }
-
-        waveVisualTemplate = new ItemStack(material);
-        int cmd = getConfig().getInt("wave-visual.custom-model-data", 1);
-        if (cmd > 0) {
-            ItemMeta templateMeta = waveVisualTemplate.getItemMeta();
-            if (templateMeta != null) {
-                templateMeta.setCustomModelData(cmd);
-                waveVisualTemplate.setItemMeta(templateMeta);
-            }
-        }
-    }
-
     private ItemStack createWaveVisual() {
-        return waveVisualTemplate.clone();
+        ItemStack sword = new ItemStack(Material.FLINT);
+        ItemMeta meta = sword.getItemMeta();
+        if (meta != null) {
+            meta.setCustomModelData(WAVE_CUSTOM_MODEL_DATA);
+            sword.setItemMeta(meta);
+        }
+        return sword;
     }
 
     private void equipWaveVisual(ArmorStand wave) {
@@ -78,22 +66,11 @@ public final class Slash extends JavaPlugin implements Listener {
             return;
         }
         ItemStack current = wave.getEquipment().getItemInMainHand();
-        if (!isSameWaveVisual(current)) {
+        if (current.getType() != Material.FLINT
+                || !current.hasItemMeta()
+                || current.getItemMeta().getCustomModelData() != WAVE_CUSTOM_MODEL_DATA) {
             wave.getEquipment().setItemInMainHand(createWaveVisual());
         }
-    }
-
-    private boolean isSameWaveVisual(ItemStack item) {
-        if (item == null || item.getType() != waveVisualTemplate.getType()) {
-            return false;
-        }
-        int expectedCmd = waveVisualTemplate.getItemMeta() != null
-                ? waveVisualTemplate.getItemMeta().getCustomModelData()
-                : 0;
-        if (!item.hasItemMeta()) {
-            return expectedCmd == 0;
-        }
-        return item.getItemMeta().getCustomModelData() == expectedCmd;
     }
 
     private double getScriptAttackPower(Player player) {
@@ -186,7 +163,6 @@ public final class Slash extends JavaPlugin implements Listener {
         cooldowns.put(player.getUniqueId(), currentTime + 5_000L);
     }
 
-    /** 검기 전 손 무기 백업 — FLINT로 바뀌면 복구 */
     private void backupHand(Player player, ItemStack hand) {
         handBackups.put(player.getUniqueId(), hand.clone());
         UUID id = player.getUniqueId();
@@ -227,7 +203,7 @@ public final class Slash extends JavaPlugin implements Listener {
     }
 
     private void castFireShield(Player player) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 200, 2));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 200, 2));
         player.getWorld().playSound(player.getLocation(), Sound.ITEM_FIRECHARGE_USE, 1.0f, 1.0f);
         player.sendMessage("§6🔥 불꽃의 방패가 활성화되었습니다! (10초간 방어력 대폭 상승)");
 
@@ -258,15 +234,13 @@ public final class Slash extends JavaPlugin implements Listener {
         }.runTaskTimer(this, 0L, 1L);
     }
 
-    /** 검기 — 파티클 + 데미지, 플레이어 손/FLINT 드롭 방지 */
     private void shootSwordAura(Player player, ItemStack savedHand) {
         backupHand(player, savedHand);
 
         double scriptPower = getScriptAttackPower(player);
         final double finalDamage = scriptPower * 1.5 + 5.0;
 
-        Location startLoc = player.getEyeLocation().clone();
-        startLoc.add(startLoc.getDirection().normalize().multiply(0.6));
+        Location startLoc = player.getEyeLocation();
         final Vector direction = startLoc.getDirection().normalize();
         final float yaw = startLoc.getYaw();
         final float pitch = startLoc.getPitch();
@@ -279,23 +253,20 @@ public final class Slash extends JavaPlugin implements Listener {
         playerCenter.getWorld().spawnParticle(Particle.SMALL_FLAME, playerCenter, 60, 0.5, 0.5, 0.5, 0.3);
         playerCenter.getWorld().spawnParticle(Particle.LAVA, playerCenter, 15, 0.3, 0.3, 0.3, 0.1);
 
-        // FLINT(리소스팩 검기) 이펙트 — 우클릭 교체는 이벤트 차단 + 매 틱 장착 복구
-        final ItemStack waveVisual = createWaveVisual();
         final ArmorStand wave = startLoc.getWorld().spawn(startLoc, ArmorStand.class, armorStand -> {
             armorStand.setVisible(false);
             armorStand.setGravity(false);
             armorStand.setArms(true);
             armorStand.setBasePlate(false);
-            armorStand.setMarker(true);
-            armorStand.setSmall(true);
-            armorStand.setCustomName(WAVE_MARKER);
-            armorStand.setCustomNameVisible(false);
             armorStand.setInvulnerable(true);
             armorStand.setCanPickupItems(false);
-            armorStand.setRightArmPose(new EulerAngle(Math.toRadians(-15.0), 0.0, 0.0));
-            if (armorStand.getEquipment() != null) {
-                armorStand.getEquipment().setItemInMainHand(waveVisual);
+            AttributeInstance scale = armorStand.getAttribute(Attribute.GENERIC_SCALE);
+            if (scale != null) {
+                scale.setBaseValue(0.8);
             }
+            armorStand.getEquipment().setItemInMainHand(createWaveVisual());
+            armorStand.setCustomName(WAVE_MARKER);
+            armorStand.setCustomNameVisible(false);
         });
         waveEntities.add(wave.getUniqueId());
 
@@ -319,15 +290,13 @@ public final class Slash extends JavaPlugin implements Listener {
                 wave.teleport(currentLoc);
                 equipWaveVisual(wave);
 
+                double pitchRadians = Math.toRadians(pitch);
+                wave.setRightArmPose(new EulerAngle(pitchRadians, 0.0, 0.0));
+
                 currentLoc.getWorld().spawnParticle(
                         Particle.FLAME,
                         currentLoc.clone().add(0.0, 0.5, 0.0),
-                        6, 0.25, 0.25, 0.25, 0.02
-                );
-                currentLoc.getWorld().spawnParticle(
-                        Particle.SWEEP_ATTACK,
-                        currentLoc.clone().add(0.0, 0.5, 0.0),
-                        1, 0.0, 0.0, 0.0, 0.0
+                        4, 0.2, 0.2, 0.2, 0.02
                 );
 
                 for (Entity entity : currentLoc.getWorld().getNearbyEntities(currentLoc, 1.5, 1.5, 1.5)) {
@@ -344,7 +313,7 @@ public final class Slash extends JavaPlugin implements Listener {
                     player.removeScoreboardTag("using_skill");
 
                     target.getWorld().spawnParticle(
-                            Particle.EXPLOSION_LARGE,
+                            Particle.EXPLOSION,
                             target.getLocation().add(0.0, 1.0, 0.0),
                             1, 0.0, 0.0, 0.0, 0.0
                     );
