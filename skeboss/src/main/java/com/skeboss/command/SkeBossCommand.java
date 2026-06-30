@@ -7,6 +7,7 @@ import com.skeboss.boss.SkillDefinition;
 import com.skeboss.minion.MinionBlueprintInstaller;
 import com.skeboss.minion.MinionManager;
 import com.skeboss.minion.MinionSpawner;
+import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.util.TextUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.Bukkit;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
@@ -325,6 +327,12 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        if (args.length >= 2 && (args[1].equalsIgnoreCase("skin-test")
+                || args[1].equalsIgnoreCase("skintest"))) {
+            handleMinionSkinTest(player, args);
+            return;
+        }
+
         if (args.length >= 2 && (args[1].equalsIgnoreCase("install-model")
                 || args[1].equalsIgnoreCase("install"))) {
             handleMinionInstallModel(player);
@@ -332,7 +340,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            player.sendMessage(TextUtil.color("&c/skeboss minion <check|install-model|spawner> ..."));
+            player.sendMessage(TextUtil.color("&c/skeboss minion <check|skin-test|install-model|spawner> ..."));
             return;
         }
 
@@ -405,6 +413,37 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             default -> player.sendMessage(TextUtil.color("&c/skeboss minion spawner <create|remove|list> ..."));
         }
+    }
+
+    private void handleMinionSkinTest(Player player, String[] args) {
+        var config = minionManager.getConfig();
+        String username = args.length >= 3 ? args[2] : config.getSkinUsername();
+        var me = minionManager.getModelEngine();
+
+        player.sendMessage(TextUtil.color("&6&l━━━━ 잡몹 스킨 테스트 ━━━━"));
+        player.sendMessage(TextUtil.color("&7닉네임: &f" + username));
+
+        Bukkit.getScheduler().runTaskAsynchronously(SkeBossPlugin.getInstance(), () -> {
+            UUID asyncUuid = me.lookupUsernameUuid(username);
+            String asyncTextures = asyncUuid != null ? me.lookupTexturesAsync(username) : null;
+            final UUID uuid = asyncUuid;
+            final String asyncResult = asyncTextures;
+            Bukkit.getScheduler().runTask(SkeBossPlugin.getInstance(), () -> {
+                player.sendMessage(TextUtil.color("&7비동기 UUID: "
+                        + (uuid != null ? "&a" + uuid : "&c실패")));
+                player.sendMessage(TextUtil.color("&7비동기 텍스처: "
+                        + (asyncResult != null ? "&a" + asyncResult.length() + "자" : "&c실패")));
+
+                ModelEngineBridge.SkinLookupResult result = me.testSkinLookup(username);
+                if (result.success()) {
+                    player.sendMessage(TextUtil.color("&a메인 스레드 조회 성공"));
+                    player.sendMessage(TextUtil.color("&7UUID: &f" + result.uuid()));
+                    player.sendMessage(TextUtil.color("&7텍스처: &f" + result.textures().length() + "자 (base64)"));
+                } else {
+                    player.sendMessage(TextUtil.color("&c메인 스레드 조회 실패: &f" + result.error()));
+                }
+            });
+        });
     }
 
     private void handleMinionInstallModel(Player player) {
@@ -501,6 +540,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
+            sender.sendMessage(TextUtil.color("&e/skeboss minion skin-test [닉네임] &7- 스킨 조회 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion install-model &7- player_model.bbmodel 설치"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner create <ID> &7- 잡몹 스포너 생성"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner remove <ID> &7- 잡몹 스포너 삭제"));
@@ -547,7 +587,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("minion")
                 && sender.hasPermission("skeboss.admin")) {
-            return filter(List.of("check", "install-model", "install", "spawner"), args[1]);
+            return filter(List.of("check", "skin-test", "skintest", "install-model", "install", "spawner"), args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("minion")
                 && args[1].equalsIgnoreCase("spawner") && sender.hasPermission("skeboss.admin")) {

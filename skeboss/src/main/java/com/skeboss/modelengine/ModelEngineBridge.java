@@ -76,7 +76,7 @@ public final class ModelEngineBridge {
         return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
     }
 
-    /** player limb 모델 ID 자동 탐색 후 적용 (좀비는 스킨 확인 전까지 유지) */
+    /** player limb 모델 ID 자동 탐색 후 적용 (렌더러 즉시 초기화, 스킨은 이후 덮어씀) */
     public BossModel attachMinionModel(Entity entity, String modelId, List<String> fallbackIds,
                                        double modelScale, double hitboxScale) {
         String resolvedId = resolveAvailableModelId(modelId, fallbackIds);
@@ -86,7 +86,7 @@ public final class ModelEngineBridge {
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, true);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, false);
     }
 
     /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
@@ -380,11 +380,49 @@ public final class ModelEngineBridge {
         }
         plugin.getLogger().info("잡몹 스킨 조회 시작: " + username);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            UUID uuid = resolveUsernameUuid(username);
-            String textures = fetchTexturesBase64(username, uuid);
+            UUID uuid = null;
+            String textures = null;
+            try {
+                uuid = resolveUsernameUuid(username);
+                textures = fetchTexturesAsync(username);
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING, "잡몹 스킨 비동기 조회 예외: " + username, ex);
+            }
+            final UUID resolvedUuid = uuid;
+            final String resolvedTextures = textures;
             Bukkit.getScheduler().runTask(plugin, () -> applyPlayerSkinOnMainThread(
-                    model, entity, username, syncRadius, uuid, textures, onComplete));
+                    model, entity, username, syncRadius, resolvedUuid, resolvedTextures, onComplete));
         });
+    }
+
+    public UUID lookupUsernameUuid(String username) {
+        return resolveUsernameUuid(username);
+    }
+
+    public String lookupTexturesAsync(String username) {
+        return fetchTexturesAsync(username);
+    }
+
+    /** 스킨 조회만 테스트 (명령어 진단용) */
+    public SkinLookupResult testSkinLookup(String username) {
+        if (username == null || username.isBlank()) {
+            return new SkinLookupResult(null, null, "닉네임이 비어 있습니다.");
+        }
+        UUID uuid = resolveUsernameUuid(username);
+        if (uuid == null) {
+            return new SkinLookupResult(null, null, "UUID 조회 실패 — 닉네임이 실제 마인크래프트 계정인지 확인하세요.");
+        }
+        String textures = fetchTexturesOnMainThread(username, uuid);
+        if (textures == null || textures.isBlank()) {
+            return new SkinLookupResult(uuid, null, "텍스처 조회 실패 — Mojang API / 인터넷 연결을 확인하세요.");
+        }
+        return new SkinLookupResult(uuid, textures, null);
+    }
+
+    public record SkinLookupResult(UUID uuid, String textures, String error) {
+        public boolean success() {
+            return error == null && uuid != null && textures != null && !textures.isBlank();
+        }
     }
 
     private void applyPlayerSkinOnMainThread(BossModel model, Entity entity, String username, double syncRadius,
@@ -395,15 +433,24 @@ public final class ModelEngineBridge {
                 plugin.getLogger().warning("잡몹 스킨 적용 중단 — 엔티티가 없습니다: " + username);
                 return;
             }
+
+            if (uuid == null) {
+                uuid = resolveUsernameUuid(username);
+            }
+            if (textures == null || textures.isBlank()) {
+                textures = fetchTexturesOnMainThread(username, uuid);
+            }
             if (uuid == null || textures == null || textures.isBlank()) {
                 plugin.getLogger().warning("스킨 조회 실패: " + username
-                        + " — 닉네임이 실제 마인크래프트 계정인지, 서버 인터넷 연결을 확인하세요.");
+                        + " — /skeboss minion skin-test 로 진단, 닉네임·인터넷 확인");
+                ensureMinionRenderer(model, entity, syncRadius, "스킨 조회 실패");
                 return;
             }
 
-            Object profile = buildPaperProfile(uuid, username, textures);
+            Object profile = resolveSkinProfile(username, uuid, textures);
             if (profile == null) {
-                plugin.getLogger().warning("Paper 프로필 생성 실패: " + username);
+                plugin.getLogger().warning("프로필 생성 실패: " + username);
+                ensureMinionRenderer(model, entity, syncRadius, "프로필 생성 실패");
                 return;
             }
 
@@ -419,9 +466,11 @@ public final class ModelEngineBridge {
                 } else {
                     plugin.getLogger().warning("PlayerLimb 본 없음 — /meg reload models 후 player_model 확인");
                 }
+                ensureMinionRenderer(model, entity, syncRadius, "setTexture 실패");
             }
         } catch (Exception ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 스킨 적용 중 예외: " + username, ex);
+            ensureMinionRenderer(model, entity, syncRadius, "예외");
         } finally {
             if (onComplete != null) {
                 onComplete.accept(limbs);
@@ -429,25 +478,86 @@ public final class ModelEngineBridge {
         }
     }
 
-    private String fetchTexturesBase64(String username, UUID uuid) {
+    private Object resolveSkinProfile(String username, UUID uuid, String textures) {
+        Object paperProfile = buildPaperProfile(uuid, username, textures);
+        if (paperProfile != null) {
+            return paperProfile;
+        }
+        Object mojangProfile = fetchMojangProfile(username);
+        if (mojangProfile != null) {
+            return mojangProfile;
+        }
+        return fetchProfileOnMainThread(username, uuid);
+    }
+
+    private Object fetchProfileOnMainThread(String username, UUID uuid) {
+        if (uuid == null) {
+            uuid = resolveUsernameUuid(username);
+        }
+        if (uuid == null) {
+            return null;
+        }
+        try {
+            Object profile = Bukkit.createProfile(uuid, username);
+            if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)) {
+                return profile;
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "Bukkit profile.complete 실패: " + username, ex);
+        }
+        return fetchMojangProfile(username);
+    }
+
+    /** 비동기 스레드에서 호출 가능 — MojangAPI만 사용 */
+    private String fetchTexturesAsync(String username) {
+        Object mojangProfile = fetchMojangProfile(username);
+        if (mojangProfile != null) {
+            return extractTexturesProperty(mojangProfile);
+        }
+        return null;
+    }
+
+    /** 메인 스레드 전용 — Paper profile.complete + MojangAPI 폴백 */
+    private String fetchTexturesOnMainThread(String username, UUID uuid) {
         if (uuid != null) {
             try {
                 Object profile = Bukkit.createProfile(uuid, username);
                 if (tryInvoke(profile, "complete", new Class<?>[]{boolean.class}, true)) {
                     String textures = extractTexturesProperty(profile);
                     if (textures != null) {
+                        plugin.getLogger().info("Bukkit 프로필 스킨 로드: " + username);
                         return textures;
                     }
                 }
             } catch (Exception ex) {
-                plugin.getLogger().log(Level.FINE, "Bukkit profile async 조회 실패: " + username, ex);
+                plugin.getLogger().log(Level.WARNING, "Bukkit profile 조회 실패: " + username, ex);
             }
         }
         Object mojangProfile = fetchMojangProfile(username);
         if (mojangProfile != null) {
-            return extractTexturesProperty(mojangProfile);
+            String textures = extractTexturesProperty(mojangProfile);
+            if (textures != null) {
+                plugin.getLogger().info("MojangAPI 스킨 로드: " + username);
+                return textures;
+            }
         }
         return null;
+    }
+
+    private void ensureMinionRenderer(BossModel model, Entity entity, double syncRadius, String reason) {
+        try {
+            Object activeModel = model.activeModel();
+            invokeOptional(activeModel, "initializeRenderer");
+            for (Object bone : activeModelBones(activeModel).values()) {
+                tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
+            }
+            invokeOptional(model.modeledEntity(), "tick");
+            invokeOptional(activeModel, "tick");
+            forceResyncNearbyPlayers(model, entity, syncRadius);
+            plugin.getLogger().info("잡몹 렌더러 동기화(폴백): " + reason);
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 폴백 실패: " + reason, ex);
+        }
     }
 
     private Object buildPaperProfile(UUID uuid, String username, String textures) {
@@ -691,24 +801,36 @@ public final class ModelEngineBridge {
     private boolean applyTextureToPlayerLimb(Object playerLimb, Object profile) {
         org.bukkit.entity.Player player = profile instanceof org.bukkit.entity.Player p ? p : null;
         if (player != null) {
-            return tryInvoke(playerLimb, "setTexture",
-                    new Class<?>[]{org.bukkit.entity.Player.class}, player);
+            if (tryInvoke(playerLimb, "setTexture",
+                    new Class<?>[]{org.bukkit.entity.Player.class}, player)) {
+                return true;
+            }
         }
 
-        Object paperProfile = toPaperProfileForTexture(profile);
-        if (paperProfile != null) {
-            Method match = findMethodByNameAndArity(playerLimb.getClass(), "setTexture", 1);
-            if (match != null) {
-                try {
-                    Object[] args = convertArgs(match.getParameterTypes(), new Object[]{paperProfile});
-                    match.invoke(playerLimb, args);
-                    return true;
-                } catch (ReflectiveOperationException ex) {
-                    plugin.getLogger().log(Level.FINE, "setTexture(PlayerProfile) 실패", ex);
-                }
+        for (Object candidate : List.of(profile, toPaperProfileForTexture(profile))) {
+            if (candidate == null) {
+                continue;
+            }
+            if (invokeSetTexture(playerLimb, candidate)) {
+                return true;
             }
         }
         return false;
+    }
+
+    private boolean invokeSetTexture(Object playerLimb, Object textureSource) {
+        Method match = findMethodByNameAndArity(playerLimb.getClass(), "setTexture", 1);
+        if (match == null) {
+            return false;
+        }
+        try {
+            Object[] args = convertArgs(match.getParameterTypes(), new Object[]{textureSource});
+            match.invoke(playerLimb, args);
+            return true;
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "setTexture(" + textureSource.getClass().getSimpleName() + ") 실패", ex);
+            return false;
+        }
     }
 
     private Object toPaperProfileForTexture(Object profile) {
