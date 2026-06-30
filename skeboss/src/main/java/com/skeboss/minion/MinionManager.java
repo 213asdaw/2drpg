@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -159,11 +160,15 @@ public final class MinionManager {
 
             Attribute follow = Attribute.GENERIC_FOLLOW_RANGE;
             if (entity.getAttribute(follow) != null) {
-                entity.getAttribute(follow).setBaseValue(config.getFollowRange());
+                double followRange = config.isBacklineMode()
+                        ? Math.max(config.getGuardRadius(), config.getMeleeRange())
+                        : config.getFollowRange();
+                entity.getAttribute(follow).setBaseValue(followRange);
             }
         });
 
         SkeMinion minion = new SkeMinion(zombie, spawnerId, config);
+        minion.setHomeLocation(spawnLoc);
         minions.put(zombie.getUniqueId(), minion);
 
         int delay = Math.max(0, config.getSpawnDelayTicks());
@@ -325,7 +330,14 @@ public final class MinionManager {
     }
 
     public void faceTarget(SkeMinion minion, Player target) {
-        if (minion.getModel() == null || target == null) {
+        if (target == null) {
+            return;
+        }
+        faceLocation(minion, target.getLocation());
+    }
+
+    public void faceLocation(SkeMinion minion, Location targetLoc) {
+        if (minion.getModel() == null || targetLoc == null) {
             return;
         }
         LivingEntity entity = minion.getEntity();
@@ -333,7 +345,6 @@ public final class MinionManager {
             return;
         }
         Location entityLoc = entity.getLocation();
-        Location targetLoc = target.getLocation();
         double dx = targetLoc.getX() - entityLoc.getX();
         double dz = targetLoc.getZ() - entityLoc.getZ();
         if (dx * dx + dz * dz < 0.0001) {
@@ -341,6 +352,29 @@ public final class MinionManager {
         }
         float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
         entity.setRotation(yaw, entityLoc.getPitch());
+    }
+
+    public void returnToHome(SkeMinion minion) {
+        Location home = minion.getHomeLocation();
+        if (home == null || home.getWorld() == null) {
+            return;
+        }
+        LivingEntity entity = minion.getEntity();
+        if (!entity.isValid() || entity.isDead()) {
+            return;
+        }
+        if (!entity.getWorld().equals(home.getWorld())) {
+            return;
+        }
+        double dist = entity.getLocation().distance(home);
+        if (dist <= config.getHomeTolerance()) {
+            return;
+        }
+        if (entity instanceof Mob mob) {
+            mob.getPathfinder().moveTo(home, config.getMovementSpeed());
+        }
+        faceLocation(minion, home);
+        playWalk(minion);
     }
 
     public void meleeAttack(SkeMinion minion, Player target) {

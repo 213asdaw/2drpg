@@ -477,6 +477,12 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(TextUtil.color("&6&l━━━━ 잡몹 진단 ━━━━"));
         player.sendMessage(TextUtil.color("&7스킨 닉네임: &f" + config.getSkinUsername()));
         player.sendMessage(TextUtil.color("&7config model-id: &f" + config.getModelId()));
+        if (config.isBacklineMode()) {
+            player.sendMessage(TextUtil.color("&7AI: &e후공몹 &7(가드 &f" + config.getGuardRadius()
+                    + "&7 / 리쉬 &f" + config.getLeashRadius() + "&7)"));
+        } else {
+            player.sendMessage(TextUtil.color("&7AI: &c선공몹 &7(추격 &f" + config.getFollowRange() + "&7)"));
+        }
 
         Path blueprintFile = MinionBlueprintInstaller.blueprintPath(plugin);
         if (Files.isRegularFile(blueprintFile)) {

@@ -138,6 +138,11 @@ minion:
   max-health: 20.0
   movement-speed: 0.32
   follow-range: 24.0
+  # 후공몹: 스폰 지점 수비 / aggressive: 멀리까지 추격
+  ai-mode: backline
+  guard-radius: 10.0
+  leash-radius: 14.0
+  home-tolerance: 1.5
   melee-range: 2.5
   melee-damage: 4.0
   fire-immune: true

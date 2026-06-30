@@ -18,6 +18,10 @@ public final class MinionConfig {
     private final double maxHealth;
     private final double movementSpeed;
     private final double followRange;
+    private final MinionAiMode aiMode;
+    private final double guardRadius;
+    private final double leashRadius;
+    private final double homeTolerance;
     private final double meleeRange;
     private final double meleeDamage;
     private final boolean fireImmune;
@@ -50,6 +54,10 @@ public final class MinionConfig {
         maxHealth = config.getDouble("minion.max-health", 20.0);
         movementSpeed = config.getDouble("minion.movement-speed", 0.32);
         followRange = config.getDouble("minion.follow-range", 24.0);
+        aiMode = MinionAiMode.fromConfig(config.getString("minion.ai-mode", "backline"));
+        guardRadius = config.getDouble("minion.guard-radius", 10.0);
+        leashRadius = config.getDouble("minion.leash-radius", 14.0);
+        homeTolerance = config.getDouble("minion.home-tolerance", 1.5);
         meleeRange = config.getDouble("minion.melee-range", 2.5);
         meleeDamage = config.getDouble("minion.melee-damage", 4.0);
         fireImmune = config.getBoolean("minion.fire-immune", true);
@@ -130,6 +138,26 @@ public final class MinionConfig {
 
     public double getFollowRange() {
         return followRange;
+    }
+
+    public MinionAiMode getAiMode() {
+        return aiMode;
+    }
+
+    public boolean isBacklineMode() {
+        return aiMode == MinionAiMode.BACKLINE;
+    }
+
+    public double getGuardRadius() {
+        return guardRadius;
+    }
+
+    public double getLeashRadius() {
+        return leashRadius;
+    }
+
+    public double getHomeTolerance() {
+        return homeTolerance;
     }
 
     public double getMeleeRange() {

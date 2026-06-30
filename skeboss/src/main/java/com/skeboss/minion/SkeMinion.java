@@ -3,6 +3,7 @@ package com.skeboss.minion;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.util.TextUtil;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
@@ -16,6 +17,7 @@ public final class SkeMinion {
     private final LivingEntity entity;
     private final String spawnerId;
     private final BossBar bossBar;
+    private Location homeLocation;
     private ModelEngineBridge.BossModel model;
     private boolean ready;
     private boolean attacking;
@@ -47,6 +49,14 @@ public final class SkeMinion {
 
     public String getSpawnerId() {
         return spawnerId;
+    }
+
+    public Location getHomeLocation() {
+        return homeLocation;
+    }
+
+    public void setHomeLocation(Location homeLocation) {
+        this.homeLocation = homeLocation == null ? null : homeLocation.clone();
     }
 
     public BossBar getBossBar() {
@@ -120,13 +130,20 @@ public final class SkeMinion {
     }
 
     public Player findNearestPlayer(double range) {
+        return findNearestPlayerNear(entity.getLocation(), range);
+    }
+
+    public Player findNearestPlayerNear(Location center, double range) {
+        if (center == null || center.getWorld() == null) {
+            return null;
+        }
         Player nearest = null;
         double best = range * range;
-        for (Player player : entity.getWorld().getPlayers()) {
+        for (Player player : center.getWorld().getPlayers()) {
             if (!player.isValid() || player.isDead() || player.getGameMode().name().equals("SPECTATOR")) {
                 continue;
             }
-            double dist = player.getLocation().distanceSquared(entity.getLocation());
+            double dist = player.getLocation().distanceSquared(center);
             if (dist <= best) {
                 best = dist;
                 nearest = player;
