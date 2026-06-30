@@ -77,7 +77,7 @@ public final class ModelEngineBridge {
         return attachModelResolved(entity, resolvedId, hideBaseEntity, modelScale, hitboxScale);
     }
 
-    /** player limb 모델 ID 자동 탐색 후 적용 (렌더러 즉시 초기화, 스킨은 이후 덮어씀) */
+    /** player limb: 스킨 적용 후 generateModel → initializeRenderer (Steve 머리만 뜨는 것 방지) */
     public BossModel attachMinionModel(Entity entity, String modelId, List<String> fallbackIds,
                                        double modelScale, double hitboxScale) {
         String resolvedId = resolveAvailableModelId(modelId, fallbackIds);
@@ -87,7 +87,7 @@ public final class ModelEngineBridge {
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, false);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, true);
     }
 
     /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
@@ -153,10 +153,9 @@ public final class ModelEngineBridge {
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
-            // player limb 잡몹: 본 생성은 즉시, 렌더러/스킨은 스킨 적용 후 초기화
-            invokeOptional(activeModel, "generateModel");
-
+            // player limb 잡몹(defer): attach 시 generate/init 생략 → finalize에서 스킨 후 처리
             if (!deferRendererInit) {
+                invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
                 syncNearbyPlayers(modeledEntity, activeModel, entity, 64.0, false);
             }
@@ -548,10 +547,12 @@ public final class ModelEngineBridge {
     private void ensureMinionRenderer(BossModel model, Entity entity, double syncRadius, String reason) {
         try {
             Object activeModel = model.activeModel();
-            invokeOptional(activeModel, "initializeRenderer");
+            ensureModelBonesReady(activeModel);
+            invokeOptional(activeModel, "generateModel");
             for (Object bone : activeModelBones(activeModel).values()) {
                 tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
             }
+            invokeOptional(activeModel, "initializeRenderer");
             invokeOptional(model.modeledEntity(), "tick");
             invokeOptional(activeModel, "tick");
             forceResyncNearbyPlayers(model, entity, syncRadius);
@@ -903,18 +904,20 @@ public final class ModelEngineBridge {
         return null;
     }
 
-    /** 스킨 → initializeRenderer (ME 자동 등록, registerSelf 사용 안 함) */
+    /** setTexture → generateModel → initializeRenderer */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, Object profile) {
         Object activeModel = model.activeModel();
         Object modeledEntity = model.modeledEntity();
 
+        ensureModelBonesReady(activeModel);
         int applied = applySkinToPlayerLimbs(activeModel, username, profile);
 
         for (Object bone : activeModelBones(activeModel).values()) {
             tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
         }
         try {
+            invokeOptional(activeModel, "generateModel");
             invokeOptional(activeModel, "initializeRenderer");
             invokeOptional(modeledEntity, "tick");
             invokeOptional(activeModel, "tick");
@@ -922,13 +925,19 @@ public final class ModelEngineBridge {
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 초기화/동기화 실패: " + username, ex);
         }
+        schedulePlayerLimbResync(model, entity, syncRadius, 5L);
+        schedulePlayerLimbResync(model, entity, syncRadius, 20L);
+        schedulePlayerLimbResync(model, entity, syncRadius, 40L);
+        return applied;
+    }
+
+    private void schedulePlayerLimbResync(BossModel model, Entity entity, double syncRadius, long delayTicks) {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
             forceResyncNearbyPlayers(model, entity, syncRadius);
-        }, 5L);
-        return applied;
+        }, delayTicks);
     }
 
     private String extractTexturesProperty(Object profile) {

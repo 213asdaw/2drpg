@@ -174,8 +174,7 @@ public final class MinionManager {
 
             int limbBones = modelEngine.countPlayerLimbs(model);
             if (limbBones == 0) {
-                plugin.getLogger().warning("잡몹 PlayerLimb 탐지 0개 (" + resolvedModelId
-                        + ") — 스킨 적용은 계속 시도합니다.");
+                plugin.getLogger().info("잡몹 PlayerLimb — 스킨 적용 단계에서 본 생성 예정 (" + resolvedModelId + ")");
             }
 
             minion.setModel(model);
@@ -189,7 +188,7 @@ public final class MinionManager {
                         }
                         modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
                         modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
-                    }, 5L);
+                    }, 20L);
                 } else if (appliedLimbs > 0 && appliedLimbs < requiredLimbs) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs
@@ -202,7 +201,7 @@ public final class MinionManager {
             registerBossBarViewers(minion);
             minion.setReady(true);
             plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " (모델: " + resolvedModelId
-                    + ", PlayerLimb " + limbBones + "개) @ " + entity.getLocation());
+                    + ") @ " + entity.getLocation());
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 모델 적용 실패 — 좀비만 사용 (/meg reload, model-id: "
                     + config.getModelId() + ")", ex);
