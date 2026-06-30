@@ -4,15 +4,18 @@ import com.skeboss.modelengine.ModelEngineBridge;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
 public final class MinionListener implements Listener {
 
@@ -48,6 +51,29 @@ public final class MinionListener implements Listener {
                 || cause == EntityDamageEvent.DamageCause.HOT_FLOOR) {
             event.setCancelled(true);
             living.setFireTicks(0);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamageByEntity(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity victim) || !minionManager.isMinion(victim)) {
+            return;
+        }
+        if (!minionManager.getConfig().isBacklineMode()) {
+            return;
+        }
+
+        SkeMinion minion = minionManager.resolveMinion(victim);
+        if (minion == null) {
+            minion = minionManager.getMinion(victim.getUniqueId());
+        }
+        if (minion == null) {
+            return;
+        }
+
+        Player attacker = resolvePlayerAttacker(event.getDamager());
+        if (attacker != null) {
+            minion.provoke(attacker);
         }
     }
 
@@ -132,5 +158,18 @@ public final class MinionListener implements Listener {
                 }
             }
         }
+    }
+
+    private static Player resolvePlayerAttacker(org.bukkit.entity.Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile) {
+            ProjectileSource source = projectile.getShooter();
+            if (source instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
     }
 }

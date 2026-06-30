@@ -76,7 +76,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (minion-v12) — /skeboss help | /skeweapon | /skeboss minion spawner");
+        getLogger().info("SkeBoss 활성화 (minion-v13) — /skeboss help | /skeweapon | /skeboss minion spawner");
     }
 
     public void mergeAndReloadConfig() {

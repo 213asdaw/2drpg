@@ -159,11 +159,9 @@ public final class MinionManager {
             }
 
             Attribute follow = Attribute.GENERIC_FOLLOW_RANGE;
+            entity.setAware(!config.isBacklineMode());
             if (entity.getAttribute(follow) != null) {
-                double followRange = config.isBacklineMode()
-                        ? Math.max(config.getGuardRadius(), config.getMeleeRange())
-                        : config.getFollowRange();
-                entity.getAttribute(follow).setBaseValue(followRange);
+                entity.getAttribute(follow).setBaseValue(config.getFollowRange());
             }
         });
 

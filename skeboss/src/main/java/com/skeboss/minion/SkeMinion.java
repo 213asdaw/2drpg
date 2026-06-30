@@ -21,6 +21,8 @@ public final class SkeMinion {
     private ModelEngineBridge.BossModel model;
     private boolean ready;
     private boolean attacking;
+    private boolean provoked;
+    private UUID provokeTargetId;
     private long lastMeleeMs;
 
     public SkeMinion(LivingEntity entity, String spawnerId, MinionConfig config) {
@@ -119,6 +121,28 @@ public final class SkeMinion {
 
     public void setAttacking(boolean attacking) {
         this.attacking = attacking;
+    }
+
+    public boolean isProvoked() {
+        return provoked;
+    }
+
+    public void provoke(Player player) {
+        provoked = true;
+        if (player != null) {
+            provokeTargetId = player.getUniqueId();
+        }
+    }
+
+    public Player getProvokeTarget() {
+        if (provokeTargetId == null) {
+            return null;
+        }
+        Player player = Bukkit.getPlayer(provokeTargetId);
+        if (player == null || !player.isValid() || player.isDead()) {
+            return null;
+        }
+        return player;
     }
 
     public boolean canMelee(long cooldownMs) {
