@@ -29,6 +29,7 @@ public final class MinionConfig {
     private final int aiIntervalTicks;
     private final int spawnerRespawnSeconds;
     private final String walkAnimation;
+    private final String attackAnimation;
     private final double blendIn;
     private final double blendOut;
     private final String skriptAttackVariable;
@@ -43,7 +44,7 @@ public final class MinionConfig {
         FileConfiguration config = plugin.getConfig();
         modelId = config.getString("minion.model-id", "player_model");
         modelFallbackIds = readModelFallbackIds(config);
-        displayName = config.getString("minion.display-name", "&7EMP4348");
+        displayName = config.getString("minion.display-name", "&e조연우");
         skinUsername = config.getString("minion.skin-username", "EMP4348");
         skriptTag = config.getString("minion.skript-tag", "EMP4348");
         maxHealth = config.getDouble("minion.max-health", 20.0);
@@ -59,7 +60,8 @@ public final class MinionConfig {
         spawnDelayTicks = config.getInt("minion.spawn-delay-ticks", 2);
         aiIntervalTicks = config.getInt("minion.ai-interval-ticks", 5);
         spawnerRespawnSeconds = config.getInt("minion.spawner-respawn-seconds", 30);
-        walkAnimation = config.getString("minion.walk-animation", "none");
+        walkAnimation = config.getString("minion.walk-animation", "walk");
+        attackAnimation = config.getString("minion.attack-animation", "attack");
         blendIn = config.getDouble("minion.blend-in", 0.15);
         blendOut = config.getDouble("minion.blend-out", 0.25);
         skriptAttackVariable = config.getString("minion.rpg.skript-attack-variable", "공격력");
@@ -172,6 +174,10 @@ public final class MinionConfig {
 
     public String getWalkAnimation() {
         return walkAnimation;
+    }
+
+    public String getAttackAnimation() {
+        return attackAnimation;
     }
 
     public double getBlendIn() {

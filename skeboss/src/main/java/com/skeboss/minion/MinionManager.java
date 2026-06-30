@@ -288,10 +288,39 @@ public final class MinionManager {
                 || config.getWalkAnimation().equalsIgnoreCase("none")) {
             return;
         }
+        if (minion.isAttacking()) {
+            return;
+        }
         try {
             modelEngine.playLoopAnimation(minion.getModel(), config.getWalkAnimation(),
                     config.getBlendIn(), config.getBlendOut());
         } catch (RuntimeException ignored) {
+        }
+    }
+
+    public void playAttack(SkeMinion minion) {
+        String attack = config.getAttackAnimation();
+        if (minion.getModel() == null || attack == null || attack.equalsIgnoreCase("none")) {
+            return;
+        }
+        try {
+            minion.setAttacking(true);
+            String walk = config.getWalkAnimation();
+            if (walk != null && !walk.equalsIgnoreCase("none")) {
+                modelEngine.stopAnimation(minion.getModel(), walk);
+            }
+            modelEngine.playAnimation(minion.getModel(), attack,
+                    config.getBlendIn(), config.getBlendOut(), false);
+            int ticks = modelEngine.estimateDurationTicks(minion.getModel(), attack, 10);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                minion.setAttacking(false);
+                if (minion.getEntity().isValid() && !minion.getEntity().isDead()) {
+                    playWalk(minion);
+                }
+            }, ticks);
+        } catch (RuntimeException ex) {
+            minion.setAttacking(false);
+            plugin.getLogger().fine("잡몹 공격 애니 실패: " + attack);
         }
     }
 
@@ -319,6 +348,7 @@ public final class MinionManager {
             return;
         }
         minion.markMelee();
+        playAttack(minion);
         target.damage(config.getMeleeDamage(), minion.getEntity());
     }
 

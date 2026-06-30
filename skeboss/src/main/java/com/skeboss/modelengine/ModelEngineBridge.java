@@ -968,8 +968,12 @@ public final class ModelEngineBridge {
     }
 
     public void playLoopAnimation(BossModel model, String animation, double blendIn, double blendOut) {
+        playAnimation(model, animation, blendIn, blendOut, true);
+    }
+
+    public void playAnimation(BossModel model, String animation, double blendIn, double blendOut, boolean loop) {
         Object handler = animationHandler(model);
-        if (!tryPlayAnimation(handler, animation, blendIn, blendOut)) {
+        if (!tryPlayAnimation(handler, animation, blendIn, blendOut, loop)) {
             throw new IllegalStateException("playAnimation 실패: " + animation);
         }
     }
@@ -1000,13 +1004,13 @@ public final class ModelEngineBridge {
         return fallbackTicks;
     }
 
-    private boolean tryPlayAnimation(Object handler, String animation, double blendIn, double blendOut) {
+    private boolean tryPlayAnimation(Object handler, String animation, double blendIn, double blendOut, boolean loop) {
         return tryInvoke(handler, "playAnimation",
                 new Class<?>[]{String.class, double.class, double.class, double.class, boolean.class},
-                animation, blendIn, blendOut, 1.0d, true)
+                animation, blendIn, blendOut, 1.0d, loop)
                 || tryInvoke(handler, "playAnimation",
                 new Class<?>[]{String.class, float.class, float.class, float.class, boolean.class},
-                animation, (float) blendIn, (float) blendOut, 1.0f, true);
+                animation, (float) blendIn, (float) blendOut, 1.0f, loop);
     }
 
     private Object animationHandler(BossModel model) {

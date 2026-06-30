@@ -18,6 +18,7 @@ public final class SkeMinion {
     private final BossBar bossBar;
     private ModelEngineBridge.BossModel model;
     private boolean ready;
+    private boolean attacking;
     private long lastMeleeMs;
 
     public SkeMinion(LivingEntity entity, String spawnerId, MinionConfig config) {
@@ -100,6 +101,14 @@ public final class SkeMinion {
 
     public void setReady(boolean ready) {
         this.ready = ready;
+    }
+
+    public boolean isAttacking() {
+        return attacking;
+    }
+
+    public void setAttacking(boolean attacking) {
+        this.attacking = attacking;
     }
 
     public boolean canMelee(long cooldownMs) {

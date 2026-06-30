@@ -132,7 +132,7 @@ minion:
     - skin_2
     - skin
     - player
-  display-name: "&7EMP4348"
+  display-name: "&e조연우"
   skin-username: "EMP4348"
   skript-tag: "EMP4348"
   max-health: 20.0
@@ -153,7 +153,8 @@ minion:
     enabled: true
     color: YELLOW
     style: SEGMENTED_6
-  walk-animation: none
+  walk-animation: walk
+  attack-animation: attack
   blend-in: 0.15
   blend-out: 0.25
   rpg:
