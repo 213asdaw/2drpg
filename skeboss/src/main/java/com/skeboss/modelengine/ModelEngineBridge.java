@@ -87,7 +87,7 @@ public final class ModelEngineBridge {
         if (!resolvedId.equals(modelId)) {
             plugin.getLogger().info("잡몹 모델 ID 폴백: " + modelId + " → " + resolvedId);
         }
-        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, false);
+        return attachModelResolved(entity, resolvedId, false, modelScale, hitboxScale, true);
     }
 
     /** blueprint가 실제로 있는 모델 ID만 반환, 없으면 null */
@@ -153,7 +153,12 @@ public final class ModelEngineBridge {
             tryInvoke(activeModel, "setLockYaw", new Class<?>[]{boolean.class}, false);
             tryInvoke(activeModel, "setModelRotationLocked", new Class<?>[]{Boolean.class}, false);
 
-            // player limb 잡몹(defer): attach 시 generate/init 생략 → finalize에서 스킨 후 처리
+            if (deferRendererInit) {
+                tryInvoke(activeModel, "setAutoRendererInitialization",
+                        new Class<?>[]{boolean.class}, false);
+            }
+
+            // player limb: 스킨 적용 후 initializeRenderer (Steve 머리만 뜨는 것 방지)
             if (!deferRendererInit) {
                 invokeOptional(activeModel, "generateModel");
                 invokeOptional(activeModel, "initializeRenderer");
@@ -702,22 +707,22 @@ public final class ModelEngineBridge {
         return applied;
     }
 
-    /** ME 4.0.9: MojangAPI.fromBase64 / fromUUID 로 만든 프로필만 PlayerLimb가 올바르게 인식 */
+    /** ME 4.0.9: MojangAPI.fromUUID / fromBase64 → setTexture → init → sendToClient */
     private Object createModelEngineProfile(String textures, UUID uuid, String username) {
         try {
             Class<?> mojangApi = Class.forName("com.ticxo.modelengine.api.utils.MojangAPI");
-            if (textures != null && !textures.isBlank()) {
-                Object fromBase64 = mojangApi.getMethod("fromBase64", String.class).invoke(null, textures);
-                if (fromBase64 != null) {
-                    plugin.getLogger().info("MojangAPI.fromBase64 프로필: " + username);
-                    return fromBase64;
-                }
-            }
             if (uuid != null) {
                 Object fromUuid = mojangApi.getMethod("fromUUID", UUID.class).invoke(null, uuid);
                 if (fromUuid != null) {
                     plugin.getLogger().info("MojangAPI.fromUUID 프로필: " + username);
                     return fromUuid;
+                }
+            }
+            if (textures != null && !textures.isBlank()) {
+                Object fromBase64 = mojangApi.getMethod("fromBase64", String.class).invoke(null, textures);
+                if (fromBase64 != null) {
+                    plugin.getLogger().info("MojangAPI.fromBase64 프로필: " + username);
+                    return fromBase64;
                 }
             }
         } catch (ReflectiveOperationException ex) {
@@ -856,28 +861,62 @@ public final class ModelEngineBridge {
         return List.of();
     }
 
-    /** 모델 부착 후 스킨 적용 → 렌더 데이터 갱신 (ME wiki: model → modelplayerskin 순서) */
+    /** 스킨 → 렌더 초기화 → 클라이언트 전송 (setTexture만으로는 Steve 머리만 보일 수 있음) */
     private int finalizePlayerLimbModel(BossModel model, Entity entity, double syncRadius,
                                         String username, UUID uuid, String textures) {
         Object activeModel = model.activeModel();
         invokeOptional(activeModel, "generateModel");
 
         int applied = applySkinToPlayerLimbs(activeModel, username, uuid, textures);
-        refreshPlayerLimbRenderer(activeModel);
-        forceResyncNearbyPlayers(model, entity, syncRadius);
+
+        for (Object bone : activeModelBones(activeModel).values()) {
+            tryInvoke(bone, "setVisible", new Class<?>[]{boolean.class}, true);
+        }
+
+        invokeOptional(activeModel, "initializeRenderer");
+        pushPlayerLimbToClients(model, entity, syncRadius);
         schedulePlayerLimbResync(model, entity, syncRadius, 2L);
         return applied;
     }
 
-    private void refreshPlayerLimbRenderer(Object activeModel) {
+    private void pushPlayerLimbToClients(BossModel model, Entity entity, double syncRadius) {
+        Object activeModel = model.activeModel();
+        refreshPlayerLimbRenderer(activeModel, true);
+        forceResyncNearbyPlayers(model, entity, syncRadius);
+        plugin.getLogger().info("잡몹 PlayerLimb 클라이언트 동기화 (sendToClient)");
+    }
+
+    private Object getGlobalRenderParsers() {
+        try {
+            Class<?> apiClass = Class.forName("com.ticxo.modelengine.api.ModelEngineAPI");
+            Object nms = apiClass.getMethod("getNMSHandler").invoke(null);
+            return invokeOptional(nms, "getGlobalParsers");
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "getGlobalParsers 실패", ex);
+            return null;
+        }
+    }
+
+    private void refreshPlayerLimbRenderer(Object activeModel, boolean pushToClient) {
+        Object parsers = pushToClient ? getGlobalRenderParsers() : null;
+        Class<?> parsersClass = parsers != null ? parsers.getClass() : null;
+
         Object renderer = invokeOptional(activeModel, "getModelRenderer");
         invokeOptional(renderer, "readModelData");
+        if (parsersClass != null) {
+            invokeOptional(renderer, "createRealEntities");
+            tryInvoke(renderer, "sendToClient", new Class<?>[]{parsersClass}, parsers);
+        }
+
         Object limbType = playerLimbBehaviorType();
         if (limbType == null) {
             return;
         }
         Object behaviorRenderer = unwrapOptional(invokeOptional(activeModel, "getBehaviorRenderer", limbType));
         invokeOptional(behaviorRenderer, "readBoneData");
+        if (parsersClass != null && behaviorRenderer != null) {
+            tryInvoke(behaviorRenderer, "sendToClient", new Class<?>[]{parsersClass}, parsers);
+        }
     }
 
     private void schedulePlayerLimbResync(BossModel model, Entity entity, double syncRadius, long delayTicks) {

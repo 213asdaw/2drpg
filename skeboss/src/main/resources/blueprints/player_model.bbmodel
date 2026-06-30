@@ -801,24 +801,7 @@
 							"visibility": true,
 							"autouv": 0,
 							"children": [
-								"8de25d82-0ef7-3969-f4ac-4fad83eaaeac",
-								{
-									"name": "ir_right_hand",
-									"origin": [
-										5,
-										12,
-										-1
-									],
-									"color": 0,
-									"uuid": "c9ccbb53-b781-91c2-0821-0ac1bcf6ebd7",
-									"export": true,
-									"mirror_uv": false,
-									"isOpen": true,
-									"locked": false,
-									"visibility": true,
-									"autouv": 0,
-									"children": []
-								}
+								"8de25d82-0ef7-3969-f4ac-4fad83eaaeac"
 							]
 						},
 						{

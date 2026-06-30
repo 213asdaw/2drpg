@@ -463,9 +463,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         } else {
             player.sendMessage(TextUtil.color("&a복사 완료: &f" + target));
         }
-        player.sendMessage(TextUtil.color("&e1. &f/meg reload models &e실행"));
-        player.sendMessage(TextUtil.color("&e2. config &fminion.model-id: player_model &e확인 후 &f/skeboss reload"));
-        player.sendMessage(TextUtil.color("&e3. ModelEngine 리소스팩 받기 (&f/meg reload &e또는 서버 리소스팩)"));
+        player.sendMessage(TextUtil.color("&e1. &f/skeboss minion install-model &e(덮어쓰기)"));
+        player.sendMessage(TextUtil.color("&e2. &f/meg reload &e실행 (&cmodels만 말고 전체 reload&7 → 리소스팩 재생성)"));
+        player.sendMessage(TextUtil.color("&e3. 클라이언트에서 리소스팩 &c다시 받기"));
         player.sendMessage(TextUtil.color("&e4. &f/skeboss minion check &e로 다시 확인"));
     }
 
@@ -511,8 +511,11 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
 
         player.sendMessage(TextUtil.color("&7EMP4348 스킨은 플러그인이 자동 적용. &cbbmodel 없으면 좀비만 보임."));
-        player.sendMessage(TextUtil.color("&7머리만 떠다니면 &f/meg reload &7후 리소스팩 &c다시 받기&7 (player_model 추가됨)"));
-        player.sendMessage(TextUtil.color("&7셰이더 켜져 있으면 PlayerLimb 안 보일 수 있음 (바닐라/소듐 권장)"));
+        player.sendMessage(TextUtil.color("&7로그에 PlayerLimb 6개 OK인데 머리만 보이면:"));
+        player.sendMessage(TextUtil.color("  &e1. &f/meg reload &7(전체) 후 리소스팩 재수락"));
+        player.sendMessage(TextUtil.color("  &e2. &finstall-model &7다시 실행 (ir_ 본 제거된 bbmodel)"));
+        player.sendMessage(TextUtil.color("  &e3. &c셰이더 끄기&7 (Iris/모드 셰이더 = PlayerLimb 불가)"));
+        player.sendMessage(TextUtil.color("&7콘솔에 &fsendToClient&7 로그가 있어야 클라이언트 반영됨"));
     }
 
     private SkeBoss getTargetBoss(Player player) {
