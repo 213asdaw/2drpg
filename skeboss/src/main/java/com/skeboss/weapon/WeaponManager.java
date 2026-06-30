@@ -81,11 +81,8 @@ public final class WeaponManager {
         return resolveWeapon(item) != null;
     }
 
-    /** 우클릭 처리용 — 다른 스킬 플러그인과 충돌 줄이기 */
+    /** 우클릭 처리용 — NBT 또는 이름 키워드로 인식 */
     public boolean isInteractWeapon(ItemStack item) {
-        if (weaponConfig.isRequireNbt()) {
-            return getNbtWeaponId(item) != null;
-        }
         return resolveWeapon(item) != null;
     }
 
@@ -96,7 +93,7 @@ public final class WeaponManager {
         return item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
     }
 
-    /** NBT 우선, 없으면 config display-name 과 아이템 이름 비교 (정확히 일치만) */
+    /** NBT 우선, 없으면 config name-keywords / display-name 으로 감지 */
     public WeaponDefinition resolveWeapon(ItemStack item) {
         if (item == null || item.getType().isAir()) {
             return null;
@@ -112,7 +109,8 @@ public final class WeaponManager {
             }
         }
 
-        return resolveWeaponByDisplayName(item);
+        WeaponDefinition byName = resolveWeaponByDisplayName(item);
+        return byName;
     }
 
     private WeaponDefinition resolveWeaponByDisplayName(ItemStack item) {
@@ -125,13 +123,33 @@ public final class WeaponManager {
             return null;
         }
 
+        WeaponDefinition exact = null;
+        WeaponDefinition contains = null;
+
         for (WeaponDefinition weapon : weaponConfig.getWeapons().values()) {
             String configName = TextUtil.stripColor(weapon.displayName());
-            if (itemName.equalsIgnoreCase(configName)) {
-                return weapon;
+            if (!configName.isEmpty() && itemName.equalsIgnoreCase(configName)) {
+                exact = weapon;
+                break;
+            }
+            for (String keyword : weapon.nameKeywords()) {
+                if (keyword.isBlank()) {
+                    continue;
+                }
+                if (itemName.equalsIgnoreCase(keyword)) {
+                    exact = weapon;
+                    break;
+                }
+                if (contains == null && itemName.contains(keyword)) {
+                    contains = weapon;
+                }
+            }
+            if (exact != null) {
+                break;
             }
         }
-        return null;
+
+        return exact != null ? exact : contains;
     }
 
     public boolean tryUse(Player player, ItemStack item) {
