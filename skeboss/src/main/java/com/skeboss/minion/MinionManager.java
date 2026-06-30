@@ -56,14 +56,37 @@ public final class MinionManager {
     }
 
     public void startupSpawners() {
+        spawnerStorage.clearAllActiveMinions();
         for (MinionSpawner spawner : spawnerStorage.all()) {
             Location location = spawner.toLocation();
             if (location == null) {
                 plugin.getLogger().warning("스포너 월드 없음: " + spawner.getId());
                 continue;
             }
-            spawnForSpawner(spawner);
+            ensureSpawnerMinion(spawner);
         }
+    }
+
+    public void ensureSpawnerMinion(MinionSpawner spawner) {
+        if (spawner.getActiveMinionId() != null) {
+            SkeMinion existing = minions.get(spawner.getActiveMinionId());
+            if (existing != null && existing.getEntity().isValid() && !existing.getEntity().isDead()) {
+                registerBossBarViewers(existing);
+                return;
+            }
+        }
+        try {
+            spawnForSpawner(spawner);
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "스포너 잡몹 스폰 실패 " + spawner.getId(), ex);
+        }
+    }
+
+    public void shutdownPersist() {
+        for (MinionSpawner spawner : spawnerStorage.all()) {
+            spawner.clearActiveMinion();
+        }
+        spawnerStorage.save();
     }
 
     public MinionSpawner createSpawner(String id, Location location) {
@@ -117,6 +140,7 @@ public final class MinionManager {
             entity.setRemoveWhenFarAway(false);
             entity.setShouldBurnInDay(false);
             entity.setFireTicks(0);
+            entity.setInvisible(true);
             entity.setCustomNameVisible(true);
             entity.setCustomName(TextUtil.color(config.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));
@@ -142,8 +166,12 @@ public final class MinionManager {
         SkeMinion minion = new SkeMinion(zombie, spawnerId, config);
         minions.put(zombie.getUniqueId(), minion);
 
-        int delay = Math.max(1, config.getSpawnDelayTicks());
-        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSpawn(minion), delay);
+        int delay = Math.max(0, config.getSpawnDelayTicks());
+        if (delay == 0) {
+            finishSpawn(minion);
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> finishSpawn(minion), delay);
+        }
         return minion;
     }
 
@@ -182,20 +210,23 @@ public final class MinionManager {
             modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
                 int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(model));
                 if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                        if (!entity.isValid() || entity.isDead()) {
-                            return;
-                        }
-                        modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
-                        modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
-                    }, 40L);
+                    if (!entity.isValid() || entity.isDead()) {
+                        return;
+                    }
+                    modelEngine.setBaseEntityVisible(model, entity, false, syncRadius);
+                    modelEngine.forceResyncNearbyPlayers(model, entity, syncRadius);
+                    entity.setInvisible(false);
                 } else if (appliedLimbs > 0 && appliedLimbs < requiredLimbs) {
                     modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
                     plugin.getLogger().warning("잡몹 스킨 일부만 적용 (" + appliedLimbs
                             + "개) — 좀비 본체 유지");
                 } else if (appliedLimbs == 0) {
                     modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
                     plugin.getLogger().warning("잡몹 스킨 미적용 — 좀비 본체를 유지합니다.");
+                } else {
+                    entity.setInvisible(false);
                 }
             });
             registerBossBarViewers(minion);
@@ -294,14 +325,18 @@ public final class MinionManager {
     public void onMinionDeath(SkeMinion minion) {
         String spawnerId = minion.getSpawnerId();
         if (spawnerId == null) {
+            plugin.getLogger().fine("잡몹 사망 (스포너 없음) — 리스폰 안 함");
             return;
         }
         MinionSpawner spawner = spawnerStorage.get(spawnerId);
         if (spawner == null) {
+            plugin.getLogger().warning("잡몹 사망 — 스포너 없음: " + spawnerId);
             return;
         }
         spawner.clearActiveMinion();
         spawnerStorage.save();
+        plugin.getLogger().info("잡몹 사망 — 스포너 " + spawnerId + " / "
+                + config.getSpawnerRespawnSeconds() + "초 후 리스폰");
         scheduleRespawn(spawner);
     }
 
@@ -327,7 +362,24 @@ public final class MinionManager {
     }
 
     public boolean isMinion(LivingEntity entity) {
-        return entity != null && entity.hasMetadata(METADATA_KEY);
+        if (entity == null) {
+            return false;
+        }
+        if (entity.hasMetadata(METADATA_KEY)) {
+            return true;
+        }
+        return entity.getScoreboardTags().contains(SCOREBOARD_TAG);
+    }
+
+    public SkeMinion resolveMinion(LivingEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        SkeMinion minion = minions.get(entity.getUniqueId());
+        if (minion != null) {
+            return minion;
+        }
+        return isMinion(entity) ? minions.get(entity.getUniqueId()) : null;
     }
 
     public SkeMinion getMinion(UUID id) {

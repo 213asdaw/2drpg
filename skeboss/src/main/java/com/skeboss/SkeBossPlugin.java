@@ -51,6 +51,13 @@ public final class SkeBossPlugin extends JavaPlugin {
         bossAI.start();
         minionAI = new MinionAI(this, minionManager);
         minionAI.start();
+
+        getServer().getPluginManager().registerEvents(new BossListener(bossManager), this);
+        getServer().getPluginManager().registerEvents(new MinionListener(minionManager), this);
+        getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
+        getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
+
+        modelEngine.preloadPlayerSkin(getConfig().getString("minion.skin-username", "EMP4348"));
         minionManager.startupSpawners();
 
         SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager);
@@ -69,12 +76,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getServer().getPluginManager().registerEvents(new BossListener(bossManager), this);
-        getServer().getPluginManager().registerEvents(new MinionListener(minionManager), this);
-        getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
-        getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
-
-        getLogger().info("SkeBoss 활성화 (minion-skin-v7) — /skeboss help | /skeweapon | /skeboss minion spawner");
+        getLogger().info("SkeBoss 활성화 (minion-skin-v8) — /skeboss help | /skeweapon | /skeboss minion spawner");
     }
 
     public void mergeAndReloadConfig() {
@@ -90,6 +92,7 @@ public final class SkeBossPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (minionManager != null) {
+            minionManager.shutdownPersist();
             minionManager.removeAll();
         }
         if (bossManager != null) {

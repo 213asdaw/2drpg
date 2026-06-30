@@ -146,7 +146,7 @@ minion:
   model-scale: 1.0
   hitbox-scale: 1.0
   viewer-sync-radius: 48.0
-  spawn-delay-ticks: 2
+  spawn-delay-ticks: 0
   ai-interval-ticks: 5
   spawner-respawn-seconds: 30
   boss-bar:

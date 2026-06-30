@@ -101,4 +101,10 @@ public final class MinionSpawnerStorage {
     public Collection<MinionSpawner> all() {
         return spawners.values();
     }
+
+    public void clearAllActiveMinions() {
+        for (MinionSpawner spawner : spawners.values()) {
+            spawner.clearActiveMinion();
+        }
+    }
 }

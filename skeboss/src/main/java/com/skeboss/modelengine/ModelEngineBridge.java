@@ -367,7 +367,7 @@ public final class ModelEngineBridge {
         applyPlayerSkin(model, entity, username, syncRadius, null);
     }
 
-    /** 스킨 적용 후 PlayerLimb 개수를 콜백으로 전달 (0이면 좀비 유지용) */
+    /** 메인 스레드에서 스킨 캐시 준비 후 즉시 적용 (잡몹 스폰용) */
     public void applyPlayerSkin(BossModel model, Entity entity, String username, double syncRadius,
                                 IntConsumer onComplete) {
         if (model == null || username == null || username.isBlank()) {
@@ -377,20 +377,77 @@ public final class ModelEngineBridge {
             return;
         }
         plugin.getLogger().info("잡몹 스킨 조회 시작: " + username);
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            UUID uuid = null;
-            String textures = null;
-            try {
-                uuid = resolveUsernameUuid(username);
-                textures = fetchTexturesAsync(username);
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "잡몹 스킨 비동기 조회 예외: " + username, ex);
+        applyPlayerSkinWithCacheWait(model, entity, username, syncRadius, onComplete);
+    }
+
+    private void applyPlayerSkinWithCacheWait(BossModel model, Entity entity, String username, double syncRadius,
+                                              IntConsumer onComplete) {
+        UUID uuid = resolveUsernameUuid(username);
+        String textures = fetchTexturesOnMainThread(username, uuid);
+        if (uuid == null || textures == null || textures.isBlank()) {
+            plugin.getLogger().warning("스킨 조회 실패: " + username);
+            ensureMinionRenderer(model, entity, syncRadius, "스킨 조회 실패");
+            if (onComplete != null) {
+                onComplete.accept(0);
             }
-            final UUID resolvedUuid = uuid;
-            final String resolvedTextures = textures;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> applyPlayerSkinOnMainThread(
-                    model, entity, username, syncRadius, resolvedUuid, resolvedTextures, onComplete), 2L);
-        });
+            return;
+        }
+
+        boolean slim = isSlimSkin(textures);
+        Object cache = registerUserLimbCache(username, uuid, textures, slim);
+        Runnable apply = () -> applyPlayerSkinOnMainThread(model, entity, username, syncRadius,
+                uuid, textures, onComplete);
+
+        if (cache == null || isUserLimbCacheReady(cache, slim)) {
+            apply.run();
+            return;
+        }
+
+        final int[] ticks = {0};
+        Bukkit.getScheduler().runTaskTimer(plugin, task -> {
+            if (!entity.isValid() || entity.isDead()) {
+                task.cancel();
+                if (onComplete != null) {
+                    onComplete.accept(0);
+                }
+                return;
+            }
+            if (isUserLimbCacheReady(cache, slim) || ++ticks[0] >= 40) {
+                task.cancel();
+                if (ticks[0] >= 40 && !isUserLimbCacheReady(cache, slim)) {
+                    plugin.getLogger().warning("UserLimbCache 대기 타임아웃 — 기본 렌더 시도: " + username);
+                }
+                apply.run();
+            }
+        }, 1L, 1L);
+    }
+
+    private Object registerUserLimbCache(String username, UUID uuid, String textures, boolean slim) {
+        try {
+            Object registry = getUserLimbRegistry();
+            if (registry == null) {
+                return null;
+            }
+            invokeOptional(registry, "generateDefaults");
+            Object cache = invokeRegistryGenerate(registry, username, textures, slim);
+            finalizeUserLimbCache(cache, slim, username);
+            if (uuid != null) {
+                Object cacheByUuid = invokeRegistryGenerate(registry, uuid.toString(), textures, slim);
+                finalizeUserLimbCache(cacheByUuid, slim, uuid.toString());
+            }
+            return cache;
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "UserLimbRegistry 등록 실패: " + username, ex);
+            return null;
+        }
+    }
+
+    private boolean isUserLimbCacheReady(Object cache, boolean slim) {
+        if (cache == null) {
+            return true;
+        }
+        Object ready = invokeOptional(cache, "isGenerated", slim);
+        return !(ready instanceof Boolean b) || b;
     }
 
     public UUID lookupUsernameUuid(String username) {
@@ -704,9 +761,12 @@ public final class ModelEngineBridge {
         return applied;
     }
 
-    /** UserLimb.setPlaceholder(레지스트리 키) → setTexture 폴백 */
+    /** setTexture(프로필) 우선 — setPlaceholder만 쓰면 머리만 뜨는 경우가 있음 */
     private boolean applySkinToLimb(Object playerLimb, String registryKey, UUID uuid, String username,
                                     String textures) {
+        if (applyTextureToPlayerLimb(playerLimb, uuid, username, textures)) {
+            return true;
+        }
         if (registryKey != null && !registryKey.isBlank()) {
             if (tryInvoke(playerLimb, "setPlaceholder", new Class<?>[]{String.class}, registryKey)) {
                 return true;
@@ -716,7 +776,24 @@ public final class ModelEngineBridge {
                 return true;
             }
         }
-        return applyTextureToPlayerLimb(playerLimb, uuid, username, textures);
+        return false;
+    }
+
+    /** 서버 시작 시 스킨 캐시 예열 — 스폰 직후 즉시 적용 */
+    public void preloadPlayerSkin(String username) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        UUID uuid = resolveUsernameUuid(username);
+        String textures = fetchTexturesOnMainThread(username, uuid);
+        if (uuid == null || textures == null || textures.isBlank()) {
+            plugin.getLogger().warning("잡몹 스킨 예열 실패: " + username);
+            return;
+        }
+        boolean slim = isSlimSkin(textures);
+        registerUserLimbCache(username, uuid, textures, slim);
+        warmupUserLimbRegistry(username, uuid, textures);
+        plugin.getLogger().info("잡몹 스킨 캐시 예열 완료: " + username);
     }
 
     private int countPlayerLimbsOnActiveModel(Object activeModel) {
@@ -1030,8 +1107,7 @@ public final class ModelEngineBridge {
         } catch (Exception ex) {
             plugin.getLogger().log(Level.WARNING, "잡몹 렌더러 초기화/동기화 실패: " + username, ex);
         }
-        schedulePlayerLimbResync(model, entity, syncRadius, 10L);
-        schedulePlayerLimbResync(model, entity, syncRadius, 30L);
+        schedulePlayerLimbResync(model, entity, syncRadius, 2L);
         return applied;
     }
 

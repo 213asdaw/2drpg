@@ -1,6 +1,7 @@
 package com.skeboss.minion;
 
 import com.skeboss.modelengine.ModelEngineBridge;
+import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -50,7 +51,7 @@ public final class MinionListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
         if (!minionManager.isMinion(entity)) {
@@ -60,7 +61,10 @@ public final class MinionListener implements Listener {
         event.getDrops().clear();
         event.setDroppedExp(0);
 
-        SkeMinion minion = minionManager.getMinion(entity.getUniqueId());
+        SkeMinion minion = minionManager.resolveMinion(entity);
+        if (minion == null) {
+            minion = minionManager.getMinion(entity.getUniqueId());
+        }
         if (minion == null) {
             return;
         }
@@ -77,11 +81,12 @@ public final class MinionListener implements Listener {
         for (SkeMinion minion : minionManager.getMinions()) {
             LivingEntity entity = minion.getEntity();
             ModelEngineBridge.BossModel model = minion.getModel();
-            if (model == null || !entity.getWorld().equals(player.getWorld())) {
+            if (!entity.getWorld().equals(player.getWorld())) {
                 continue;
             }
             if (entity.getLocation().distanceSquared(player.getLocation()) <= radiusSq) {
                 minionManager.syncMinionViewers(minion, player);
+                minion.addViewer(player);
             }
         }
     }
@@ -98,6 +103,16 @@ public final class MinionListener implements Listener {
     public void onChunkLoad(ChunkLoadEvent event) {
         MinionConfig config = minionManager.getConfig();
         double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+
+        for (MinionSpawner spawner : minionManager.getSpawnerStorage().all()) {
+            Location spawnerLoc = spawner.toLocation();
+            if (spawnerLoc == null || !spawnerLoc.getWorld().equals(event.getWorld())) {
+                continue;
+            }
+            if (event.getChunk().equals(spawnerLoc.getChunk())) {
+                minionManager.ensureSpawnerMinion(spawner);
+            }
+        }
 
         for (SkeMinion minion : minionManager.getMinions()) {
             LivingEntity entity = minion.getEntity();
