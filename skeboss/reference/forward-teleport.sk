@@ -76,17 +76,28 @@ function entityDisplayName(e: entity) :: text:
 	return "%type of {_e}%"
 
 function isValidTeleportEntity(e: entity, caster: player) :: boolean:
-	if {_e} is not living:
-		return false
-	if {_e} is dead:
-		return false
 	if {_e} is {_caster}:
 		return false
 	if {_e} is an armor stand:
 		return false
-	if {_e} is a dropped item:
+	set {_type} to "%type of {_e}%"
+	if {_type} contains "item":
 		return false
-	if {_e} is an experience orb:
+	if {_type} contains "experience":
+		return false
+	if {_type} contains "arrow":
+		return false
+	if {_type} contains "orb":
+		return false
+	if {_type} contains "minecart":
+		return false
+	if {_type} contains "boat":
+		return false
+	# living 대신: 체력 있는 것만 (플레이어·몹)
+	set {_hp} to health of {_e}
+	if {_hp} is not set:
+		return false
+	if {_hp} <= 0:
 		return false
 	return true
 
