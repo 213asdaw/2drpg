@@ -17,6 +17,7 @@ public final class SkeBoss {
 
     private final UUID id;
     private final LivingEntity entity;
+    private final BossConfig config;
     private ModelEngineBridge.BossModel model;
     private final BossBar bossBar;
     private final Map<String, Long> skillCooldowns = new HashMap<>();
@@ -32,6 +33,7 @@ public final class SkeBoss {
         this.id = entity.getUniqueId();
         this.entity = entity;
         this.model = model;
+        this.config = config;
         this.bossBar = org.bukkit.Bukkit.createBossBar(
                 com.skeboss.util.TextUtil.color(config.getDisplayName()),
                 BarColor.RED,
@@ -54,6 +56,10 @@ public final class SkeBoss {
 
     public void setModel(ModelEngineBridge.BossModel model) {
         this.model = model;
+    }
+
+    public BossConfig getConfig() {
+        return config;
     }
 
     public boolean isReady() {

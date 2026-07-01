@@ -18,10 +18,9 @@ public final class BossAI implements Runnable {
 
     @Override
     public void run() {
-        BossConfig config = manager.getConfig();
-
         for (SkeBoss boss : manager.getBosses()) {
             LivingEntity entity = boss.getEntity();
+            BossConfig config = boss.getConfig();
             if (!entity.isValid() || entity.isDead() || !boss.isReady()) {
                 continue;
             }
@@ -75,7 +74,7 @@ public final class BossAI implements Runnable {
         SkillDefinition best = null;
         int bestPriority = Integer.MIN_VALUE;
 
-        for (SkillDefinition skill : manager.getConfig().getSkills()) {
+        for (SkillDefinition skill : boss.getConfig().getSkills()) {
             if (!boss.isSkillReady(skill)) {
                 continue;
             }

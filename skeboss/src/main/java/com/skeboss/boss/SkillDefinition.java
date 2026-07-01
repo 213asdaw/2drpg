@@ -12,7 +12,8 @@ public record SkillDefinition(
         double knockback,
         double aoeRadius,
         BeamSettings beam,
-        ChainSettings chain
+        ChainSettings chain,
+        String untitledSkill
 ) {
     public boolean isBeamSkill() {
         return beam != null;
@@ -20,5 +21,9 @@ public record SkillDefinition(
 
     public boolean isChainSkill() {
         return chain != null;
+    }
+
+    public boolean isUntitledSkill() {
+        return untitledSkill != null && !untitledSkill.isBlank();
     }
 }

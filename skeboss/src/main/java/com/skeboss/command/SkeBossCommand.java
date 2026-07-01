@@ -202,19 +202,25 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Location location = resolveSpawnLocation(sender, args);
+        String presetId = resolvePresetArg(args);
+        Location location = resolveSpawnLocation(sender, args, presetId);
         if (location == null) {
             return true;
         }
 
         try {
-            SkeBoss boss = bossManager.spawn(location);
+            SkeBoss boss = presetId != null
+                    ? bossManager.spawn(presetId, location)
+                    : bossManager.spawn(location);
             String pos = String.format("%.1f, %.1f, %.1f", location.getX(), location.getY(), location.getZ());
+            String presetLabel = boss.getConfig().getDisplayName();
             sender.sendMessage(TextUtil.color(
-                    "&a인조인간 스폰 완료! &7" + location.getWorld().getName()
-                            + " &f(" + pos + ") &7UUID: " + boss.getId()
+                    "&a보스 스폰: &f" + presetLabel
+                            + " &7(" + boss.getConfig().getPresetId() + ")"
+                            + " &7" + location.getWorld().getName()
+                            + " &f(" + pos + ")"
             ));
-        } catch (IllegalStateException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             sender.sendMessage(TextUtil.color("&c스폰 실패: &f" + ex.getMessage()));
             SkeBossPlugin.getInstance().getLogger().severe("보스 스폰 실패: " + ex.getMessage());
             if (ex.getCause() != null) {
@@ -224,34 +230,61 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private Location resolveSpawnLocation(CommandSender sender, String[] args) {
-        if (args.length == 1) {
+    private String resolvePresetArg(String[] args) {
+        if (args.length < 2) {
+            return null;
+        }
+        String token = args[1].toLowerCase(Locale.ROOT);
+        if (isNumericSpawnArg(token)) {
+            return null;
+        }
+        if (bossManager.getPresetRegistry().getPresetIds().contains(token)
+                || SkeBossPlugin.getInstance().getConfig().isConfigurationSection("boss-presets." + token)) {
+            return token;
+        }
+        return null;
+    }
+
+    private boolean isNumericSpawnArg(String token) {
+        try {
+            Double.parseDouble(token);
+            return true;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    private Location resolveSpawnLocation(CommandSender sender, String[] args, String presetId) {
+        int base = presetId != null ? 2 : 1;
+
+        if (args.length <= base) {
             if (sender instanceof Player player) {
                 return player.getLocation();
             }
-            sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn <world> <x> <y> <z>"));
+            sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn [프리셋] <world> <x> <y> <z>"));
             return null;
         }
 
-        if (args.length == 4) {
+        if (args.length == base + 3) {
             if (!(sender instanceof Player player)) {
-                sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn <world> <x> <y> <z>"));
+                sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss spawn [프리셋] <world> <x> <y> <z>"));
                 return null;
             }
-            return parseSpawnLocation(sender, player.getWorld(), args[1], args[2], args[3]);
+            return parseSpawnLocation(sender, player.getWorld(), args[base], args[base + 1], args[base + 2]);
         }
 
-        if (args.length == 5) {
-            World world = Bukkit.getWorld(args[1]);
+        if (args.length == base + 4) {
+            World world = Bukkit.getWorld(args[base]);
             if (world == null) {
-                sender.sendMessage(TextUtil.color("&c월드를 찾을 수 없습니다: &f" + args[1]));
+                sender.sendMessage(TextUtil.color("&c월드를 찾을 수 없습니다: &f" + args[base]));
                 return null;
             }
-            return parseSpawnLocation(sender, world, args[2], args[3], args[4]);
+            return parseSpawnLocation(sender, world, args[base + 1], args[base + 2], args[base + 3]);
         }
 
-        sender.sendMessage(TextUtil.color("&c/skeboss spawn [x y z]"));
-        sender.sendMessage(TextUtil.color("&c/skeboss spawn <world> <x> <y> <z>"));
+        sender.sendMessage(TextUtil.color("&c/skeboss spawn [프리셋] [x y z]"));
+        sender.sendMessage(TextUtil.color("&c/skeboss spawn [프리셋] <world> <x> <y> <z>"));
+        sender.sendMessage(TextUtil.color("&7프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
         return null;
     }
 
@@ -291,7 +324,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        SkillDefinition skill = bossManager.getConfig().getSkills().stream()
+        SkillDefinition skill = boss.getConfig().getSkills().stream()
                 .filter(def -> args.length < 2 || def.id().equalsIgnoreCase(args[1]))
                 .findFirst()
                 .orElse(null);
@@ -316,8 +349,10 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         SkeBossPlugin plugin = com.skeboss.SkeBossPlugin.getInstance();
         plugin.mergeAndReloadConfig();
         weaponManager.reload();
+        bossManager.reload();
         minionManager.reload();
         sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스·잡몹은 재시작 권장)"));
+        sender.sendMessage(TextUtil.color("&7보스 프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
         sender.sendMessage(TextUtil.color("&7무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
     }
 
@@ -542,9 +577,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&7  무기 우클릭으로도 사용 가능 (OP 불필요)"));
         }
         if (sender.hasPermission("skeboss.admin")) {
-            sender.sendMessage(TextUtil.color("&e/skeboss spawn &7- 내 위치에 보스 스폰"));
-            sender.sendMessage(TextUtil.color("&e/skeboss spawn <x> <y> <z> &7- 좌표에 스폰 (내 월드)"));
-            sender.sendMessage(TextUtil.color("&e/skeboss spawn <world> <x> <y> <z> &7- 월드·좌표 지정"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn [프리셋] &7- 보스 스폰 (기본: default)"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn fire-swordsman &7- 불의 검사 (CHUNSAMGOD)"));
+            sender.sendMessage(TextUtil.color("&7  프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
@@ -591,7 +626,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return filter(weaponManager.getWeaponConfig().getWeaponIds(), args[1]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("spawn") && sender.hasPermission("skeboss.admin")) {
-            return filter(Bukkit.getWorlds().stream().map(World::getName).toList(), args[1]);
+            List<String> options = new ArrayList<>(bossManager.getPresetRegistry().getPresetIds());
+            options.addAll(Bukkit.getWorlds().stream().map(World::getName).toList());
+            return filter(options, args[1]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("minion")
                 && sender.hasPermission("skeboss.admin")) {
