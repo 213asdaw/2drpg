@@ -1,0 +1,32 @@
+name: SkeBoss
+version: '${project.version}'
+main: com.skeboss.SkeBossPlugin
+api-version: '1.20'
+author: skeboss
+depend:
+  - ModelEngine
+softdepend:
+  - Skript
+  - Untitled
+description: ModelEngine 해골 보스 — 겹침/방향/스킬복귀 수정 포함
+
+commands:
+  skeboss:
+    description: SkeBoss 보스·무기 명령어
+    usage: /skeboss [help|weapon|cast|spawn [world x y z]|skill|remove|minion spawner|reload]
+    aliases: [sboss, 인조보스]
+  skeweapon:
+    description: 인조인간의 코어 바로 지급
+    usage: /skeweapon [플레이어]
+    aliases: [인조무기, skebossweapon]
+
+permissions:
+  skeboss.admin:
+    description: SkeBoss 관리자
+    default: op
+  skeboss.weapon.use:
+    description: 인조인간 무기 사용
+    default: true
+  skeboss.weapon.give:
+    description: 인조인간 무기 지급
+    default: op
