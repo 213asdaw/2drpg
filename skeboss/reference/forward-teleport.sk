@@ -1,0 +1,324 @@
+# ============================================================
+# 우클릭 전방 텔레포트 (구버전 Skript 호환)
+# plugins/Skript/scripts/forward-teleport.sk
+#
+# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 대상 쪽 텔포
+# - 수평(XZ)으로만 전진하고, 높이는 최대 1칸만 올리거나 내림 (대각선 경로로 벽에 걸리지 않음)
+# - 진짜 벽(돌·흙 등) 있으면 그 앞에서 멈춤 (풀·유리·반블록은 통과)
+# ============================================================
+
+options:
+	teleport-range: 10
+	tunnel-half-width: 1
+	cooldown-seconds: 2
+	require-sneak: false
+
+# ---------- 진짜 벽만 true (기본값 false = 막지 않음) ----------
+function isSolidWall(b: block) :: boolean:
+	if {_b} is air:
+		return false
+	if {_b} is water:
+		return false
+	if {_b} is lava:
+		return true
+	set {_name} to "%type of {_b}%"
+	if {_name} contains "glass":
+		return false
+	if {_name} contains "grass":
+		return false
+	if {_name} contains "fern":
+		return false
+	if {_name} contains "flower":
+		return false
+	if {_name} contains "sapling":
+		return false
+	if {_name} contains "torch":
+		return false
+	if {_name} contains "button":
+		return false
+	if {_name} contains "pressure":
+		return false
+	if {_name} contains "carpet":
+		return false
+	if {_name} contains "sign":
+		return false
+	if {_name} contains "banner":
+		return false
+	if {_name} contains "rail":
+		return false
+	if {_name} contains "leaves":
+		return false
+	if {_name} contains "slab":
+		return false
+	if {_name} contains "stairs":
+		return false
+	if {_name} contains "fence":
+		return false
+	if {_name} contains "door":
+		return false
+	if {_name} contains "trapdoor":
+		return false
+	if {_name} contains "chest":
+		return false
+	if {_name} contains "table":
+		return false
+	if {_name} contains "snow":
+		return false
+	if {_name} contains "vine":
+		return false
+	if {_name} contains "ladder":
+		return false
+	if {_name} contains "stone":
+		return true
+	if {_name} contains "deepslate":
+		return true
+	if {_name} contains "dirt":
+		return true
+	if {_name} contains "sand":
+		return true
+	if {_name} contains "gravel":
+		return true
+	if {_name} contains "clay":
+		return true
+	if {_name} contains "terracotta":
+		return true
+	if {_name} contains "concrete":
+		return true
+	if {_name} contains "brick":
+		return true
+	if {_name} contains "log":
+		return true
+	if {_name} contains "wood":
+		return true
+	if {_name} contains "plank":
+		return true
+	if {_name} contains "ore":
+		return true
+	if {_name} contains "block":
+		return true
+	if {_name} contains "obsidian":
+		return true
+	if {_name} contains "bedrock":
+		return true
+	if {_name} contains "netherrack":
+		return true
+	if {_name} contains "basalt":
+		return true
+	if {_name} contains "blackstone":
+		return true
+	if {_name} contains "ice":
+		return true
+	if {_name} contains "wool":
+		return true
+	return false
+
+# 이 좌표에 몸(발+머리)이 들어가면 막힘
+function pathBlockedAt(loc: location) :: boolean:
+	set {_feet} to block at {_loc}
+	set {_headLoc} to {_loc}
+	add 1 to y-coordinate of {_headLoc}
+	set {_head} to block at {_headLoc}
+	if isSolidWall({_feet}) is true:
+		return true
+	if isSolidWall({_head}) is true:
+		return true
+	return false
+
+function canFitBodyAt(loc: location) :: boolean:
+	if pathBlockedAt({_loc}) is true:
+		return false
+	return true
+
+# 발 아래에 서 있을 수 있는 블록이 있는지
+function hasStandableFloorAt(loc: location) :: boolean:
+	set {_probe} to {_loc}
+	subtract 0.01 from y-coordinate of {_probe}
+	set {_floor} to block at {_probe}
+	if {_floor} is air:
+		return false
+	if {_floor} is water:
+		return false
+	if isSolidWall({_floor}) is true:
+		return true
+	return false
+
+# 이 높이에 서 있을 수 있으면 true (몸 통과 + 바닥)
+function canStandAt(loc: location) :: boolean:
+	if canFitBodyAt({_loc}) is false:
+		return false
+	if hasStandableFloorAt({_loc}) is false:
+		return false
+	return true
+
+# ---------- 앞 통로(10칸·폭1) 안에 있는지 ----------
+function isInForwardTunnel(caster: player, target: entity, range: number, halfWidth: number) :: boolean:
+	if world of {_caster} is not world of {_target}:
+		return false
+	set {_limit} to {_halfWidth} + 0.35
+	loop {_range} times:
+		set {_n} to loop-number
+		set {_probe} to location {_n} blocks in front of {_caster}
+		set {_dist} to distance between {_probe} and {_target}
+		if {_dist} <= {_limit}:
+			return true
+	return false
+
+function entityDisplayName(e: entity) :: text:
+	if {_e} is a player:
+		return name of {_e}
+	set {_n} to name of {_e}
+	if {_n} is set:
+		if {_n} is not "":
+			return uncolored {_n}
+	return "%type of {_e}%"
+
+function isValidTeleportEntity(e: entity, caster: player) :: boolean:
+	if {_e} is {_caster}:
+		return false
+	if {_e} is an armor stand:
+		return false
+	set {_type} to "%type of {_e}%"
+	if {_type} contains "item":
+		return false
+	if {_type} contains "experience":
+		return false
+	if {_type} contains "arrow":
+		return false
+	if {_type} contains "orb":
+		return false
+	if {_type} contains "minecart":
+		return false
+	if {_type} contains "boat":
+		return false
+	set {_hp} to health of {_e}
+	if {_hp} is not set:
+		return false
+	if {_hp} <= 0:
+		return false
+	return true
+
+function findForwardTunnelTarget(caster: player, range: number, halfWidth: number) :: entity:
+	delete {_best}
+	set {_bestDist} to 999
+	loop all entities in radius ({_range} + 3) around {_caster}:
+		if isValidTeleportEntity(loop-entity, {_caster}) is false:
+			continue
+		if isInForwardTunnel({_caster}, loop-entity, {_range}, {_halfWidth}) is false:
+			continue
+		set {_d} to distance between {_caster} and loop-entity
+		if {_d} > {_range} + 0.5:
+			continue
+		if {_best} is not set:
+			set {_best} to loop-entity
+			set {_bestDist} to {_d}
+		else:
+			if {_d} < {_bestDist}:
+				set {_best} to loop-entity
+				set {_bestDist} to {_d}
+	if {_best} is set:
+		return {_best}
+
+# 수평(XZ)으로만 0.5칸씩 전진. 높이는 최대 1칸만 올리거나 내림.
+function resolveTeleportStop(caster: player, goal: location, maxRange: number) :: location:
+	set {_from} to location of {_caster}
+	set {_fx} to x-coordinate of {_from}
+	set {_fy} to y-coordinate of {_from}
+	set {_fz} to z-coordinate of {_from}
+	set {_gx} to x-coordinate of {_goal}
+	set {_gy} to y-coordinate of {_goal}
+	set {_gz} to z-coordinate of {_goal}
+	set {_dx} to {_gx} - {_fx}
+	set {_dz} to {_gz} - {_fz}
+	set {_flatGoal} to {_goal}
+	set y-coordinate of {_flatGoal} to {_fy}
+	set {_hLen} to distance between {_from} and {_flatGoal}
+	if {_hLen} < 0.1:
+		return {_from}
+	if {_hLen} > {_maxRange}:
+		set {_hLen} to {_maxRange}
+	set {_last} to {_from}
+	set {_currentY} to {_fy}
+	set {_step} to 0
+	loop round({_hLen} * 2) times:
+		add 0.5 to {_step}
+		if {_step} > {_hLen}:
+			stop loop
+		set {_ratio} to {_step} / {_hLen}
+		set {_check} to {_from}
+		set x-coordinate of {_check} to {_fx} + ({_dx} * {_ratio})
+		set y-coordinate of {_check} to {_currentY}
+		set z-coordinate of {_check} to {_fz} + ({_dz} * {_ratio})
+		set {_moved} to false
+		if canFitBodyAt({_check}) is true:
+			set {_last} to {_check}
+			set {_moved} to true
+		else:
+			set {_up} to {_check}
+			add 1 to y-coordinate of {_up}
+			if y-coordinate of {_up} - {_fy} <= 1.01:
+				if canFitBodyAt({_up}) is true:
+					set {_currentY} to y-coordinate of {_up}
+					set {_last} to {_up}
+					set {_moved} to true
+			if {_moved} is false:
+				set {_down} to {_check}
+				subtract 1 from y-coordinate of {_down}
+				if {_fy} - y-coordinate of {_down} <= 1.01:
+					if canFitBodyAt({_down}) is true:
+						set {_currentY} to y-coordinate of {_down}
+						set {_last} to {_down}
+						set {_moved} to true
+		if {_moved} is false:
+			return {_last}
+	set {_land} to {_last}
+	set {_ly} to y-coordinate of {_land}
+	if {_gy} > {_ly}:
+		if {_gy} - {_ly} <= 1.01:
+			set {_tryUp} to {_land}
+			set y-coordinate of {_tryUp} to {_gy}
+			if canStandAt({_tryUp}) is true:
+				return {_tryUp}
+			set y-coordinate of {_tryUp} to {_ly} + 1
+			if canStandAt({_tryUp}) is true:
+				return {_tryUp}
+	if {_gy} < {_ly}:
+		if {_ly} - {_gy} <= 1.01:
+			set {_tryDown} to {_land}
+			set y-coordinate of {_tryDown} to {_gy}
+			if canStandAt({_tryDown}) is true:
+				return {_tryDown}
+			set y-coordinate of {_tryDown} to {_ly} - 1
+			if canStandAt({_tryDown}) is true:
+				return {_tryDown}
+	if canStandAt({_land}) is true:
+		return {_land}
+	if canFitBodyAt({_land}) is true:
+		return {_land}
+	return {_last}
+
+on right click:
+	if {@require-sneak} is true:
+		if player is not sneaking:
+			stop
+
+	set {_cdKey} to "fwdtp::%uuid of player%"
+	if {%{_cdKey}%} is set:
+		if difference between {%{_cdKey}%} and now < {@cooldown-seconds} seconds:
+			stop
+
+	delete {_target}
+	set {_target} to findForwardTunnelTarget(player, {@teleport-range}, {@tunnel-half-width})
+	if {_target} is not set:
+		send action bar "&7앞 &f{@teleport-range}&7칸·폭 &f1&7블록 안에 대상이 없습니다." to player
+		stop
+
+	set {_goal} to location of {_target}
+	set {_land} to resolveTeleportStop(player, {_goal}, {@teleport-range})
+	if distance between player and {_land} < 0.25:
+		send action bar "&7앞이 막혀서 텔포할 수 없습니다." to player
+		stop
+
+	teleport player to {_land}
+	play sound "entity.enderman.teleport" with volume 0.8 and pitch 1.2 at player
+	set {%{_cdKey}%} to now
+	send action bar "&b전방 텔레포 &7→ &f%entityDisplayName({_target})%" to player
