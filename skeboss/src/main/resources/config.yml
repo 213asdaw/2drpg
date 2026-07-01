@@ -80,7 +80,13 @@ skills:
 # 보스 프리셋 — /skeboss spawn <프리셋>
 boss-presets:
   fire-swordsman:
-    model-id: CHUNSAMGOD
+    # PlayerLimb + 마인크래프트 스킨 (CHUNSAMGOD = 스킨 닉네임, bbmodel ID 아님)
+    model-id: player_model
+    model-fallback-ids:
+      - player_model
+      - skin_2
+      - skin
+    skin-username: CHUNSAMGOD
     yaw-offset: 0
     face-yaw-offset: 0
     animations:

@@ -389,6 +389,33 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(TextUtil.color("&7프리셋: &f" + presetId));
         player.sendMessage(TextUtil.color("&7표시 이름: &f" + config.getDisplayName()));
         player.sendMessage(TextUtil.color("&7config model-id: &f" + modelId));
+        if (config.usesPlayerSkin()) {
+            player.sendMessage(TextUtil.color("&7스킨 닉네임: &f" + config.getSkinUsername()
+                    + " &7(PlayerLimb — 잡몹과 동일 방식)"));
+        }
+
+        if (config.usesPlayerSkin()) {
+            Path playerModel = ModelBlueprintPaths.blueprintPath(plugin, "player_model");
+            if (Files.isRegularFile(playerModel)) {
+                player.sendMessage(TextUtil.color("&aPlayerLimb: &fplayer_model.bbmodel &a(있음)"));
+            } else {
+                player.sendMessage(TextUtil.color("&cPlayerLimb: &fplayer_model.bbmodel &c없음"));
+                player.sendMessage(TextUtil.color("&e→ &f/skeboss minion install-model &e한 번 실행"));
+            }
+            String resolved = me.resolveAvailableModelId(modelId, config.getModelFallbackIds());
+            if (resolved != null) {
+                player.sendMessage(TextUtil.color("&aModelEngine 등록: &f" + resolved + " &a(있음)"));
+            } else {
+                player.sendMessage(TextUtil.color("&cModelEngine 등록: &f없음 &c→ /meg reload (전체)"));
+            }
+            player.sendMessage(TextUtil.color("&7── 설정 순서 (플레이어 스킨) ──"));
+            player.sendMessage(TextUtil.color("  &e1. &f/skeboss minion install-model"));
+            player.sendMessage(TextUtil.color("  &e2. &f/meg reload &e(전체) + 리소스팩 재수락"));
+            player.sendMessage(TextUtil.color("  &e3. 스킨 닉네임 &f" + config.getSkinUsername() + " &e확인 (Mojang)"));
+            player.sendMessage(TextUtil.color("  &e4. &f/skeboss spawn " + presetId));
+            player.sendMessage(TextUtil.color("&7CHUNSAMGOD는 &cbbmodel 이름이 아니라 스킨 닉네임&7입니다"));
+            return;
+        }
 
         if (Files.isRegularFile(blueprintFile)) {
             player.sendMessage(TextUtil.color("&a파일: &f" + blueprintFile.getFileName() + " &a(폴더에 있음)"));
@@ -646,7 +673,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (sender.hasPermission("skeboss.admin")) {
             sender.sendMessage(TextUtil.color("&e/skeboss spawn [프리셋] &7- 보스 스폰 (기본: default)"));
-            sender.sendMessage(TextUtil.color("&e/skeboss spawn fire-swordsman &7- 불의 검사 (CHUNSAMGOD)"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn fire-swordsman &7- 불의 검사 (CHUNSAMGOD 스킨)"));
             sender.sendMessage(TextUtil.color("&7  프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
             sender.sendMessage(TextUtil.color("&e/skeboss boss check [프리셋] &7- 보스 모델·ME 등록 진단"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));

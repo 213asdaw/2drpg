@@ -13,6 +13,8 @@ public final class BossConfig {
 
     private final String presetId;
     private final String modelId;
+    private final List<String> modelFallbackIds;
+    private final String skinUsername;
     private final String idleAnimation;
     private final String walkAnimation;
     private final float yawOffset;
@@ -56,6 +58,13 @@ public final class BossConfig {
                 : root.getConfigurationSection("boss-presets." + presetId);
 
         modelId = str(preset, root, "model-id", "ske");
+        modelFallbackIds = readModelFallbackIds(preset, root);
+        String skin = preset != null && preset.contains("skin-username")
+                ? preset.getString("skin-username")
+                : (preset != null && preset.contains("skin.username")
+                ? preset.getString("skin.username")
+                : root.getString("skin-username"));
+        skinUsername = skin != null && !skin.isBlank() ? skin : null;
         idleAnimation = str(preset, root, "animations.idle", "none");
         walkAnimation = str(preset, root, "animations.walk", "walk");
         yawOffset = (float) num(preset, root, "yaw-offset", 180.0);
@@ -223,6 +232,34 @@ public final class BossConfig {
                 "laser", "attack_laser", 10, 50, 18.0, 20.0, 6.0, 10, 0.6, 0.0,
                 BeamSettings.defaults(), null, null
         );
+    }
+
+    private static List<String> readModelFallbackIds(ConfigurationSection preset, FileConfiguration root) {
+        List<String> ids = new ArrayList<>();
+        if (preset != null && preset.isList("model-fallback-ids")) {
+            ids.addAll(preset.getStringList("model-fallback-ids"));
+        } else if (root.isList("model-fallback-ids")) {
+            ids.addAll(root.getStringList("model-fallback-ids"));
+        }
+        if (ids.isEmpty()) {
+            ids.add("player_model");
+            ids.add("skin_2");
+            ids.add("skin");
+            ids.add("player");
+        }
+        return List.copyOf(ids);
+    }
+
+    public boolean usesPlayerSkin() {
+        return skinUsername != null;
+    }
+
+    public String getSkinUsername() {
+        return skinUsername;
+    }
+
+    public List<String> getModelFallbackIds() {
+        return modelFallbackIds;
     }
 
     public String getPresetId() {

@@ -58,6 +58,16 @@ public final class SkeBossPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
 
         modelEngine.preloadPlayerSkin(getConfig().getString("minion.skin-username", "EMP4348"));
+        for (String presetId : bossManager.getPresetRegistry().getPresetIds()) {
+            try {
+                var preset = bossManager.getPresetRegistry().load(this, presetId);
+                if (preset.usesPlayerSkin()) {
+                    modelEngine.preloadPlayerSkin(preset.getSkinUsername());
+                }
+            } catch (IllegalArgumentException ignored) {
+                // skip invalid preset
+            }
+        }
         minionManager.startupSpawners();
 
         SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager);
@@ -76,7 +86,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v18) — /skeboss boss check | /skeboss spawn fire-swordsman");
+        getLogger().info("SkeBoss 활성화 (boss-v19) — 불의 검사 PlayerLimb+CHUNSAMGOD 스킨");
     }
 
     public void mergeAndReloadConfig() {

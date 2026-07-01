@@ -117,6 +117,82 @@ public final class BossManager {
     }
 
     private void finishSpawn(SkeBoss boss) {
+        if (boss.getConfig().usesPlayerSkin()) {
+            finishSpawnWithPlayerSkin(boss);
+        } else {
+            finishSpawnWithModel(boss);
+        }
+    }
+
+    private void finishSpawnWithPlayerSkin(SkeBoss boss) {
+        LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
+        if (!entity.isValid() || entity.isDead()) {
+            bosses.remove(entity.getUniqueId());
+            return;
+        }
+
+        String resolvedModelId = modelEngine.resolveAvailableModelId(
+                config.getModelId(), config.getModelFallbackIds());
+        if (resolvedModelId == null) {
+            plugin.getLogger().warning("보스 PlayerLimb blueprint 없음 — /skeboss minion install-model 후 /meg reload");
+            registerBossBarViewers(boss);
+            boss.setReady(true);
+            return;
+        }
+
+        try {
+            ModelEngineBridge.BossModel bossModel = modelEngine.attachMinionModel(
+                    entity,
+                    config.getModelId(),
+                    config.getModelFallbackIds(),
+                    config.getModelScale(),
+                    config.getHitboxScale()
+            );
+            boss.setModel(bossModel);
+            playAnimation(boss, config.getWalkAnimation());
+
+            double syncRadius = config.getViewerSyncRadius();
+            modelEngine.applyPlayerSkin(bossModel, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
+                int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(bossModel));
+                if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
+                    if (!entity.isValid() || entity.isDead()) {
+                        return;
+                    }
+                    modelEngine.setBaseEntityVisible(bossModel, entity, false, syncRadius);
+                    modelEngine.forceResyncNearbyPlayers(bossModel, entity, syncRadius);
+                    entity.setInvisible(false);
+                } else if (appliedLimbs > 0) {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
+                    if (appliedLimbs < requiredLimbs) {
+                        plugin.getLogger().warning("보스 스킨 일부만 적용 (" + appliedLimbs
+                                + "개) — 좀비 본체 유지");
+                    }
+                } else {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
+                    plugin.getLogger().warning("보스 스킨 미적용 (" + config.getSkinUsername()
+                            + ") — /skeboss boss check");
+                }
+            });
+            registerBossBarViewers(boss);
+            plugin.getLogger().info("보스 스폰: " + config.getDisplayName()
+                    + " (프리셋: " + config.getPresetId() + ", 스킨: " + config.getSkinUsername()
+                    + ", 모델: " + resolvedModelId + ")");
+            boss.setReady(true);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "보스 PlayerLimb 적용 실패 — /skeboss minion install-model, /meg reload",
+                    ex);
+            modelEngine.restoreBaseEntityVisibility(entity);
+            entity.setInvisible(false);
+            entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            registerBossBarViewers(boss);
+            boss.setReady(true);
+        }
+    }
+
+    private void finishSpawnWithModel(SkeBoss boss) {
         LivingEntity entity = boss.getEntity();
         BossConfig config = boss.getConfig();
         if (!entity.isValid() || entity.isDead()) {
