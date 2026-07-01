@@ -154,6 +154,9 @@ weapons:
   pvp: true
   target-boss: true
   target-mobs: true
+  action-bar-messages:
+    laser: "&b&l◆ 레이저 &7발사"
+    chain: "&6&l◆ 사슬 &7발사"
   artificial-arm:
     material: BLAZE_ROD
     display-name: "&6&l인조인간의 코어"
@@ -190,6 +193,25 @@ weapons:
       - "&7우클릭: 사슬 발사·끌어오기"
     skill: chain
     cooldown-seconds: 10
+
+# 코인 아이템 — 우클릭 시 눈덩이로 던짐 (종이 coin 모델)
+coin-item:
+  enabled: true
+  material: PAPER
+  # 리소스팩 item/coin 모델의 CustomModelData 번호로 맞추세요
+  custom-model-data: 1
+  require-model-data: true
+  display-name: "&e&l코인"
+  name-keywords:
+    - "코인"
+    - "coin"
+  throw-speed: 1.0
+  consume: true
+  cooldown-seconds: 0
+  throw-message: "&e&l◆ 코인 &7던짐"
+  projectile:
+    material: PAPER
+    custom-model-data: 1
 
 # EMP4348 잡몹 — ModelEngine player limb 모델 + 스킨 (model-id: player_model)
 minion:

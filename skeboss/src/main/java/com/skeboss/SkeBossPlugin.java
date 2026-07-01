@@ -4,8 +4,10 @@ import com.skeboss.boss.BossAI;
 import com.skeboss.boss.BossManager;
 import com.skeboss.command.SkeBossCommand;
 import com.skeboss.listener.BossListener;
+import com.skeboss.listener.CoinListener;
 import com.skeboss.listener.WeaponItemGuard;
 import com.skeboss.listener.WeaponListener;
+import com.skeboss.coin.CoinManager;
 import com.skeboss.minion.MinionAI;
 import com.skeboss.minion.MinionListener;
 import com.skeboss.minion.MinionManager;
@@ -22,6 +24,7 @@ public final class SkeBossPlugin extends JavaPlugin {
     private BossManager bossManager;
     private MinionManager minionManager;
     private WeaponManager weaponManager;
+    private CoinManager coinManager;
     private BossAI bossAI;
     private MinionAI minionAI;
 
@@ -47,6 +50,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         bossManager = new BossManager(this, modelEngine, skriptBridge);
         minionManager = new MinionManager(this, modelEngine);
         weaponManager = new WeaponManager(this, bossManager, skriptBridge);
+        coinManager = new CoinManager(this);
         bossAI = new BossAI(this, bossManager);
         bossAI.start();
         minionAI = new MinionAI(this, minionManager);
@@ -56,6 +60,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MinionListener(minionManager), this);
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
+        getServer().getPluginManager().registerEvents(new CoinListener(coinManager), this);
 
         modelEngine.preloadPlayerSkin(getConfig().getString("minion.skin-username", "EMP4348"));
         for (String presetId : bossManager.getPresetRegistry().getPresetIds()) {
@@ -70,7 +75,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         }
         minionManager.startupSpawners();
 
-        SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager);
+        SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager, coinManager);
         var skebossCmd = getCommand("skeboss");
         if (skebossCmd == null) {
             getLogger().severe("plugin.yml에 skeboss 명령이 없습니다.");
@@ -86,7 +91,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v22) — 방패 짧은 잠금·ir_hand 검 재동기화");
+        getLogger().info("SkeBoss 활성화 (boss-v23) — 코인 던지기·스킬 액션바");
     }
 
     public void mergeAndReloadConfig() {
@@ -124,5 +129,9 @@ public final class SkeBossPlugin extends JavaPlugin {
 
     public WeaponManager getWeaponManager() {
         return weaponManager;
+    }
+
+    public CoinManager getCoinManager() {
+        return coinManager;
     }
 }

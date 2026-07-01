@@ -10,6 +10,7 @@ import com.skeboss.minion.MinionBlueprintInstaller;
 import com.skeboss.minion.MinionManager;
 import com.skeboss.minion.MinionSpawner;
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.coin.CoinManager;
 import com.skeboss.util.TextUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.Bukkit;
@@ -36,11 +37,14 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     private final BossManager bossManager;
     private final MinionManager minionManager;
     private final WeaponManager weaponManager;
+    private final CoinManager coinManager;
 
-    public SkeBossCommand(BossManager bossManager, MinionManager minionManager, WeaponManager weaponManager) {
+    public SkeBossCommand(BossManager bossManager, MinionManager minionManager,
+                          WeaponManager weaponManager, CoinManager coinManager) {
         this.bossManager = bossManager;
         this.minionManager = minionManager;
         this.weaponManager = weaponManager;
+        this.coinManager = coinManager;
     }
 
     @Override
@@ -81,6 +85,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             case "boss" -> {
                 return requireAdmin(sender, () -> handleBoss((Player) sender, args));
+            }
+            case "coin" -> {
+                return handleCoin(sender, args);
             }
             default -> {
                 sender.sendMessage(TextUtil.color("&c알 수 없는 명령입니다. &7/skeboss help"));
@@ -350,10 +357,54 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private boolean handleCoin(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("skeboss.weapon.give") && !sender.hasPermission("skeboss.admin")) {
+            sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7/skeboss coin"));
+            return true;
+        }
+
+        Player target;
+        if (args.length >= 2) {
+            target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                sender.sendMessage(TextUtil.color("&c플레이어를 찾을 수 없습니다: &f" + args[1]));
+                return true;
+            }
+        } else if (sender instanceof Player player) {
+            target = player;
+        } else {
+            sender.sendMessage(TextUtil.color("&c콘솔: &f/skeboss coin <플레이어>"));
+            return true;
+        }
+
+        int amount = 1;
+        if (args.length >= 3) {
+            try {
+                amount = Math.max(1, Integer.parseInt(args[2]));
+            } catch (NumberFormatException ex) {
+                sender.sendMessage(TextUtil.color("&c개수는 숫자로 입력하세요."));
+                return true;
+            }
+        }
+
+        ItemStack coin = coinManager.createCoinItem(amount);
+        var leftover = target.getInventory().addItem(coin);
+        if (!leftover.isEmpty()) {
+            leftover.values().forEach(stack -> target.getWorld().dropItemNaturally(target.getLocation(), stack));
+            sender.sendMessage(TextUtil.color("&e인벤토리 가득 참 — 바닥에 드롭했습니다."));
+        }
+        sender.sendMessage(TextUtil.color("&a코인 지급: &f" + amount + "개 &7→ &f" + target.getName()));
+        if (!sender.equals(target)) {
+            target.sendMessage(TextUtil.color("&a코인을 받았습니다. &7우클릭으로 던지세요."));
+        }
+        return true;
+    }
+
     private void handleReload(CommandSender sender) {
         SkeBossPlugin plugin = com.skeboss.SkeBossPlugin.getInstance();
         plugin.mergeAndReloadConfig();
         weaponManager.reload();
+        coinManager.reload();
         bossManager.reload();
         minionManager.reload();
         sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스·잡몹은 재시작 권장)"));
@@ -665,6 +716,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
             sender.sendMessage(TextUtil.color("&e/skeweapon &7- 인조인간의 코어 바로 지급"));
             sender.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
+            sender.sendMessage(TextUtil.color("&e/skeboss coin [플레이어] [개수] &7- 코인 지급"));
             sender.sendMessage(TextUtil.color("&7  무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
         }
         if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
@@ -703,6 +755,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
                 options.add("weapon");
+                options.add("coin");
             }
             if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
                 options.add("cast");

@@ -189,7 +189,7 @@ public final class WeaponManager {
         }
 
         if (isOnCooldown(player, skillId)) {
-            player.sendMessage(TextUtil.color("&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초"));
+            TextUtil.actionBar(player, "&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초");
             return false;
         }
 
@@ -204,6 +204,7 @@ public final class WeaponManager {
         }
 
         if (cast) {
+            sendSkillActionBar(player, skillId);
             setCooldown(player, skillId, cooldownSeconds);
             player.addScoreboardTag(USING_SKILL_TAG);
             plugin.getServer().getScheduler().runTaskLater(
@@ -213,6 +214,15 @@ public final class WeaponManager {
             );
         }
         return cast;
+    }
+
+    private void sendSkillActionBar(Player player, String skillId) {
+        String message = switch (skillId.toLowerCase()) {
+            case "laser", "레이저" -> weaponConfig.getLaserActionBarMessage();
+            case "chain", "사슬" -> weaponConfig.getChainActionBarMessage();
+            default -> "&e스킬 &f" + skillId;
+        };
+        TextUtil.actionBar(player, message);
     }
 
     private int getCooldownForSkill(String skillId) {
