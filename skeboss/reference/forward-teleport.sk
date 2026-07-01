@@ -2,7 +2,7 @@
 # 우클릭 전방 텔레포트 (구버전 Skript 호환)
 # plugins/Skript/scripts/forward-teleport.sk
 #
-# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 플레이어 쪽 텔포
+# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 대상(플레이어·몹 등) 쪽 텔포
 # - 벽 있으면 직전 칸에서 멈춤
 # ============================================================
 
@@ -65,26 +65,49 @@ function isInForwardTunnel(caster: player, target: entity, range: number, halfWi
 			return true
 	return false
 
-# ---------- 가장 가까운 대상 (null 대신 delete / is set) ----------
-function findForwardTunnelTarget(caster: player, range: number, halfWidth: number) :: player:
+# ---------- 대상 이름 표시 ----------
+function entityDisplayName(e: entity) :: text:
+	if {_e} is a player:
+		return name of {_e}
+	set {_n} to name of {_e}
+	if {_n} is set:
+		if {_n} is not "":
+			return uncolored {_n}
+	return "%type of {_e}%"
+
+function isValidTeleportEntity(e: entity, caster: player) :: boolean:
+	if {_e} is not living:
+		return false
+	if {_e} is dead:
+		return false
+	if {_e} is {_caster}:
+		return false
+	if {_e} is an armor stand:
+		return false
+	if {_e} is a dropped item:
+		return false
+	if {_e} is an experience orb:
+		return false
+	return true
+
+# ---------- 가장 가까운 대상 (플레이어 + 몹 등 living entity) ----------
+function findForwardTunnelTarget(caster: player, range: number, halfWidth: number) :: entity:
 	delete {_best}
 	set {_bestDist} to 999
-	loop all players:
-		if loop-player is {_caster}:
+	loop all entities in radius ({_range} + 3) around {_caster}:
+		if isValidTeleportEntity(loop-entity, {_caster}) is false:
 			continue
-		if world of loop-player is not world of {_caster}:
+		if isInForwardTunnel({_caster}, loop-entity, {_range}, {_halfWidth}) is false:
 			continue
-		if isInForwardTunnel({_caster}, loop-player, {_range}, {_halfWidth}) is false:
-			continue
-		set {_d} to distance between {_caster} and loop-player
+		set {_d} to distance between {_caster} and loop-entity
 		if {_d} > {_range} + 0.5:
 			continue
 		if {_best} is not set:
-			set {_best} to loop-player
+			set {_best} to loop-entity
 			set {_bestDist} to {_d}
 		else:
 			if {_d} < {_bestDist}:
-				set {_best} to loop-player
+				set {_best} to loop-entity
 				set {_bestDist} to {_d}
 	if {_best} is set:
 		return {_best}
@@ -149,4 +172,4 @@ on right click:
 	teleport player to {_land}
 	play sound "entity.enderman.teleport" with volume 0.8 and pitch 1.2 at player
 	set {%{_cdKey}%} to now
-	send action bar "&b전방 텔레포 &7→ &f%name of {_target}%" to player
+	send action bar "&b전방 텔레포 &7→ &f%entityDisplayName({_target})%" to player
