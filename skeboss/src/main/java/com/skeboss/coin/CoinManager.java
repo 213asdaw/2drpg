@@ -49,7 +49,7 @@ public final class CoinManager {
             meta.setDisplayName(config.coloredDisplayName());
             item.setItemMeta(meta);
         }
-        CoinModelDataHelper.apply(item, config.getCustomModelString(), config.getCustomModelData());
+        CoinModelDataHelper.apply(item, modelStringOrNull(config.getCustomModelString()), config.getCustomModelData());
         return item;
     }
 
@@ -65,7 +65,7 @@ public final class CoinManager {
         }
         ItemMeta meta = item.getItemMeta();
         if (config.isRequireModelData() && config.hasModelMarker()) {
-            if (CoinModelDataHelper.matches(meta, config.getCustomModelString(), config.getCustomModelData())) {
+            if (CoinModelDataHelper.matches(meta, modelStringOrNull(config.getCustomModelString()), config.getCustomModelData())) {
                 return true;
             }
         }
@@ -119,8 +119,15 @@ public final class CoinManager {
 
     private ItemStack createProjectileItem() {
         ItemStack item = new ItemStack(config.getProjectileMaterial());
-        CoinModelDataHelper.apply(item, config.getProjectileModelString(), config.getProjectileModelData());
+        CoinModelDataHelper.apply(item, modelStringOrNull(config.getProjectileModelString()), config.getProjectileModelData());
         return item;
+    }
+
+    private static String modelStringOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value;
     }
 
     private void attachVisualFollower(Snowball snowball, ItemStack visual) {

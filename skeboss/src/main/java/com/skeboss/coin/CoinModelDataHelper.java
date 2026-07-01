@@ -29,7 +29,12 @@ public final class CoinModelDataHelper {
         if (meta == null) {
             return;
         }
-        if (STRING_CMD_SUPPORTED && applyStringAndFloat(meta, modelString, modelInt)) {
+        boolean hasString = modelString != null && !modelString.isBlank();
+        if (STRING_CMD_SUPPORTED && hasString && applyStringAndFloat(meta, modelString, modelInt)) {
+            item.setItemMeta(meta);
+            return;
+        }
+        if (STRING_CMD_SUPPORTED && !hasString && modelInt != 0 && applyStringAndFloat(meta, null, modelInt)) {
             item.setItemMeta(meta);
             return;
         }

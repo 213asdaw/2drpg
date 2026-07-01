@@ -92,9 +92,6 @@ boss-presets:
     animations:
       idle: none
       walk: walk
-    hand-item:
-      material: DIAMOND_SWORD
-      display-name: "&6불꽃의 검"
     boss:
       display-name: "&6&l불의 검사"
       max-health: 500.0
@@ -194,12 +191,11 @@ weapons:
     skill: chain
     cooldown-seconds: 10
 
-# 코인 — 1.21.4+ 문자열 CMD "coin" (select when) + 선택적 숫자 1003
+# 코인 — custom_model_data 1003 (range_dispatch)
 coin-item:
   enabled: true
   material: PAPER
-  custom-model-string: "coin"
-  custom-model-data: 0
+  custom-model-data: 1003
   require-model-data: true
   display-name: "&e&l코인"
   name-keywords:
@@ -211,8 +207,7 @@ coin-item:
   throw-message: "&e&l◆ 코인 &7던짐!"
   projectile:
     material: PAPER
-    custom-model-string: "coin"
-    custom-model-data: 0
+    custom-model-data: 1003
 
 # EMP4348 잡몹 — ModelEngine player limb 모델 + 스킨 (model-id: player_model)
 minion:

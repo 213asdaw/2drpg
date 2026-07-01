@@ -10,14 +10,11 @@ import com.skeboss.util.TextUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
@@ -89,8 +86,6 @@ public final class BossManager {
             if (entity.getAttribute(speed) != null) {
                 entity.getAttribute(speed).setBaseValue(config.getMovementSpeed());
             }
-
-            equipHandItem(entity, config);
         });
 
         SkeBoss boss = new SkeBoss(zombie, null, config);
@@ -99,22 +94,6 @@ public final class BossManager {
         int delay = Math.max(1, config.getSpawnDelayTicks());
         Bukkit.getScheduler().runTaskLater(plugin, () -> finishSpawn(boss), delay);
         return boss;
-    }
-
-    private void equipHandItem(LivingEntity entity, BossConfig config) {
-        if (!config.hasHandItem() || entity.getEquipment() == null) {
-            return;
-        }
-        ItemStack hand = new ItemStack(config.getHandMaterial());
-        if (config.getHandDisplayName() != null && !config.getHandDisplayName().isBlank()) {
-            ItemMeta meta = hand.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName(TextUtil.color(config.getHandDisplayName()));
-                hand.setItemMeta(meta);
-            }
-        }
-        entity.getEquipment().setItemInMainHand(hand);
-        entity.getEquipment().setItemInMainHandDropChance(0.0f);
     }
 
     private void finishSpawn(SkeBoss boss) {
@@ -156,27 +135,16 @@ public final class BossManager {
             double syncRadius = config.getViewerSyncRadius();
             modelEngine.applyPlayerSkin(bossModel, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
                 int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(bossModel));
-                if (appliedLimbs > 0) {
-                    scheduleHandItemSync(boss);
-                }
                 if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
                     if (!entity.isValid() || entity.isDead()) {
                         return;
                     }
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                        if (!entity.isValid() || entity.isDead()) {
-                            return;
-                        }
-                        cleanupLegacyHandDisplays(boss);
-                        modelEngine.setBaseEntityVisible(bossModel, entity, false, syncRadius);
-                        modelEngine.forceResyncNearbyPlayers(bossModel, entity, syncRadius);
-                        entity.setInvisible(false);
-                        scheduleHandItemSync(boss);
-                    }, 8L);
+                    modelEngine.setBaseEntityVisible(bossModel, entity, false, syncRadius);
+                    modelEngine.forceResyncNearbyPlayers(bossModel, entity, syncRadius);
+                    entity.setInvisible(false);
                 } else if (appliedLimbs > 0) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     entity.setInvisible(false);
-                    cleanupLegacyHandDisplays(boss);
                     if (appliedLimbs < requiredLimbs) {
                         plugin.getLogger().warning("보스 스킨 일부만 적용 (" + appliedLimbs
                                 + "개) — 좀비 본체 유지");
@@ -202,60 +170,6 @@ public final class BossManager {
             registerBossBarViewers(boss);
             boss.setReady(true);
         }
-    }
-
-    private void scheduleHandItemSync(SkeBoss boss) {
-        if (!boss.getConfig().hasHandItem() || boss.getModel() == null) {
-            return;
-        }
-        LivingEntity entity = boss.getEntity();
-        BossConfig config = boss.getConfig();
-        double syncRadius = config.getViewerSyncRadius();
-        Runnable sync = () -> {
-            if (!entity.isValid() || entity.isDead() || boss.getModel() == null) {
-                return;
-            }
-            ensureHandItemEquipped(entity, config);
-            modelEngine.syncHandItemToModel(boss.getModel(), entity, syncRadius);
-        };
-        sync.run();
-        for (long delay : new long[]{2L, 5L, 10L, 20L, 40L, 60L, 100L}) {
-            Bukkit.getScheduler().runTaskLater(plugin, sync, delay);
-        }
-    }
-
-    /** 예전 ItemDisplay 폴백 잔상 제거 */
-    private void cleanupLegacyHandDisplays(SkeBoss boss) {
-        if (!boss.getConfig().hasHandItem()) {
-            return;
-        }
-        LivingEntity entity = boss.getEntity();
-        if (!entity.isValid()) {
-            return;
-        }
-        Material handMat = boss.getConfig().getHandMaterial();
-        for (org.bukkit.entity.Entity nearby : entity.getNearbyEntities(2.5, 2.5, 2.5)) {
-            if (!(nearby instanceof org.bukkit.entity.ItemDisplay display)) {
-                continue;
-            }
-            if (nearby.getPassengers().isEmpty() && nearby.getVehicle() == null) {
-                ItemStack shown = display.getItemStack();
-                if (shown != null && shown.getType() == handMat) {
-                    nearby.remove();
-                }
-            }
-        }
-    }
-
-    private void ensureHandItemEquipped(LivingEntity entity, BossConfig config) {
-        if (!config.hasHandItem() || entity.getEquipment() == null) {
-            return;
-        }
-        ItemStack current = entity.getEquipment().getItemInMainHand();
-        if (current != null && !current.getType().isAir()) {
-            return;
-        }
-        equipHandItem(entity, config);
     }
 
     private boolean isUntitledShield(SkillDefinition skill) {
@@ -365,7 +279,6 @@ public final class BossManager {
 
             modelEngine.syncNearbyPlayers(bossModel, entity, config.getViewerSyncRadius());
             registerBossBarViewers(boss);
-            scheduleHandItemSync(boss);
 
             if (config.isHideBaseEntity()) {
                 entity.setInvisible(false);
@@ -790,7 +703,6 @@ public final class BossManager {
         }
         clearAnimationState(boss);
         playWalk(boss);
-        scheduleHandItemSync(boss);
         resumeBossAfterSkill(boss);
 
         boss.setCastingSkill(false);
@@ -820,7 +732,6 @@ public final class BossManager {
     public void remove(SkeBoss boss) {
         bosses.remove(boss.getId());
         endSkillMovementLock(boss);
-        cleanupLegacyHandDisplays(boss);
         boss.removeAllViewers();
         if (boss.getModel() != null) {
             modelEngine.destroy(boss.getModel());

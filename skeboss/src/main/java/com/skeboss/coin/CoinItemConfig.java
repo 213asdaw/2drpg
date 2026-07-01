@@ -29,8 +29,8 @@ public final class CoinItemConfig {
         enabled = root == null || root.getBoolean("enabled", true);
         Material mat = Material.matchMaterial(root != null ? root.getString("material", "PAPER") : "PAPER");
         material = mat != null ? mat : Material.PAPER;
-        customModelString = root != null ? root.getString("custom-model-string", "coin") : "coin";
-        customModelData = root != null ? root.getInt("custom-model-data", 0) : 0;
+        customModelString = root != null ? root.getString("custom-model-string", "") : "";
+        customModelData = root != null ? root.getInt("custom-model-data", 1003) : 1003;
         requireModelData = root == null || root.getBoolean("require-model-data", true);
         displayName = root != null ? root.getString("display-name", "&e&l코인") : "&e&l코인";
         nameKeywords = root != null ? root.getStringList("name-keywords") : List.of("코인", "coin");
@@ -40,7 +40,7 @@ public final class CoinItemConfig {
         ConfigurationSection projectile = root != null ? root.getConfigurationSection("projectile") : null;
         projectileModelString = projectile != null && projectile.contains("custom-model-string")
                 ? projectile.getString("custom-model-string")
-                : customModelString;
+                : (customModelString != null && !customModelString.isBlank() ? customModelString : null);
         projectileModelData = projectile != null
                 ? projectile.getInt("custom-model-data", customModelData)
                 : customModelData;
