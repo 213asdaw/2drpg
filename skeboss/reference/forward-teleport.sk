@@ -2,8 +2,8 @@
 # 우클릭 전방 텔레포트 (구버전 Skript 호환)
 # plugins/Skript/scripts/forward-teleport.sk
 #
-# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 대상(플레이어·몹 등) 쪽 텔포
-# - 벽 있으면 직전 칸에서 멈춤
+# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 대상 쪽 텔포
+# - 진짜 벽(돌·흙 등) 있으면 그 앞에서 멈춤 (풀·유리·반블록은 통과)
 # ============================================================
 
 options:
@@ -12,45 +12,116 @@ options:
 	cooldown-seconds: 2
 	require-sneak: false
 
-# ---------- 블록 통과 가능? (null / block data 문법 사용 안 함) ----------
-function isPassableBlock(b: block) :: boolean:
+# ---------- 진짜 벽만 true (기본값 false = 막지 않음) ----------
+function isSolidWall(b: block) :: boolean:
 	if {_b} is air:
-		return true
-	if {_b} is water:
-		return true
-	if {_b} is lava:
 		return false
+	if {_b} is water:
+		return false
+	if {_b} is lava:
+		return true
 	set {_name} to "%type of {_b}%"
+	if {_name} contains "glass":
+		return false
 	if {_name} contains "grass":
-		return true
+		return false
 	if {_name} contains "fern":
-		return true
+		return false
 	if {_name} contains "flower":
-		return true
+		return false
 	if {_name} contains "sapling":
-		return true
+		return false
 	if {_name} contains "torch":
-		return true
+		return false
 	if {_name} contains "button":
-		return true
+		return false
 	if {_name} contains "pressure":
-		return true
+		return false
 	if {_name} contains "carpet":
-		return true
+		return false
 	if {_name} contains "sign":
+		return false
+	if {_name} contains "banner":
+		return false
+	if {_name} contains "rail":
+		return false
+	if {_name} contains "leaves":
+		return false
+	if {_name} contains "slab":
+		return false
+	if {_name} contains "stairs":
+		return false
+	if {_name} contains "fence":
+		return false
+	if {_name} contains "door":
+		return false
+	if {_name} contains "trapdoor":
+		return false
+	if {_name} contains "chest":
+		return false
+	if {_name} contains "table":
+		return false
+	if {_name} contains "snow":
+		return false
+	if {_name} contains "vine":
+		return false
+	if {_name} contains "ladder":
+		return false
+	if {_name} contains "stone":
+		return true
+	if {_name} contains "deepslate":
+		return true
+	if {_name} contains "dirt":
+		return true
+	if {_name} contains "sand":
+		return true
+	if {_name} contains "gravel":
+		return true
+	if {_name} contains "clay":
+		return true
+	if {_name} contains "terracotta":
+		return true
+	if {_name} contains "concrete":
+		return true
+	if {_name} contains "brick":
+		return true
+	if {_name} contains "log":
+		return true
+	if {_name} contains "wood":
+		return true
+	if {_name} contains "plank":
+		return true
+	if {_name} contains "ore":
+		return true
+	if {_name} contains "block":
+		return true
+	if {_name} contains "obsidian":
+		return true
+	if {_name} contains "bedrock":
+		return true
+	if {_name} contains "netherrack":
+		return true
+	if {_name} contains "basalt":
+		return true
+	if {_name} contains "blackstone":
+		return true
+	if {_name} contains "ice":
+		return true
+	if {_name} contains "wool":
 		return true
 	return false
 
-function isStandableAt(loc: location) :: boolean:
+# 이 좌표에 몸(발+머리)이 들어가면 막힘
+function pathBlockedAt(loc: location) :: boolean:
 	set {_feet} to block at {_loc}
 	set {_headLoc} to {_loc}
 	add 1 to y-coordinate of {_headLoc}
 	set {_head} to block at {_headLoc}
-	if isPassableBlock({_feet}) is false:
-		return false
-	if isPassableBlock({_head}) is false:
-		return false
-	return true
+	if isSolidWall({_feet}) is true:
+		return true
+	if isSolidWall({_head}) is true:
+		return true
+	return false
 
 # ---------- 앞 통로(10칸·폭1) 안에 있는지 ----------
 function isInForwardTunnel(caster: player, target: entity, range: number, halfWidth: number) :: boolean:
@@ -65,7 +136,6 @@ function isInForwardTunnel(caster: player, target: entity, range: number, halfWi
 			return true
 	return false
 
-# ---------- 대상 이름 표시 ----------
 function entityDisplayName(e: entity) :: text:
 	if {_e} is a player:
 		return name of {_e}
@@ -93,7 +163,6 @@ function isValidTeleportEntity(e: entity, caster: player) :: boolean:
 		return false
 	if {_type} contains "boat":
 		return false
-	# living 대신: 체력 있는 것만 (플레이어·몹)
 	set {_hp} to health of {_e}
 	if {_hp} is not set:
 		return false
@@ -101,7 +170,6 @@ function isValidTeleportEntity(e: entity, caster: player) :: boolean:
 		return false
 	return true
 
-# ---------- 가장 가까운 대상 (플레이어 + 몹 등 living entity) ----------
 function findForwardTunnelTarget(caster: player, range: number, halfWidth: number) :: entity:
 	delete {_best}
 	set {_bestDist} to 999
@@ -123,7 +191,7 @@ function findForwardTunnelTarget(caster: player, range: number, halfWidth: numbe
 	if {_best} is set:
 		return {_best}
 
-# ---------- 직선으로 가다가 벽 앞에서 멈춤 (sqrt / vector 문법 최소화) ----------
+# 직선으로 0.5칸씩 전진, 벽 나오면 직전 안전 위치
 function resolveTeleportStop(caster: player, goal: location, maxRange: number) :: location:
 	set {_from} to location of {_caster}
 	set {_len} to distance between {_from} and {_goal}
@@ -141,10 +209,9 @@ function resolveTeleportStop(caster: player, goal: location, maxRange: number) :
 	set {_dx} to {_gx} - {_fx}
 	set {_dy} to {_gy} - {_fy}
 	set {_dz} to {_gz} - {_fz}
-	set {_i} to 0
-	loop round({_len} * 4) times:
-		add 1 to {_i}
-		set {_step} to {_i} / 4
+	set {_step} to 0
+	loop round({_len} * 2) times:
+		add 0.5 to {_step}
 		if {_step} > {_len}:
 			stop loop
 		set {_ratio} to {_step} / {_len}
@@ -152,12 +219,11 @@ function resolveTeleportStop(caster: player, goal: location, maxRange: number) :
 		set x-coordinate of {_check} to {_fx} + ({_dx} * {_ratio})
 		set y-coordinate of {_check} to {_fy} + ({_dy} * {_ratio})
 		set z-coordinate of {_check} to {_fz} + ({_dz} * {_ratio})
-		if isStandableAt({_check}) is false:
+		if pathBlockedAt({_check}) is true:
 			return {_last}
 		set {_last} to {_check}
 	return {_last}
 
-# ---------- 우클릭 ----------
 on right click:
 	if {@require-sneak} is true:
 		if player is not sneaking:
@@ -176,8 +242,8 @@ on right click:
 
 	set {_goal} to location of {_target}
 	set {_land} to resolveTeleportStop(player, {_goal}, {@teleport-range})
-	if distance between player and {_land} < 0.4:
-		send action bar "&7막혀서 더 갈 수 없습니다." to player
+	if distance between player and {_land} < 0.25:
+		send action bar "&7앞이 막혀서 텔포할 수 없습니다." to player
 		stop
 
 	teleport player to {_land}
