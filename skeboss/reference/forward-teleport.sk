@@ -1,10 +1,9 @@
 # ============================================================
-# 우클릭 전방 텔레포트
+# 우클릭 전방 텔레포트 (구버전 Skript 호환)
 # plugins/Skript/scripts/forward-teleport.sk
 #
-# - 우클릭: 시선 방향 앞 10칸 이내 플레이어 쪽으로 텔포
-# - 탐색: 시선 축에서 상·하·좌·우 각 1블록 (반경 1, 넓히지 않음)
-# - 경로에 몸이 안 들어가는 블록 있으면 그 직전에서 멈춤
+# - 우클릭: 시선 앞 10칸·폭 1블록 통로 안 플레이어 쪽 텔포
+# - 벽 있으면 직전 칸에서 멈춤
 # ============================================================
 
 options:
@@ -13,64 +12,63 @@ options:
 	cooldown-seconds: 2
 	require-sneak: false
 
-function tpCooldownKey(p: player) :: text:
-	return "fwdtp::%uuid of {_p}%"
-
-function canUseForwardTeleport(p: player) :: boolean:
-	if {@require-sneak} is true:
-		if {_p} is not sneaking:
-			return false
-	set {_key} to tpCooldownKey({_p})
-	if {%{_key}%} is set:
-		if difference between {%{_key}%} and now < {@cooldown-seconds} seconds:
-			return false
-	return true
-
-function markForwardTeleportUsed(p: player):
-	set {_key} to tpCooldownKey({_p})
-	set {%{_key}%} to now
-
+# ---------- 블록 통과 가능? (null / block data 문법 사용 안 함) ----------
 function isPassableBlock(b: block) :: boolean:
 	if {_b} is air:
 		return true
 	if {_b} is water:
 		return true
-	if {_b} is cave air:
-		return true
-	if {_b} is void air:
-		return true
-	if {_b} is tall grass:
-		return true
-	if {_b} is short grass:
-		return true
-	if block data of {_b} is solid:
+	if {_b} is lava:
 		return false
-	return true
+	set {_name} to "%type of {_b}%"
+	if {_name} contains "grass":
+		return true
+	if {_name} contains "fern":
+		return true
+	if {_name} contains "flower":
+		return true
+	if {_name} contains "sapling":
+		return true
+	if {_name} contains "torch":
+		return true
+	if {_name} contains "button":
+		return true
+	if {_name} contains "pressure":
+		return true
+	if {_name} contains "carpet":
+		return true
+	if {_name} contains "sign":
+		return true
+	return false
 
 function isStandableAt(loc: location) :: boolean:
 	set {_feet} to block at {_loc}
-	set {_head} to block at {_loc} ~ vector(0, 1, 0)
+	set {_headLoc} to {_loc}
+	add 1 to y-coordinate of {_headLoc}
+	set {_head} to block at {_headLoc}
 	if isPassableBlock({_feet}) is false:
 		return false
 	if isPassableBlock({_head}) is false:
 		return false
 	return true
 
-# 시선 축 1~range 칸, 각 지점에서 거리 halfWidth 이내(=1블록 폭)
+# ---------- 앞 통로(10칸·폭1) 안에 있는지 ----------
 function isInForwardTunnel(caster: player, target: entity, range: number, halfWidth: number) :: boolean:
 	if world of {_caster} is not world of {_target}:
 		return false
 	set {_limit} to {_halfWidth} + 0.35
 	loop {_range} times:
-		set {_probe} to location (loop-number) blocks in front of {_caster}
+		set {_n} to loop-number
+		set {_probe} to location {_n} blocks in front of {_caster}
 		set {_dist} to distance between {_probe} and {_target}
 		if {_dist} <= {_limit}:
 			return true
 	return false
 
+# ---------- 가장 가까운 대상 (null 대신 delete / is set) ----------
 function findForwardTunnelTarget(caster: player, range: number, halfWidth: number) :: player:
-	set {_best} to null
-	set {_bestDist} to 9999
+	delete {_best}
+	set {_bestDist} to 999
 	loop all players:
 		if loop-player is {_caster}:
 			continue
@@ -84,13 +82,22 @@ function findForwardTunnelTarget(caster: player, range: number, halfWidth: numbe
 		if {_best} is not set:
 			set {_best} to loop-player
 			set {_bestDist} to {_d}
-		else if {_d} < {_bestDist}:
-			set {_best} to loop-player
-			set {_bestDist} to {_d}
-	return {_best}
+		else:
+			if {_d} < {_bestDist}:
+				set {_best} to loop-player
+				set {_bestDist} to {_d}
+	if {_best} is set:
+		return {_best}
 
+# ---------- 직선으로 가다가 벽 앞에서 멈춤 (sqrt / vector 문법 최소화) ----------
 function resolveTeleportStop(caster: player, goal: location, maxRange: number) :: location:
 	set {_from} to location of {_caster}
+	set {_len} to distance between {_from} and {_goal}
+	if {_len} < 0.1:
+		return {_from}
+	if {_len} > {_maxRange}:
+		set {_len} to {_maxRange}
+	set {_last} to {_from}
 	set {_fx} to x-coordinate of {_from}
 	set {_fy} to y-coordinate of {_from}
 	set {_fz} to z-coordinate of {_from}
@@ -100,21 +107,10 @@ function resolveTeleportStop(caster: player, goal: location, maxRange: number) :
 	set {_dx} to {_gx} - {_fx}
 	set {_dy} to {_gy} - {_fy}
 	set {_dz} to {_gz} - {_fz}
-	set {_lenSq} to ({_dx} * {_dx}) + ({_dy} * {_dy}) + ({_dz} * {_dz})
-	if {_lenSq} < 0.0001:
-		return {_from}
-	set {_len} to sqrt({_lenSq})
-	if {_len} > {_maxRange}:
-		set {_scale} to {_maxRange} / {_len}
-		set {_dx} to {_dx} * {_scale}
-		set {_dy} to {_dy} * {_scale}
-		set {_dz} to {_dz} * {_scale}
-		set {_len} to {_maxRange}
-	set {_last} to {_from}
-	set {_step} to 0
-	set {_steps} to rounded up {_len} * 4
-	loop {_steps} times:
-		add 0.25 to {_step}
+	set {_i} to 0
+	loop round({_len} * 4) times:
+		add 1 to {_i}
+		set {_step} to {_i} / 4
 		if {_step} > {_len}:
 			stop loop
 		set {_ratio} to {_step} / {_len}
@@ -127,10 +123,18 @@ function resolveTeleportStop(caster: player, goal: location, maxRange: number) :
 		set {_last} to {_check}
 	return {_last}
 
+# ---------- 우클릭 ----------
 on right click:
-	if canUseForwardTeleport(player) is false:
-		stop
+	if {@require-sneak} is true:
+		if player is not sneaking:
+			stop
 
+	set {_cdKey} to "fwdtp::%uuid of player%"
+	if {%{_cdKey}%} is set:
+		if difference between {%{_cdKey}%} and now < {@cooldown-seconds} seconds:
+			stop
+
+	delete {_target}
 	set {_target} to findForwardTunnelTarget(player, {@teleport-range}, {@tunnel-half-width})
 	if {_target} is not set:
 		send action bar "&7앞 &f{@teleport-range}&7칸·폭 &f1&7블록 안에 대상이 없습니다." to player
@@ -144,5 +148,5 @@ on right click:
 
 	teleport player to {_land}
 	play sound "entity.enderman.teleport" with volume 0.8 and pitch 1.2 at player
-	markForwardTeleportUsed(player)
+	set {%{_cdKey}%} to now
 	send action bar "&b전방 텔레포 &7→ &f%name of {_target}%" to player
