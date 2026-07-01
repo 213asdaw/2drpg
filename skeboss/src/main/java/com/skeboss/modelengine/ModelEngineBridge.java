@@ -2,6 +2,8 @@ package com.skeboss.modelengine;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
@@ -349,6 +351,107 @@ public final class ModelEngineBridge {
             }
         } catch (ReflectiveOperationException ex) {
             plugin.getLogger().log(Level.FINE, "restoreBaseEntityVisibility", ex);
+        }
+    }
+
+    /** PlayerLimb 모델 ir_ 본에 좀비 손 아이템 표시 (본체 숨김 시 검 보이게) */
+    public void syncHandItemToModel(BossModel model, LivingEntity entity, double syncRadius) {
+        if (model == null || entity == null || !entity.isValid()) {
+            return;
+        }
+        ItemStack hand = entity.getEquipment() != null ? entity.getEquipment().getItemInMainHand() : null;
+        if (hand == null || hand.getType().isAir()) {
+            return;
+        }
+
+        Object activeModel = model.activeModel();
+        invokeOptional(activeModel, "generateModel");
+        ItemStack display = hand.clone();
+        boolean applied = false;
+        for (Map.Entry<String, Object> entry : activeModelBones(activeModel).entrySet()) {
+            if (!entry.getKey().contains("ir_")) {
+                continue;
+            }
+            if (applyItemToBone(entry.getValue(), display)) {
+                applied = true;
+            }
+        }
+        if (!applied) {
+            plugin.getLogger().fine("ir_ 아이템 본 없음 — /skeboss minion install-model 후 /meg reload");
+            return;
+        }
+        invokeOptional(activeModel, "initializeRenderer");
+        forceResyncNearbyPlayers(model, entity, syncRadius);
+        plugin.getLogger().info("보스 손 아이템 모델 동기화: " + display.getType());
+    }
+
+    private boolean applyItemToBone(Object bone, ItemStack stack) {
+        Object heldItem = resolveHeldItemBehavior(bone);
+        if (heldItem == null) {
+            return false;
+        }
+        Object provider = createStaticItemProvider(stack);
+        if (provider == null) {
+            return false;
+        }
+        for (Method method : heldItem.getClass().getMethods()) {
+            if (!"setItemProvider".equals(method.getName()) || method.getParameterCount() != 1) {
+                continue;
+            }
+            Class<?> param = method.getParameterTypes()[0];
+            if (!param.isInstance(provider) && !param.isAssignableFrom(provider.getClass())) {
+                continue;
+            }
+            try {
+                method.invoke(heldItem, provider);
+                return true;
+            } catch (ReflectiveOperationException ex) {
+                plugin.getLogger().log(Level.FINE, "setItemProvider 실패", ex);
+            }
+        }
+        return false;
+    }
+
+    private Object resolveHeldItemBehavior(Object bone) {
+        Object itemType = itemBehaviorType();
+        if (itemType != null) {
+            Object held = unwrapOptional(invokeOptional(bone, "getBoneBehavior", itemType));
+            if (held != null) {
+                return held;
+            }
+        }
+        for (Object behavior : iterateBoneBehaviors(bone)) {
+            if (behavior != null && behavior.getClass().getName().toLowerCase().contains("helditem")) {
+                return behavior;
+            }
+        }
+        return null;
+    }
+
+    private Object itemBehaviorType() {
+        try {
+            Class<?> types = Class.forName("com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes");
+            for (String field : List.of("ITEM", "HELD_ITEM")) {
+                try {
+                    return types.getField(field).get(null);
+                } catch (NoSuchFieldException ignored) {
+                    // try next
+                }
+            }
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "BoneBehaviorTypes.ITEM 없음", ex);
+        }
+        return null;
+    }
+
+    private Object createStaticItemProvider(ItemStack stack) {
+        try {
+            Class<?> cls = Class.forName(
+                    "com.ticxo.modelengine.api.model.bone.type.HeldItem$StaticItemStackSupplier");
+            return cls.getConstructor(ItemStack.class).newInstance(stack.clone());
+        } catch (ReflectiveOperationException ex) {
+            plugin.getLogger().log(Level.FINE, "StaticItemStackSupplier 생성 실패", ex);
+            return null;
         }
     }
 

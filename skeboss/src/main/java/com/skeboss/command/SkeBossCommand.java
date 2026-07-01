@@ -409,7 +409,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(TextUtil.color("&cModelEngine 등록: &f없음 &c→ /meg reload (전체)"));
             }
             player.sendMessage(TextUtil.color("&7── 설정 순서 (플레이어 스킨) ──"));
-            player.sendMessage(TextUtil.color("  &e1. &f/skeboss minion install-model"));
+            player.sendMessage(TextUtil.color("  &e1. &f/skeboss minion install-model &e(ir_hand 검 본 포함)"));
             player.sendMessage(TextUtil.color("  &e2. &f/meg reload &e(전체) + 리소스팩 재수락"));
             player.sendMessage(TextUtil.color("  &e3. 스킨 닉네임 &f" + config.getSkinUsername() + " &e확인 (Mojang)"));
             player.sendMessage(TextUtil.color("  &e4. &f/skeboss spawn " + presetId));

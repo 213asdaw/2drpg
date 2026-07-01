@@ -86,7 +86,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v20) — 불의 검사 보스바 + PlayerLimb 스킨");
+        getLogger().info("SkeBoss 활성화 (boss-v21) — 방패 고정·ir_hand 검 표시");
     }
 
     public void mergeAndReloadConfig() {

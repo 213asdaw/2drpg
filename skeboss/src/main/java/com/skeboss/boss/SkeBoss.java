@@ -29,6 +29,8 @@ public final class SkeBoss {
     private String currentAnimation;
     private Player target;
     private BukkitTask aimTask;
+    private BukkitTask skillLockTask;
+    private Double skillLockSavedSpeed;
 
     public SkeBoss(LivingEntity entity, ModelEngineBridge.BossModel model, BossConfig config) {
         this.id = entity.getUniqueId();
@@ -121,6 +123,29 @@ public final class SkeBoss {
 
     public void setAimTask(BukkitTask aimTask) {
         this.aimTask = aimTask;
+    }
+
+    public BukkitTask getSkillLockTask() {
+        return skillLockTask;
+    }
+
+    public void setSkillLockTask(BukkitTask skillLockTask) {
+        this.skillLockTask = skillLockTask;
+    }
+
+    public Double getSkillLockSavedSpeed() {
+        return skillLockSavedSpeed;
+    }
+
+    public void setSkillLockSavedSpeed(Double skillLockSavedSpeed) {
+        this.skillLockSavedSpeed = skillLockSavedSpeed;
+    }
+
+    public void cancelSkillLockTask() {
+        if (skillLockTask != null) {
+            skillLockTask.cancel();
+            skillLockTask = null;
+        }
     }
 
     public void cancelAimTask() {

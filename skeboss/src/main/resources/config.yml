@@ -126,6 +126,7 @@ boss-presets:
         priority: 20
       fire-shield:
         untitled: fire-shield
+        animation: attack
         cooldown-seconds: 15
         duration-ticks: 200
         range: 8.0

@@ -162,6 +162,7 @@ public final class BossManager {
                     modelEngine.setBaseEntityVisible(bossModel, entity, false, syncRadius);
                     modelEngine.forceResyncNearbyPlayers(bossModel, entity, syncRadius);
                     entity.setInvisible(false);
+                    scheduleHandItemSync(boss);
                 } else if (appliedLimbs > 0) {
                     modelEngine.restoreBaseEntityVisibility(entity);
                     entity.setInvisible(false);
@@ -192,6 +193,75 @@ public final class BossManager {
         }
     }
 
+    private void scheduleHandItemSync(SkeBoss boss) {
+        if (!boss.getConfig().hasHandItem() || boss.getModel() == null) {
+            return;
+        }
+        LivingEntity entity = boss.getEntity();
+        double syncRadius = boss.getConfig().getViewerSyncRadius();
+        Runnable sync = () -> {
+            if (!entity.isValid() || entity.isDead() || boss.getModel() == null) {
+                return;
+            }
+            modelEngine.syncHandItemToModel(boss.getModel(), entity, syncRadius);
+        };
+        sync.run();
+        for (long delay : new long[]{2L, 5L, 10L, 20L}) {
+            Bukkit.getScheduler().runTaskLater(plugin, sync, delay);
+        }
+    }
+
+    private boolean isUntitledShield(SkillDefinition skill) {
+        if (!skill.isUntitledSkill()) {
+            return false;
+        }
+        String id = skill.untitledSkill().toLowerCase();
+        return id.contains("shield") || id.contains("방패");
+    }
+
+    private void beginSkillMovementLock(SkeBoss boss) {
+        endSkillMovementLock(boss);
+        LivingEntity entity = boss.getEntity();
+        Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
+        if (entity.getAttribute(speedAttr) != null) {
+            boss.setSkillLockSavedSpeed(entity.getAttribute(speedAttr).getBaseValue());
+            entity.getAttribute(speedAttr).setBaseValue(0);
+        }
+        if (entity instanceof Mob mob) {
+            mob.setAI(false);
+            mob.setTarget(null);
+        }
+        entity.setVelocity(new Vector(0, 0, 0));
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid() || entity.isDead() || !boss.isCastingSkill()) {
+                return;
+            }
+            Vector velocity = entity.getVelocity();
+            entity.setVelocity(new Vector(0, velocity.getY(), 0));
+            if (entity instanceof Mob mob) {
+                mob.setTarget(null);
+            }
+        }, 0L, 1L);
+        boss.setSkillLockTask(task);
+    }
+
+    private void endSkillMovementLock(SkeBoss boss) {
+        boss.cancelSkillLockTask();
+        LivingEntity entity = boss.getEntity();
+        if (!entity.isValid()) {
+            boss.setSkillLockSavedSpeed(null);
+            return;
+        }
+        Double saved = boss.getSkillLockSavedSpeed();
+        if (saved != null) {
+            Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
+            if (entity.getAttribute(speedAttr) != null) {
+                entity.getAttribute(speedAttr).setBaseValue(saved);
+            }
+            boss.setSkillLockSavedSpeed(null);
+        }
+    }
+
     private void finishSpawnWithModel(SkeBoss boss) {
         LivingEntity entity = boss.getEntity();
         BossConfig config = boss.getConfig();
@@ -214,6 +284,7 @@ public final class BossManager {
 
             modelEngine.syncNearbyPlayers(bossModel, entity, config.getViewerSyncRadius());
             registerBossBarViewers(boss);
+            scheduleHandItemSync(boss);
 
             if (config.isHideBaseEntity()) {
                 entity.setInvisible(false);
@@ -540,16 +611,31 @@ public final class BossManager {
             return false;
         }
 
+        boolean shieldSkill = isUntitledShield(skill);
+
         boss.setCastingSkill(true);
         boss.setCurrentSkillId(skill.id());
         boss.setSkillCooldown(skill);
 
         if (entity instanceof Mob mob) {
             mob.setAI(false);
+            mob.setTarget(null);
         }
         entity.setVelocity(new Vector(0, 0, 0));
 
-        if (target != null) {
+        if (shieldSkill) {
+            beginSkillMovementLock(boss);
+            if (boss.getModel() != null && skill.animation() != null
+                    && !skill.animation().isBlank() && !"none".equalsIgnoreCase(skill.animation())) {
+                modelEngine.playLoopAnimation(
+                        boss.getModel(),
+                        skill.animation(),
+                        config.getBlendIn(),
+                        config.getBlendOut()
+                );
+                boss.setCurrentAnimation(skill.animation());
+            }
+        } else if (target != null) {
             boss.setTarget(target);
             faceTarget(boss, target, true);
             startSkillTracking(boss, trackRange);
@@ -566,6 +652,7 @@ public final class BossManager {
         if (!cast) {
             boss.setCastingSkill(false);
             boss.setCurrentSkillId(null);
+            endSkillMovementLock(boss);
             if (entity instanceof Mob mob) {
                 mob.setAI(true);
             }
@@ -611,12 +698,19 @@ public final class BossManager {
         }
 
         stopSkillTracking(boss);
+        endSkillMovementLock(boss);
 
-        if (!skill.isUntitledSkill() && skill.animation() != null && !skill.animation().isBlank()) {
+        if (skill.isUntitledSkill()) {
+            if (skill.animation() != null && !skill.animation().isBlank()
+                    && !"none".equalsIgnoreCase(skill.animation())) {
+                modelEngine.stopAnimation(boss.getModel(), skill.animation());
+            }
+        } else if (skill.animation() != null && !skill.animation().isBlank()) {
             modelEngine.stopAnimation(boss.getModel(), skill.animation());
         }
         clearAnimationState(boss);
         playWalk(boss);
+        scheduleHandItemSync(boss);
 
         if (entity instanceof Mob mob) {
             mob.setAI(true);
@@ -648,6 +742,7 @@ public final class BossManager {
 
     public void remove(SkeBoss boss) {
         bosses.remove(boss.getId());
+        endSkillMovementLock(boss);
         boss.removeAllViewers();
         if (boss.getModel() != null) {
             modelEngine.destroy(boss.getModel());
