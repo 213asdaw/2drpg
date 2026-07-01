@@ -191,7 +191,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
         sender.sendMessage(TextUtil.color("&a무기 지급: &f" + weaponManager.getWeaponId(weapon) + " &7→ &f" + target.getName()));
         if (!target.equals(sender)) {
-            target.sendMessage(TextUtil.color("&a인조 무기를 받았습니다."));
+            target.sendMessage(TextUtil.color("&a인조인간의 코어를 받았습니다."));
         }
         return true;
     }
@@ -568,7 +568,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(TextUtil.color("&6&l━━━━ SkeBoss 명령어 ━━━━"));
         if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
-            sender.sendMessage(TextUtil.color("&e/skeweapon &7- 인조 무기 바로 지급"));
+            sender.sendMessage(TextUtil.color("&e/skeweapon &7- 인조인간의 코어 바로 지급"));
             sender.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
             sender.sendMessage(TextUtil.color("&7  무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
         }

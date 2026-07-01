@@ -16,7 +16,7 @@ commands:
     usage: /skeboss [help|weapon|cast|spawn [world x y z]|skill|remove|minion spawner|reload]
     aliases: [sboss, 인조보스]
   skeweapon:
-    description: 인조 무기 바로 지급
+    description: 인조인간의 코어 바로 지급
     usage: /skeweapon [플레이어]
     aliases: [인조무기, skebossweapon]
 

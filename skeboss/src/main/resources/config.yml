@@ -144,12 +144,12 @@ weapons:
   target-mobs: true
   artificial-arm:
     material: BLAZE_ROD
-    display-name: "&c&l인조 무기"
+    display-name: "&6&l인조인간의 코어"
     name-keywords:
-      - "인조 무기"
-      - "인조무기"
+      - "인조인간의 코어"
+      - "인조인간코어"
     lore:
-      - "&7인조인간의 전투 장비"
+      - "&7인조인간의 핵심 동력원"
       - "&e우클릭 &7- 레이저"
       - "&e웅크린 채 우클릭 &7- 사슬"
     skill: laser

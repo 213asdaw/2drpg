@@ -130,16 +130,16 @@ public final class WeaponConfig {
         return new WeaponDefinition(
                 "artificial-arm",
                 Material.BLAZE_ROD,
-                "&c&l인조 무기",
+                "&6&l인조인간의 코어",
                 List.of(
-                        "&7인조인간의 전투 장비",
+                        "&7인조인간의 핵심 동력원",
                         "&e우클릭 &7- 레이저",
                         "&e웅크린 채 우클릭 &7- 사슬"
                 ),
                 "laser",
                 "chain",
                 8,
-                List.of("인조 무기", "인조무기")
+                List.of("인조인간의 코어", "인조인간코어")
         );
     }
 
@@ -236,7 +236,7 @@ public final class WeaponConfig {
     private WeaponDefinition resolveAlias(String id) {
         String key = id.toLowerCase(Locale.ROOT).replace('_', '-');
         return switch (key) {
-            case "arm", "weapon", "무기", "인조무기", "인조-무기" -> findByKey("artificial-arm");
+            case "arm", "weapon", "무기", "코어", "인조인간의-코어", "인조인간코어" -> findByKey("artificial-arm");
             case "laser", "레이저" -> findByKey("laser-rifle");
             case "chain", "사슬" -> findByKey("chain-hook");
             default -> null;
