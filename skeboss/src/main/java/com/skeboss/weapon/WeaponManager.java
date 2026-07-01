@@ -189,7 +189,7 @@ public final class WeaponManager {
         }
 
         if (isOnCooldown(player, skillId)) {
-            TextUtil.actionBar(player, "&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초");
+            TextUtil.message(player, "&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초");
             return false;
         }
 
@@ -222,7 +222,7 @@ public final class WeaponManager {
             case "chain", "사슬" -> weaponConfig.getChainActionBarMessage();
             default -> "&e스킬 &f" + skillId;
         };
-        TextUtil.actionBar(player, message);
+        TextUtil.message(player, message);
     }
 
     private int getCooldownForSkill(String skillId) {

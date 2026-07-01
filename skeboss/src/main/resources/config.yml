@@ -155,8 +155,8 @@ weapons:
   target-boss: true
   target-mobs: true
   action-bar-messages:
-    laser: "&b&l◆ 레이저 &7발사"
-    chain: "&6&l◆ 사슬 &7발사"
+    laser: "&b&l◆ 레이저 &7발사!"
+    chain: "&6&l◆ 사슬 &7발사!"
   artificial-arm:
     material: BLAZE_ROD
     display-name: "&6&l인조인간의 코어"
@@ -199,7 +199,7 @@ coin-item:
   enabled: true
   material: PAPER
   # 리소스팩 item/coin 모델의 CustomModelData 번호로 맞추세요
-  custom-model-data: 1
+  custom-model-data: 1003
   require-model-data: true
   display-name: "&e&l코인"
   name-keywords:
@@ -208,10 +208,10 @@ coin-item:
   throw-speed: 1.0
   consume: true
   cooldown-seconds: 0
-  throw-message: "&e&l◆ 코인 &7던짐"
+  throw-message: "&e&l◆ 코인 &7던짐!"
   projectile:
     material: PAPER
-    custom-model-data: 1
+    custom-model-data: 1003
 
 # EMP4348 잡몹 — ModelEngine player limb 모델 + 스킨 (model-id: player_model)
 minion:

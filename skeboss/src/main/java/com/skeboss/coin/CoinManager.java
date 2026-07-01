@@ -93,7 +93,7 @@ public final class CoinManager {
             return false;
         }
         if (isOnCooldown(player)) {
-            TextUtil.actionBar(player, "&c쿨타임 &f" + cooldownLeftSeconds(player) + "초");
+            TextUtil.message(player, "&c쿨타임 &f" + cooldownLeftSeconds(player) + "초");
             return true;
         }
 
@@ -109,7 +109,7 @@ public final class CoinManager {
 
         attachVisualFollower(snowball, visual.clone());
         player.getWorld().playSound(spawn, Sound.ENTITY_SNOWBALL_THROW, 0.9f, 1.1f);
-        TextUtil.actionBar(player, config.getThrowMessage());
+        TextUtil.message(player, config.getThrowMessage());
 
         if (config.isConsume()) {
             sourceItem.setAmount(sourceItem.getAmount() - 1);

@@ -11,6 +11,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -367,22 +368,36 @@ public final class ModelEngineBridge {
         Object activeModel = model.activeModel();
         invokeOptional(activeModel, "generateModel");
         ItemStack display = hand.clone();
-        boolean applied = false;
-        for (Map.Entry<String, Object> entry : activeModelBones(activeModel).entrySet()) {
-            if (!entry.getKey().contains("ir_")) {
-                continue;
-            }
-            if (applyItemToBone(entry.getValue(), display)) {
-                applied = true;
+        boolean applied = tryApplyItemToBoneName(activeModel, display, "ir_hand");
+        if (!applied) {
+            applied = tryApplyItemToBoneName(activeModel, display, "hand");
+        }
+        if (!applied) {
+            for (Map.Entry<String, Object> entry : activeModelBones(activeModel).entrySet()) {
+                String boneName = entry.getKey().toLowerCase(Locale.ROOT);
+                if (!boneName.contains("ir_") && !boneName.endsWith("_hand") && !boneName.equals("hand")) {
+                    continue;
+                }
+                if (applyItemToBone(entry.getValue(), display)) {
+                    applied = true;
+                }
             }
         }
         if (!applied) {
-            plugin.getLogger().fine("ir_ 아이템 본 없음 — /skeboss minion install-model 후 /meg reload");
+            plugin.getLogger().warning("보스 ir_hand 검 동기화 실패 — ItemDisplay 폴백 사용 중");
             return;
         }
         refreshPlayerLimbRenderer(activeModel, true);
         forceResyncNearbyPlayers(model, entity, syncRadius);
         plugin.getLogger().info("보스 손 아이템 모델 동기화: " + display.getType());
+    }
+
+    private boolean tryApplyItemToBoneName(Object activeModel, ItemStack stack, String boneName) {
+        Object bone = unwrapOptional(invokeOptional(activeModel, "getBone", String.class, boneName));
+        if (bone == null) {
+            return false;
+        }
+        return applyItemToBone(bone, stack);
     }
 
     private boolean applyItemToBone(Object bone, ItemStack stack) {
@@ -445,14 +460,21 @@ public final class ModelEngineBridge {
     }
 
     private Object createStaticItemProvider(ItemStack stack) {
-        try {
-            Class<?> cls = Class.forName(
-                    "com.ticxo.modelengine.api.model.bone.type.HeldItem$StaticItemStackSupplier");
-            return cls.getConstructor(ItemStack.class).newInstance(stack.clone());
-        } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().log(Level.FINE, "StaticItemStackSupplier 생성 실패", ex);
-            return null;
+        List<String> classNames = List.of(
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$StaticItemStackSupplier",
+                "com.ticxo.modelengine.api.model.bone.render.HeldItemRenderer$StaticItemStackSupplier"
+        );
+        ItemStack clone = stack.clone();
+        for (String className : classNames) {
+            try {
+                Class<?> cls = Class.forName(className);
+                return cls.getConstructor(ItemStack.class).newInstance(clone);
+            } catch (ReflectiveOperationException ignored) {
+                // try next
+            }
         }
+        plugin.getLogger().fine("StaticItemStackSupplier 생성 실패 — HeldItem API 확인");
+        return null;
     }
 
     public void setBaseEntityVisible(BossModel model, Entity entity, boolean visible, double syncRadius) {

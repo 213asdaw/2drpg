@@ -32,4 +32,11 @@ public final class TextUtil {
         }
         player.sendActionBar(AMPERSAND.deserialize(message));
     }
+
+    public static void message(Player player, String message) {
+        if (player == null || message == null || message.isBlank()) {
+            return;
+        }
+        player.sendMessage(color(message));
+    }
 }
