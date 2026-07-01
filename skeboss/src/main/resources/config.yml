@@ -207,7 +207,7 @@ coin-item:
     - "coin"
   throw-speed: 1.0
   consume: false
-  cooldown-seconds: 0
+  cooldown-seconds: 4
   throw-message: "&e&l◆ 코인 &7던짐!"
   projectile:
     material: PAPER
