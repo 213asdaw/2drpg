@@ -53,7 +53,6 @@ public final class SkeBossPlugin extends JavaPlugin {
         coinManager = new CoinManager(this);
         bossAI = new BossAI(this, bossManager);
         bossAI.start();
-        bossManager.startHandVisualTask();
         minionAI = new MinionAI(this, minionManager);
         minionAI.start();
 
@@ -92,7 +91,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v24) — 채팅 스킬메시지·코인 CMD1003·검 ItemDisplay");
+        getLogger().info("SkeBoss 활성화 (boss-v25) — ItemDisplay 검 제거, ir_hand만 사용");
     }
 
     public void mergeAndReloadConfig() {

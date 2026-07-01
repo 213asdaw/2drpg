@@ -6,6 +6,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -368,7 +369,13 @@ public final class ModelEngineBridge {
         Object activeModel = model.activeModel();
         invokeOptional(activeModel, "generateModel");
         ItemStack display = hand.clone();
-        boolean applied = tryApplyItemToBoneName(activeModel, display, "ir_hand");
+        boolean applied = tryApplyEntityHandToBoneName(activeModel, entity, "ir_hand");
+        if (!applied) {
+            applied = tryApplyEntityHandToBoneName(activeModel, entity, "hand");
+        }
+        if (!applied) {
+            applied = tryApplyItemToBoneName(activeModel, display, "ir_hand");
+        }
         if (!applied) {
             applied = tryApplyItemToBoneName(activeModel, display, "hand");
         }
@@ -378,13 +385,14 @@ public final class ModelEngineBridge {
                 if (!boneName.contains("ir_") && !boneName.endsWith("_hand") && !boneName.equals("hand")) {
                     continue;
                 }
-                if (applyItemToBone(entry.getValue(), display)) {
+                if (applyEntityHandToBone(entry.getValue(), entity)
+                        || applyItemToBone(entry.getValue(), display)) {
                     applied = true;
                 }
             }
         }
         if (!applied) {
-            plugin.getLogger().warning("보스 ir_hand 검 동기화 실패 — ItemDisplay 폴백 사용 중");
+            plugin.getLogger().warning("보스 ir_hand 검 동기화 실패 — /skeboss minion install-model 후 /meg reload");
             return;
         }
         refreshPlayerLimbRenderer(activeModel, true);
@@ -400,6 +408,26 @@ public final class ModelEngineBridge {
         return applyItemToBone(bone, stack);
     }
 
+    private boolean tryApplyEntityHandToBoneName(Object activeModel, LivingEntity entity, String boneName) {
+        Object bone = unwrapOptional(invokeOptional(activeModel, "getBone", String.class, boneName));
+        if (bone == null) {
+            return false;
+        }
+        return applyEntityHandToBone(bone, entity);
+    }
+
+    private boolean applyEntityHandToBone(Object bone, LivingEntity entity) {
+        Object heldItem = resolveHeldItemBehavior(bone);
+        if (heldItem == null) {
+            return false;
+        }
+        Object provider = createEntityHandProvider(entity);
+        if (provider == null) {
+            return false;
+        }
+        return invokeSetItemProvider(heldItem, provider);
+    }
+
     private boolean applyItemToBone(Object bone, ItemStack stack) {
         Object heldItem = resolveHeldItemBehavior(bone);
         if (heldItem == null) {
@@ -409,6 +437,10 @@ public final class ModelEngineBridge {
         if (provider == null) {
             return false;
         }
+        return invokeSetItemProvider(heldItem, provider);
+    }
+
+    private boolean invokeSetItemProvider(Object heldItem, Object provider) {
         for (Method method : heldItem.getClass().getMethods()) {
             if (!"setItemProvider".equals(method.getName()) || method.getParameterCount() != 1) {
                 continue;
@@ -474,6 +506,35 @@ public final class ModelEngineBridge {
             }
         }
         plugin.getLogger().fine("StaticItemStackSupplier 생성 실패 — HeldItem API 확인");
+        return null;
+    }
+
+    private Object createEntityHandProvider(LivingEntity entity) {
+        List<String> classNames = List.of(
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$EntityItemSupplier",
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$LivingEntityItemSupplier",
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$MobEquipmentSupplier",
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$EquipmentSupplier",
+                "com.ticxo.modelengine.api.model.bone.type.HeldItem$BukkitEntityItemSupplier"
+        );
+        for (String className : classNames) {
+            try {
+                Class<?> cls = Class.forName(className);
+                for (Constructor<?> ctor : cls.getConstructors()) {
+                    Class<?>[] params = ctor.getParameterTypes();
+                    if (params.length != 1) {
+                        continue;
+                    }
+                    if (!params[0].isAssignableFrom(entity.getClass())
+                            && !LivingEntity.class.isAssignableFrom(params[0])) {
+                        continue;
+                    }
+                    return ctor.newInstance(entity);
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // try next
+            }
+        }
         return null;
     }
 

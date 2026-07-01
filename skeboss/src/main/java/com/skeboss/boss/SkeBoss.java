@@ -31,7 +31,6 @@ public final class SkeBoss {
     private BukkitTask aimTask;
     private BukkitTask skillLockTask;
     private Double skillLockSavedSpeed;
-    private UUID handDisplayId;
 
     public SkeBoss(LivingEntity entity, ModelEngineBridge.BossModel model, BossConfig config) {
         this.id = entity.getUniqueId();
@@ -140,14 +139,6 @@ public final class SkeBoss {
 
     public void setSkillLockSavedSpeed(Double skillLockSavedSpeed) {
         this.skillLockSavedSpeed = skillLockSavedSpeed;
-    }
-
-    public UUID getHandDisplayId() {
-        return handDisplayId;
-    }
-
-    public void setHandDisplayId(UUID handDisplayId) {
-        this.handDisplayId = handDisplayId;
     }
 
     public void cancelSkillLockTask() {
