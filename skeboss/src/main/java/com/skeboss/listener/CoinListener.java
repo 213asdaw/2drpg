@@ -34,6 +34,9 @@ public final class CoinListener implements Listener {
         if (!coinManager.isCoinItem(item)) {
             return;
         }
+        if (event.getPlayer().isSneaking()) {
+            return;
+        }
 
         event.setCancelled(true);
         event.setUseItemInHand(Event.Result.DENY);
