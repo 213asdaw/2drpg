@@ -1,6 +1,8 @@
 package com.skeboss.command;
 
 import com.skeboss.SkeBossPlugin;
+import com.skeboss.blueprint.ModelBlueprintPaths;
+import com.skeboss.boss.BossConfig;
 import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
@@ -76,6 +78,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             case "minion" -> {
                 return requireAdmin(sender, () -> handleMinion((Player) sender, args));
+            }
+            case "boss" -> {
+                return requireAdmin(sender, () -> handleBoss((Player) sender, args));
             }
             default -> {
                 sender.sendMessage(TextUtil.color("&c알 수 없는 명령입니다. &7/skeboss help"));
@@ -356,6 +361,69 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.color("&7무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
     }
 
+    private void handleBoss(Player player, String[] args) {
+        if (args.length >= 2 && args[1].equalsIgnoreCase("check")) {
+            String presetId = args.length >= 3 ? args[2] : "fire-swordsman";
+            handleBossCheck(player, presetId);
+            return;
+        }
+        player.sendMessage(TextUtil.color("&c/skeboss boss check [프리셋]"));
+    }
+
+    private void handleBossCheck(Player player, String presetId) {
+        SkeBossPlugin plugin = SkeBossPlugin.getInstance();
+        var me = minionManager.getModelEngine();
+        BossConfig config;
+        try {
+            config = bossManager.getPresetRegistry().load(plugin, presetId);
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(TextUtil.color("&c알 수 없는 프리셋: &f" + presetId));
+            player.sendMessage(TextUtil.color("&7사용 가능: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
+            return;
+        }
+
+        String modelId = config.getModelId();
+        Path blueprintFile = ModelBlueprintPaths.blueprintPath(plugin, modelId);
+
+        player.sendMessage(TextUtil.color("&6&l━━━━ 보스 모델 진단 ━━━━"));
+        player.sendMessage(TextUtil.color("&7프리셋: &f" + presetId));
+        player.sendMessage(TextUtil.color("&7표시 이름: &f" + config.getDisplayName()));
+        player.sendMessage(TextUtil.color("&7config model-id: &f" + modelId));
+
+        if (Files.isRegularFile(blueprintFile)) {
+            player.sendMessage(TextUtil.color("&a파일: &f" + blueprintFile.getFileName() + " &a(폴더에 있음)"));
+            player.sendMessage(TextUtil.color("&7경로: &8" + blueprintFile));
+        } else {
+            player.sendMessage(TextUtil.color("&c파일: &f" + modelId + ".bbmodel &c없음"));
+            player.sendMessage(TextUtil.color("&7필요 경로: &8" + blueprintFile));
+            if ("CHUNSAMGOD".equalsIgnoreCase(modelId)) {
+                player.sendMessage(TextUtil.color("&e→ CHUNSAMGOD.bbmodel 을 직접 넣어야 합니다 (플러그인 JAR에 없음)"));
+            } else if ("ske".equalsIgnoreCase(modelId)) {
+                player.sendMessage(TextUtil.color("&e→ ske.bbmodel 을 blueprints 폴더에 복사하세요"));
+                player.sendMessage(TextUtil.color("&7  (레포: &fskeboss/reference/ske.bbmodel&7)"));
+            }
+        }
+
+        if (me.hasBlueprint(modelId)) {
+            player.sendMessage(TextUtil.color("&aModelEngine 등록: &f" + modelId + " &a(있음)"));
+        } else {
+            player.sendMessage(TextUtil.color("&cModelEngine 등록: &f없음"));
+            if (!Files.isRegularFile(blueprintFile)) {
+                player.sendMessage(TextUtil.color("&7원인: &cbbmodel 파일이 없어서 /meg reload 해도 등록 안 됨"));
+            } else {
+                player.sendMessage(TextUtil.color("&7원인: &c/meg reload &7(전체) 후 리소스팩 재수락 필요"));
+                player.sendMessage(TextUtil.color("&7  bbmodel 내부 &fmodel_identifier&7 가 &f" + modelId + "&7 인지 Blockbench에서 확인"));
+            }
+        }
+
+        player.sendMessage(TextUtil.color("&7── 설정 순서 ──"));
+        player.sendMessage(TextUtil.color("  &e1. &fplugins/ModelEngine/blueprints/" + modelId + ".bbmodel &e배치"));
+        player.sendMessage(TextUtil.color("  &e2. &f/meg reload &e(&cmodels만 말고 전체 reload&7)"));
+        player.sendMessage(TextUtil.color("  &e3. 클라이언트 리소스팩 &c다시 받기"));
+        player.sendMessage(TextUtil.color("  &e4. &f/skeboss spawn " + presetId));
+        player.sendMessage(TextUtil.color("&7모델 없어도 boss-v17+ 스킬은 동작 (좀비만 보임)"));
+    }
+
     private void handleMinion(Player player, String[] args) {
         if (args.length >= 2 && args[1].equalsIgnoreCase("check")) {
             handleMinionCheck(player);
@@ -580,6 +648,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss spawn [프리셋] &7- 보스 스폰 (기본: default)"));
             sender.sendMessage(TextUtil.color("&e/skeboss spawn fire-swordsman &7- 불의 검사 (CHUNSAMGOD)"));
             sender.sendMessage(TextUtil.color("&7  프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
+            sender.sendMessage(TextUtil.color("&e/skeboss boss check [프리셋] &7- 보스 모델·ME 등록 진단"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
@@ -603,7 +672,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             List<String> options = new ArrayList<>();
             if (sender.hasPermission("skeboss.admin")) {
-                options.addAll(List.of("spawn", "skill", "remove", "reload", "minion"));
+                options.addAll(List.of("spawn", "skill", "remove", "reload", "minion", "boss"));
             }
             if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
                 options.add("weapon");
@@ -629,6 +698,14 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             List<String> options = new ArrayList<>(bossManager.getPresetRegistry().getPresetIds());
             options.addAll(Bukkit.getWorlds().stream().map(World::getName).toList());
             return filter(options, args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("boss")
+                && sender.hasPermission("skeboss.admin")) {
+            return filter(List.of("check"), args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("boss")
+                && args[1].equalsIgnoreCase("check") && sender.hasPermission("skeboss.admin")) {
+            return filter(bossManager.getPresetRegistry().getPresetIds(), args[2]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("minion")
                 && sender.hasPermission("skeboss.admin")) {

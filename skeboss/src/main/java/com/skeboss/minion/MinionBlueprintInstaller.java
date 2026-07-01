@@ -1,5 +1,6 @@
 package com.skeboss.minion;
 
+import com.skeboss.blueprint.ModelBlueprintPaths;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -18,14 +19,11 @@ public final class MinionBlueprintInstaller {
     }
 
     public static Path blueprintPath(JavaPlugin plugin) {
-        return plugin.getDataFolder().getParentFile().toPath()
-                .resolve("ModelEngine")
-                .resolve("blueprints")
-                .resolve(MODEL_ID + ".bbmodel");
+        return ModelBlueprintPaths.blueprintPath(plugin, MODEL_ID);
     }
 
     public static boolean isInstalled(JavaPlugin plugin) {
-        return Files.isRegularFile(blueprintPath(plugin));
+        return ModelBlueprintPaths.isInstalled(plugin, MODEL_ID);
     }
 
     public static void install(JavaPlugin plugin) throws IOException {

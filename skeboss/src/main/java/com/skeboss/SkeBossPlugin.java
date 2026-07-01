@@ -76,7 +76,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v17) — /skeboss spawn fire-swordsman | /skeweapon");
+        getLogger().info("SkeBoss 활성화 (boss-v18) — /skeboss boss check | /skeboss spawn fire-swordsman");
     }
 
     public void mergeAndReloadConfig() {
