@@ -206,7 +206,7 @@ coin-item:
     - "코인"
     - "coin"
   throw-speed: 1.0
-  consume: true
+  consume: false
   cooldown-seconds: 0
   throw-message: "&e&l◆ 코인 &7던짐!"
   projectile:

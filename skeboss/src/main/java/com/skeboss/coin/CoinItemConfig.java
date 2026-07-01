@@ -45,7 +45,7 @@ public final class CoinItemConfig {
                 ? projectile.getInt("custom-model-data", customModelData)
                 : customModelData;
         throwSpeed = root != null ? root.getDouble("throw-speed", 1.0) : 1.0;
-        consume = root == null || root.getBoolean("consume", true);
+        consume = root == null || root.getBoolean("consume", false);
         cooldownSeconds = root != null ? root.getInt("cooldown-seconds", 0) : 0;
         throwMessage = root != null
                 ? root.getString("throw-message", "&e&l◆ 코인 &7던짐!")

@@ -91,7 +91,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v26) — 코인 문자열 CMD coin (1.21.4+)");
+        getLogger().info("SkeBoss 활성화 (boss-v27) — 코인 무한 사용(소모 없음)");
     }
 
     public void mergeAndReloadConfig() {
