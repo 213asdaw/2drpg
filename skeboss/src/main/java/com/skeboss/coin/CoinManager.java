@@ -47,11 +47,9 @@ public final class CoinManager {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(config.coloredDisplayName());
-            if (config.getCustomModelData() != 0) {
-                meta.setCustomModelData(config.getCustomModelData());
-            }
             item.setItemMeta(meta);
         }
+        CoinModelDataHelper.apply(item, config.getCustomModelString(), config.getCustomModelData());
         return item;
     }
 
@@ -66,9 +64,9 @@ public final class CoinManager {
             return false;
         }
         ItemMeta meta = item.getItemMeta();
-        if (config.isRequireModelData() && config.getCustomModelData() != 0) {
-            if (!meta.hasCustomModelData() || meta.getCustomModelData() != config.getCustomModelData()) {
-                return false;
+        if (config.isRequireModelData() && config.hasModelMarker()) {
+            if (CoinModelDataHelper.matches(meta, config.getCustomModelString(), config.getCustomModelData())) {
+                return true;
             }
         }
         if (meta.hasDisplayName()) {
@@ -83,9 +81,7 @@ public final class CoinManager {
                 }
             }
         }
-        return config.isRequireModelData()
-                && meta.hasCustomModelData()
-                && meta.getCustomModelData() == config.getCustomModelData();
+        return !config.isRequireModelData();
     }
 
     public boolean tryThrow(Player player, ItemStack sourceItem) {
@@ -123,11 +119,7 @@ public final class CoinManager {
 
     private ItemStack createProjectileItem() {
         ItemStack item = new ItemStack(config.getProjectileMaterial());
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null && config.getProjectileModelData() != 0) {
-            meta.setCustomModelData(config.getProjectileModelData());
-            item.setItemMeta(meta);
-        }
+        CoinModelDataHelper.apply(item, config.getProjectileModelString(), config.getProjectileModelData());
         return item;
     }
 

@@ -91,7 +91,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v25) — ItemDisplay 검 제거, ir_hand만 사용");
+        getLogger().info("SkeBoss 활성화 (boss-v26) — 코인 문자열 CMD coin (1.21.4+)");
     }
 
     public void mergeAndReloadConfig() {
