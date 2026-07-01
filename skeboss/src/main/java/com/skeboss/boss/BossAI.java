@@ -55,9 +55,8 @@ public final class BossAI implements Runnable {
             }
 
             SkillDefinition readySkill = pickSkill(boss, distance);
-            if (readySkill != null) {
-                Player skillTarget = manager.resolveSkillTarget(boss, readySkill.range());
-                if (skillTarget != null && manager.castSkill(boss, readySkill)) {
+            if (readySkill != null && canCastSkill(boss, readySkill)) {
+                if (manager.castSkill(boss, readySkill)) {
                     continue;
                 }
             }
@@ -68,6 +67,18 @@ public final class BossAI implements Runnable {
                 manager.playWalk(boss);
             }
         }
+    }
+
+    private boolean canCastSkill(SkeBoss boss, SkillDefinition skill) {
+        Player skillTarget = manager.resolveSkillTarget(boss, skill.range());
+        if (skillTarget != null) {
+            return true;
+        }
+        if (!skill.isUntitledSkill()) {
+            return false;
+        }
+        String untitled = skill.untitledSkill().toLowerCase();
+        return untitled.contains("shield") || untitled.contains("방패");
     }
 
     private SkillDefinition pickSkill(SkeBoss boss, double distance) {

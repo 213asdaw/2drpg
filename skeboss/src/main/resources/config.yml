@@ -101,8 +101,8 @@ boss-presets:
       model-scale: 1.0
       hitbox-scale: 1.0
       viewer-sync-radius: 64.0
-      target-mode: aggro
-      skill-target-mode: aggro
+      target-mode: nearest
+      skill-target-mode: nearest
       rpg:
         skript-attack-variable: "공격력"
         fallback-attack-stat: 60.0
@@ -112,7 +112,7 @@ boss-presets:
         cooldown-seconds: 5
         duration-ticks: 45
         range: 22.0
-        min-range: 4.0
+        min-range: 2.5
         priority: 20
       fire-shield:
         untitled: fire-shield

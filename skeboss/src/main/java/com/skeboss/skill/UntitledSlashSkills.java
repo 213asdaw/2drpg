@@ -38,6 +38,7 @@ public final class UntitledSlashSkills {
             SkeBossPlugin plugin,
             SkeBoss boss,
             String untitledSkill,
+            Player aimTarget,
             String attackVariable,
             double attackFallback
     ) {
@@ -51,7 +52,7 @@ public final class UntitledSlashSkills {
                 double attack = plugin.getBossManager().getSkriptBridge().getEntityStat(
                         caster, attackVariable, attackFallback
                 );
-                shootSwordAura(plugin, caster, attack);
+                shootSwordAura(plugin, caster, aimTarget, attack);
                 yield true;
             }
             case "fire-shield", "shield", "방패", "불꽃방패" -> {
@@ -84,13 +85,34 @@ public final class UntitledSlashSkills {
         }
     }
 
-    private static void shootSwordAura(SkeBossPlugin plugin, LivingEntity caster, double scriptPower) {
+    private static void shootSwordAura(SkeBossPlugin plugin, LivingEntity caster, Player aimTarget, double scriptPower) {
         final double finalDamage = scriptPower * 1.5 + 5.0;
 
         Location startLoc = caster.getEyeLocation();
-        final Vector direction = startLoc.getDirection().normalize();
-        final float yaw = startLoc.getYaw();
-        final float pitch = startLoc.getPitch();
+        final Vector travelDirection;
+        final float travelYaw;
+        final float travelPitch;
+
+        if (aimTarget != null && aimTarget.isValid()) {
+            Location aim = aimTarget.getLocation().add(0, aimTarget.getHeight() * 0.5, 0);
+            Vector toTarget = aim.toVector().subtract(startLoc.toVector());
+            if (toTarget.lengthSquared() < 0.0001) {
+                travelDirection = startLoc.getDirection().normalize();
+            } else {
+                travelDirection = toTarget.normalize();
+            }
+            double dx = aim.getX() - startLoc.getX();
+            double dy = aim.getY() - startLoc.getY();
+            double dz = aim.getZ() - startLoc.getZ();
+            double horizontal = Math.sqrt(dx * dx + dz * dz);
+            travelYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            travelPitch = horizontal > 0.0001 ? (float) -Math.toDegrees(Math.atan2(dy, horizontal)) : 0.0f;
+            caster.setRotation(travelYaw, travelPitch);
+        } else {
+            travelDirection = startLoc.getDirection().normalize();
+            travelYaw = startLoc.getYaw();
+            travelPitch = startLoc.getPitch();
+        }
 
         startLoc.getWorld().playSound(startLoc, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.8f);
         startLoc.getWorld().playSound(startLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.5f);
@@ -126,13 +148,13 @@ public final class UntitledSlashSkills {
                 }
 
                 Location currentLoc = wave.getLocation();
-                currentLoc.add(direction.clone().multiply(0.8));
-                currentLoc.setYaw(yaw);
-                currentLoc.setPitch(pitch);
+                currentLoc.add(travelDirection.clone().multiply(0.8));
+                currentLoc.setYaw(travelYaw);
+                currentLoc.setPitch(travelPitch);
                 wave.teleport(currentLoc);
                 equipWaveVisual(wave);
 
-                double pitchRadians = Math.toRadians(pitch);
+                double pitchRadians = Math.toRadians(travelPitch);
                 wave.setRightArmPose(new EulerAngle(pitchRadians, 0.0, 0.0));
 
                 currentLoc.getWorld().spawnParticle(

@@ -145,13 +145,13 @@ public final class BossManager {
 
             plugin.getLogger().info("보스 스폰: " + config.getDisplayName()
                     + " (프리셋: " + config.getPresetId() + ", 모델: " + config.getModelId() + ")");
+            boss.setReady(true);
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "보스 모델 적용 실패 — /meg reload 확인 (모델: "
-                    + config.getModelId() + ")", ex);
+                    + config.getModelId() + "). 스킬·AI는 계속 동작합니다.", ex);
             entity.setInvisible(false);
-            if (!config.isHideBaseEntity()) {
-                entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
-            }
+            entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            boss.setReady(true);
         }
     }
 
@@ -185,6 +185,9 @@ public final class BossManager {
     public void playAnimation(SkeBoss boss, String animation) {
         BossConfig config = boss.getConfig();
         if (!boss.isReady() || animation == null || animation.isBlank() || "none".equalsIgnoreCase(animation)) {
+            return;
+        }
+        if (boss.getModel() == null) {
             return;
         }
         if (animation.equals(boss.getCurrentAnimation())) {
@@ -463,6 +466,7 @@ public final class BossManager {
                 plugin,
                 boss,
                 skill.untitledSkill(),
+                target,
                 config.getSkriptAttackVariable(),
                 config.getFallbackAttackStat()
         );

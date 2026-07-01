@@ -20,6 +20,7 @@ public final class SkeBoss {
     private final BossConfig config;
     private ModelEngineBridge.BossModel model;
     private final BossBar bossBar;
+    private boolean ready;
     private final Map<String, Long> skillCooldowns = new HashMap<>();
     private final Map<UUID, Long> aggroPlayers = new ConcurrentHashMap<>();
 
@@ -63,7 +64,11 @@ public final class SkeBoss {
     }
 
     public boolean isReady() {
-        return model != null;
+        return ready;
+    }
+
+    public void setReady(boolean ready) {
+        this.ready = ready;
     }
 
     public BossBar getBossBar() {
