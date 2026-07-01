@@ -198,17 +198,30 @@ public final class BossManager {
             return;
         }
         LivingEntity entity = boss.getEntity();
-        double syncRadius = boss.getConfig().getViewerSyncRadius();
+        BossConfig config = boss.getConfig();
+        double syncRadius = config.getViewerSyncRadius();
         Runnable sync = () -> {
             if (!entity.isValid() || entity.isDead() || boss.getModel() == null) {
                 return;
             }
+            ensureHandItemEquipped(entity, config);
             modelEngine.syncHandItemToModel(boss.getModel(), entity, syncRadius);
         };
         sync.run();
-        for (long delay : new long[]{2L, 5L, 10L, 20L}) {
+        for (long delay : new long[]{2L, 5L, 10L, 20L, 40L, 60L, 100L}) {
             Bukkit.getScheduler().runTaskLater(plugin, sync, delay);
         }
+    }
+
+    private void ensureHandItemEquipped(LivingEntity entity, BossConfig config) {
+        if (!config.hasHandItem() || entity.getEquipment() == null) {
+            return;
+        }
+        ItemStack current = entity.getEquipment().getItemInMainHand();
+        if (current != null && !current.getType().isAir()) {
+            return;
+        }
+        equipHandItem(entity, config);
     }
 
     private boolean isUntitledShield(SkillDefinition skill) {
@@ -253,12 +266,46 @@ public final class BossManager {
             return;
         }
         Double saved = boss.getSkillLockSavedSpeed();
-        if (saved != null) {
-            Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
-            if (entity.getAttribute(speedAttr) != null) {
-                entity.getAttribute(speedAttr).setBaseValue(saved);
-            }
+        Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
+        if (saved != null && entity.getAttribute(speedAttr) != null) {
+            entity.getAttribute(speedAttr).setBaseValue(saved);
             boss.setSkillLockSavedSpeed(null);
+        } else if (entity.getAttribute(speedAttr) != null
+                && entity.getAttribute(speedAttr).getBaseValue() < 0.01) {
+            entity.getAttribute(speedAttr).setBaseValue(boss.getConfig().getMovementSpeed());
+        }
+    }
+
+    /** 방패 등: 버프는 길게, AI 잠금은 짧게 (애니 길이 + 여유) */
+    private int resolveCastLockTicks(SkeBoss boss, SkillDefinition skill, boolean shieldSkill) {
+        if (!shieldSkill) {
+            return skill.durationTicks();
+        }
+        int animTicks = 20;
+        if (boss.getModel() != null && skill.animation() != null
+                && !skill.animation().isBlank()
+                && !"none".equalsIgnoreCase(skill.animation())) {
+            animTicks = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), animTicks);
+        }
+        return Math.max(animTicks + 10, 15);
+    }
+
+    private void resumeBossAfterSkill(SkeBoss boss) {
+        endSkillMovementLock(boss);
+        LivingEntity entity = boss.getEntity();
+        if (!entity.isValid()) {
+            return;
+        }
+        if (entity instanceof Mob mob) {
+            mob.setAI(true);
+        }
+        Player target = boss.getTarget();
+        if (target == null) {
+            target = resolveSkillTarget(boss, boss.getConfig().getFollowRange());
+        }
+        if (target != null && entity instanceof Mob mob) {
+            mob.setTarget(target);
+            boss.setTarget(target);
         }
     }
 
@@ -659,8 +706,8 @@ public final class BossManager {
             return false;
         }
 
-        int duration = skill.durationTicks();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), duration);
+        int castLockTicks = resolveCastLockTicks(boss, skill, shieldSkill);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), castLockTicks);
         return true;
     }
 
@@ -698,7 +745,6 @@ public final class BossManager {
         }
 
         stopSkillTracking(boss);
-        endSkillMovementLock(boss);
 
         if (skill.isUntitledSkill()) {
             if (skill.animation() != null && !skill.animation().isBlank()
@@ -711,10 +757,7 @@ public final class BossManager {
         clearAnimationState(boss);
         playWalk(boss);
         scheduleHandItemSync(boss);
-
-        if (entity instanceof Mob mob) {
-            mob.setAI(true);
-        }
+        resumeBossAfterSkill(boss);
 
         boss.setCastingSkill(false);
         boss.setCurrentSkillId(null);

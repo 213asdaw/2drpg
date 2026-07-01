@@ -380,7 +380,7 @@ public final class ModelEngineBridge {
             plugin.getLogger().fine("ir_ 아이템 본 없음 — /skeboss minion install-model 후 /meg reload");
             return;
         }
-        invokeOptional(activeModel, "initializeRenderer");
+        refreshPlayerLimbRenderer(activeModel, true);
         forceResyncNearbyPlayers(model, entity, syncRadius);
         plugin.getLogger().info("보스 손 아이템 모델 동기화: " + display.getType());
     }

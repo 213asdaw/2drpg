@@ -86,7 +86,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v21) — 방패 고정·ir_hand 검 표시");
+        getLogger().info("SkeBoss 활성화 (boss-v22) — 방패 짧은 잠금·ir_hand 검 재동기화");
     }
 
     public void mergeAndReloadConfig() {
