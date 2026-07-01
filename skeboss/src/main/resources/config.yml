@@ -107,6 +107,10 @@ boss-presets:
       model-scale: 1.0
       hitbox-scale: 1.0
       viewer-sync-radius: 64.0
+      boss-bar:
+        enabled: true
+        color: YELLOW
+        style: SEGMENTED_10
       target-mode: nearest
       skill-target-mode: nearest
       rpg:

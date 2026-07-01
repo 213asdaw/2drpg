@@ -86,7 +86,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (boss-v19) — 불의 검사 PlayerLimb+CHUNSAMGOD 스킨");
+        getLogger().info("SkeBoss 활성화 (boss-v20) — 불의 검사 보스바 + PlayerLimb 스킨");
     }
 
     public void mergeAndReloadConfig() {

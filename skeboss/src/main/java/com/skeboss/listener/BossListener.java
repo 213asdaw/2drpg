@@ -83,6 +83,17 @@ public final class BossListener implements Listener {
         return null;
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBossDamageMonitor(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
+            return;
+        }
+        SkeBoss boss = bossManager.getBoss(living.getUniqueId());
+        if (boss != null) {
+            boss.updateBossBar();
+        }
+    }
+
     @EventHandler
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();

@@ -232,12 +232,24 @@ public final class BossManager {
     }
 
     private void registerBossBarViewers(SkeBoss boss) {
+        syncBossBarViewers(boss);
+    }
+
+    public void syncBossBarViewers(SkeBoss boss) {
+        if (!boss.hasBossBar()) {
+            return;
+        }
         BossConfig config = boss.getConfig();
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getWorld().equals(boss.getEntity().getWorld())
-                    && online.getLocation().distanceSquared(boss.getEntity().getLocation())
-                    <= config.getViewerSyncRadius() * config.getViewerSyncRadius()) {
-                boss.addViewer(online);
+        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        LivingEntity entity = boss.getEntity();
+        for (Player player : entity.getWorld().getPlayers()) {
+            if (!player.isValid() || player.isDead()) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                boss.addViewer(player);
+            } else {
+                boss.removeViewer(player);
             }
         }
     }
@@ -247,7 +259,12 @@ public final class BossManager {
         if (boss.getModel() != null) {
             modelEngine.syncNearbyPlayers(boss.getModel(), boss.getEntity(), config.getViewerSyncRadius());
         }
-        boss.addViewer(player);
+        if (boss.hasBossBar()
+                && player.getWorld().equals(boss.getEntity().getWorld())
+                && player.getLocation().distanceSquared(boss.getEntity().getLocation())
+                <= config.getViewerSyncRadius() * config.getViewerSyncRadius()) {
+            boss.addViewer(player);
+        }
     }
 
     public void playIdle(SkeBoss boss) {

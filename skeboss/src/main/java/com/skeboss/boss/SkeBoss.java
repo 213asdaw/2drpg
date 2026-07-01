@@ -1,8 +1,8 @@
 package com.skeboss.boss;
 
 import com.skeboss.modelengine.ModelEngineBridge;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
+import com.skeboss.util.TextUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -35,12 +35,16 @@ public final class SkeBoss {
         this.entity = entity;
         this.model = model;
         this.config = config;
-        this.bossBar = org.bukkit.Bukkit.createBossBar(
-                com.skeboss.util.TextUtil.color(config.getDisplayName()),
-                BarColor.RED,
-                BarStyle.SEGMENTED_10
-        );
-        bossBar.setProgress(1.0);
+        if (config.isBossBarEnabled()) {
+            this.bossBar = Bukkit.createBossBar(
+                    TextUtil.color(config.getDisplayName()),
+                    config.getBossBarColor(),
+                    config.getBossBarStyle()
+            );
+            bossBar.setProgress(1.0);
+        } else {
+            this.bossBar = null;
+        }
     }
 
     public UUID getId() {
@@ -73,6 +77,10 @@ public final class SkeBoss {
 
     public BossBar getBossBar() {
         return bossBar;
+    }
+
+    public boolean hasBossBar() {
+        return bossBar != null;
     }
 
     public boolean isCastingSkill() {
@@ -159,19 +167,32 @@ public final class SkeBoss {
     }
 
     public void updateBossBar() {
-        double max = entity.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue();
+        if (bossBar == null) {
+            return;
+        }
+        var attr = entity.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH);
+        if (attr == null) {
+            return;
+        }
+        double max = attr.getValue();
         bossBar.setProgress(Math.max(0.0, Math.min(1.0, entity.getHealth() / max)));
     }
 
     public void addViewer(Player player) {
-        bossBar.addPlayer(player);
+        if (bossBar != null && player != null) {
+            bossBar.addPlayer(player);
+        }
     }
 
     public void removeViewer(Player player) {
-        bossBar.removePlayer(player);
+        if (bossBar != null && player != null) {
+            bossBar.removePlayer(player);
+        }
     }
 
     public void removeAllViewers() {
-        bossBar.removeAll();
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
     }
 }

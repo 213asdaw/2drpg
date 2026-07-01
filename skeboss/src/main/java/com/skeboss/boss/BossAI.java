@@ -25,6 +25,7 @@ public final class BossAI implements Runnable {
                 continue;
             }
 
+            manager.syncBossBarViewers(boss);
             boss.updateBossBar();
 
             if (config.isFireImmune()) {

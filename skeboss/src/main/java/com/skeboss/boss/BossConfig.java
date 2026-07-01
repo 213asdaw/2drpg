@@ -2,6 +2,8 @@ package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
 import org.bukkit.Material;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -42,6 +44,9 @@ public final class BossConfig {
     private final double fallbackAttackStat;
     private final float skillMaxPitch;
     private final boolean fireImmune;
+    private final boolean bossBarEnabled;
+    private final BarColor bossBarColor;
+    private final BarStyle bossBarStyle;
     private final Material handMaterial;
     private final String handDisplayName;
     private final List<SkillDefinition> skills;
@@ -93,6 +98,9 @@ public final class BossConfig {
         fallbackAttackStat = num(preset, root, "boss.rpg.fallback-attack-stat", 80.0);
         skillMaxPitch = (float) num(preset, root, "boss.skill-max-pitch", 75.0);
         fireImmune = bool(preset, root, "boss.fire-immune", true);
+        bossBarEnabled = bool(preset, root, "boss.boss-bar.enabled", true);
+        bossBarColor = parseBarColor(str(preset, root, "boss.boss-bar.color", "RED"));
+        bossBarStyle = parseBarStyle(str(preset, root, "boss.boss-bar.style", "SEGMENTED_10"));
 
         ConfigurationSection hand = section(preset, root, "hand-item");
         if (hand != null) {
@@ -136,6 +144,22 @@ public final class BossConfig {
             return preset.getBoolean(path, def);
         }
         return root.getBoolean(path, def);
+    }
+
+    private static BarColor parseBarColor(String raw) {
+        try {
+            return BarColor.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarColor.RED;
+        }
+    }
+
+    private static BarStyle parseBarStyle(String raw) {
+        try {
+            return BarStyle.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarStyle.SEGMENTED_10;
+        }
     }
 
     private List<SkillDefinition> loadSkills(ConfigurationSection section) {
@@ -376,6 +400,18 @@ public final class BossConfig {
 
     public boolean isFireImmune() {
         return fireImmune;
+    }
+
+    public boolean isBossBarEnabled() {
+        return bossBarEnabled;
+    }
+
+    public BarColor getBossBarColor() {
+        return bossBarColor;
+    }
+
+    public BarStyle getBossBarStyle() {
+        return bossBarStyle;
     }
 
     public Material getHandMaterial() {
