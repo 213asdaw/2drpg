@@ -1,0 +1,24 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/diamond_sword"
+    },
+    "cases": [
+      {
+        "when": "knightsword",
+        "model": { "type": "minecraft:model", "model": "minecraft:item/knightsword" }
+      },
+      {
+        "when": "firesword",
+        "model": { "type": "minecraft:model", "model": "minecraft:item/fire_sword" }
+      },
+      {
+        "when": "PileBunker",
+        "model": { "type": "minecraft:model", "model": "minecraft:item/pile_bunker" }
+      }
+    ]
+  }
+}
