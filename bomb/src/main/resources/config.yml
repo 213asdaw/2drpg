@@ -1,0 +1,26 @@
+# 폭탄마의 폭탄 (기존 점화기 대신)
+bomb-item:
+  material: BLAZE_ROD
+  custom-model-data: 1003
+  display-name: "&c&l폭탄마의 폭탄"
+  name-keywords:
+    - "폭탄마의 폭탄"
+    - "폭탄마"
+  lore:
+    - "&7우클릭으로 던짐"
+    - "&7폭발 데미지"
+  throw-speed: 1.2
+  consume: false
+  cooldown-seconds: 3
+  throw-message: "&c&l◆ 폭탄 &7던짐!"
+  # 쉬프트 우클릭 시 발사 안 함
+  block-sneak-throw: true
+
+projectile:
+  material: BLAZE_ROD
+  custom-model-data: 1003
+
+explosion:
+  power: 3.0
+  break-blocks: false
+  set-fire: false

@@ -1,0 +1,20 @@
+name: Bomb
+version: '${project.version}'
+main: com.bomb.BombPlugin
+api-version: '1.20'
+authors: [213asdaw]
+description: 폭탄마의 폭탄 — 우클릭으로 커스텀 블레이즈 막대 투척
+
+commands:
+  bomb:
+    description: 폭탄마의 폭탄 지급
+    usage: /bomb [give [플레이어] [개수]]
+    permission: bomb.give
+
+permissions:
+  bomb.give:
+    description: 폭탄 지급
+    default: op
+  bomb.use:
+    description: 폭탄 사용
+    default: true
