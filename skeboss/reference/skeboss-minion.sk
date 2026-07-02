@@ -1,0 +1,122 @@
+# ============================================================
+# SkeBoss 잡몹 Skript — EMP4348 스탯 + RPG 데미지
+# plugins/Skript/scripts/skeboss-minion.sk
+#
+# SkeBoss 플러그인 잡몹은 scoreboard tag "skeboss_minion" 사용
+# 스탯 조절: 아래 options 값 변경
+# ============================================================
+
+options:
+	minion-tag: EMP4348
+	mdef: 0
+	matk: 5
+	mexp: 15
+	mmelee: 4
+
+function initSkeMinionStats(mob: entity):
+	set {_u} to uuid of {_mob}
+	set {방어력::%{_u}%} to {@mdef}
+	set {공격력::%{_u}%} to {@matk}
+	set {방어력::%{_mob}%} to {@mdef}
+	set {공격력::%{_mob}%} to {@matk}
+	set {minion.init::%{_u}%} to true
+
+function clearSkeMinionStats(mob: entity):
+	set {_u} to uuid of {_mob}
+	delete {방어력::%{_mob}%}
+	delete {공격력::%{_mob}%}
+	delete {방어력::%{_u}%}
+	delete {공격력::%{_u}%}
+	delete {minion.init::%{_u}%}
+
+function getMinionDefense(e: entity) :: number:
+	if {방어력::%{_e}%} is set:
+		return {방어력::%{_e}%}
+	set {_u} to uuid of {_e}
+	if {방어력::%{_u}%} is set:
+		return {방어력::%{_u}%}
+	return 0
+
+function getMinionAttack(e: entity) :: number:
+	if {공격력::%{_e}%} is set:
+		return {공격력::%{_e}%}
+	set {_u} to uuid of {_e}
+	if {공격력::%{_u}%} is set:
+		return {공격력::%{_u}%}
+	return 0
+
+function isSkeMinion(e: entity) :: boolean:
+	if scoreboard tags of {_e} contains "skeboss_minion":
+		return true
+	if uncolored name of {_e} contains "{@minion-tag}":
+		return true
+	return false
+
+# ---------- 잡몹 스탯 ----------
+on spawn of zombie:
+	wait 5 ticks
+	if isSkeMinion(event-entity) is false:
+		stop
+	set {_u} to uuid of event-entity
+	if {minion.init::%{_u}%} is not set:
+		initSkeMinionStats(event-entity)
+
+every 15 seconds:
+	loop all zombies:
+		if isSkeMinion(loop-zombie) is false:
+			continue
+		set {_u} to uuid of loop-zombie
+		if {minion.init::%{_u}%} is not set:
+			initSkeMinionStats(loop-zombie)
+
+# ---------- RPG 데미지 (잡몹 공격·피격) ----------
+on damage:
+	if attacker is not set:
+		stop
+
+	set {_isMinion} to false
+	if attacker is a zombie:
+		if isSkeMinion(attacker) is true:
+			set {_isMinion} to true
+
+	if {_isMinion} is true:
+		set {공격::%attacker%} to damage
+		set {_atk} to getMinionAttack(attacker)
+		if damage <= {@mmelee}:
+			if {_atk} > 0:
+				add {_atk} to {공격::%attacker%}
+	else:
+		if victim is set:
+			if isSkeMinion(victim) is true:
+				set {공격::%attacker%} to damage
+				set {_atk} to getMinionAttack(attacker)
+				if {_atk} > 0:
+					add {_atk} to {공격::%attacker%}
+
+	if victim is set:
+		if isSkeMinion(victim) is true:
+			set {막는량::%victim%} to 0
+			set {_def} to getMinionDefense(victim)
+			if {_def} > 0:
+				set {막는량::%victim%} to {_def} / 4
+			if {막는량::%victim%} > 90:
+				set {막는량::%victim%} to 90
+			remove {공격::%attacker%} * {막는량::%victim%} / 100 from {공격::%attacker%}
+			if attacker is a player:
+				if scoreboard tags of attacker does not contain "using_skill":
+					if scoreboard tags of attacker does not contain "skeboss_using_skill":
+						set damage to {공격::%attacker%}
+			else:
+				set damage to {공격::%attacker%}
+
+on death of zombie:
+	if isSkeMinion(victim) is false:
+		stop
+	clearSkeMinionStats(victim)
+	wait 1 tick
+	set {_loc} to location of victim
+	drop 1 rotten flesh at {_loc}
+	if attacker is a player:
+		give {@mexp} xp to attacker
+	else:
+		drop {@mexp} experience at {_loc}

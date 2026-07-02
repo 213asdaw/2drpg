@@ -1,0 +1,5 @@
+name: bomb
+version: '${project.version}'
+main: org.example12.bomb.Bomb
+api-version: '1.21'
+load: POSTWORLD

@@ -1,0 +1,55 @@
+# ============================================================
+# SkeBoss — 불의 검사 Skript
+# plugins/Skript/scripts/skeboss-fire-swordsman.sk
+# ============================================================
+
+options:
+	boss-name: 불의 검사
+	bdef: 120
+	batk: 60
+	bexp: 400
+	bmelee: 12
+
+function initFireSwordsmanStats(boss: entity):
+	set {_u} to uuid of {_boss}
+	set {방어력::%{_u}%} to {@bdef}
+	set {공격력::%{_u}%} to {@batk}
+	set {방어력::%{_boss}%} to {@bdef}
+	set {공격력::%{_boss}%} to {@batk}
+	set {boss.init::%{_u}%} to true
+
+function clearFireSwordsmanStats(boss: entity):
+	set {_u} to uuid of {_boss}
+	delete {방어력::%{_boss}%}
+	delete {공격력::%{_boss}%}
+	delete {방어력::%{_u}%}
+	delete {공격력::%{_u}%}
+	delete {boss.init::%{_u}%}
+
+function isFireSwordsman(e: entity) :: boolean:
+	if scoreboard tags of {_e} contains "skeboss_preset:fire-swordsman":
+		return true
+	if uncolored name of {_e} contains "{@boss-name}":
+		return true
+	return false
+
+on spawn of zombie:
+	wait 5 ticks
+	if isFireSwordsman(event-entity) is false:
+		stop
+	set {_u} to uuid of event-entity
+	if {boss.init::%{_u}%} is not set:
+		initFireSwordsmanStats(event-entity)
+
+every 15 seconds:
+	loop all zombies:
+		if isFireSwordsman(loop-zombie) is false:
+			continue
+		set {_u} to uuid of loop-zombie
+		if {boss.init::%{_u}%} is not set:
+			initFireSwordsmanStats(loop-zombie)
+
+on death of zombie:
+	if isFireSwordsman(victim) is false:
+		stop
+	clearFireSwordsmanStats(victim)
