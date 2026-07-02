@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>bomb</name>
-    <description>폭탄마의 폭탄 — 블레이즈 막대 커스텀 투사체</description>
+    <description>폭탄마의 폭탄 — 원본 bomb 플러그인 (CMD 1003 투사체)</description>
 
     <properties>
         <java.version>17</java.version>
@@ -28,7 +28,7 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.20.4-R0.1-SNAPSHOT</version>
+            <version>1.21.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
