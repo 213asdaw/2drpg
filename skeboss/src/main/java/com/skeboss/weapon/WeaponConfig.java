@@ -1,6 +1,7 @@
 package com.skeboss.weapon;
 
 import com.skeboss.SkeBossPlugin;
+import com.skeboss.util.TextUtil;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -32,7 +33,7 @@ public final class WeaponConfig {
         targetBoss = root == null || root.getBoolean("target-boss", true);
         targetMobs = root == null || root.getBoolean("target-mobs", true);
         pluginRightClick = root == null || root.getBoolean("plugin-right-click", true);
-        requireNbt = root == null || root.getBoolean("require-nbt", true);
+        requireNbt = root == null || root.getBoolean("require-nbt", false);
         restoreAfterSkill = root == null || root.getBoolean("restore-after-skill", true);
         restoreNearBoss = root == null || root.getBoolean("restore-near-boss", true);
         restoreRadius = root == null ? 48.0 : root.getDouble("restore-radius", 48.0);
@@ -105,8 +106,24 @@ public final class WeaponConfig {
                 lore,
                 section.getString("skill", key.contains("chain") ? "chain" : "laser"),
                 sneakSkill,
-                section.getInt("cooldown-seconds", 8)
+                section.getInt("cooldown-seconds", 8),
+                loadNameKeywords(section)
         );
+    }
+
+    private List<String> loadNameKeywords(ConfigurationSection section) {
+        List<String> keywords = section.getStringList("name-keywords");
+        if (!keywords.isEmpty()) {
+            return keywords.stream()
+                    .map(TextUtil::stripColor)
+                    .filter(s -> !s.isBlank())
+                    .toList();
+        }
+        String display = TextUtil.stripColor(section.getString("display-name", ""));
+        if (display.isBlank()) {
+            return List.of();
+        }
+        return List.of(display);
     }
 
     private static WeaponDefinition defaultCombined() {
@@ -121,7 +138,8 @@ public final class WeaponConfig {
                 ),
                 "laser",
                 "chain",
-                8
+                8,
+                List.of("인조 무기", "인조무기")
         );
     }
 
@@ -133,7 +151,8 @@ public final class WeaponConfig {
                 List.of("&7인조인간의 레이저 기술", "&7우클릭: 레이저 발사"),
                 "laser",
                 null,
-                8
+                8,
+                List.of("인조 레이저", "인조레이저")
         );
     }
 
@@ -145,7 +164,8 @@ public final class WeaponConfig {
                 List.of("&7인조인간의 사슬 기술", "&7우클릭: 사슬 발사·끌어오기"),
                 "chain",
                 null,
-                10
+                10,
+                List.of("인조 사슬", "인조사슬")
         );
     }
 
