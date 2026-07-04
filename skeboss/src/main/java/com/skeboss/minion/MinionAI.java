@@ -18,34 +18,33 @@ public final class MinionAI implements Runnable {
 
     @Override
     public void run() {
-        MinionConfig config = manager.getConfig();
-
         for (SkeMinion minion : manager.getMinions()) {
             LivingEntity entity = minion.getEntity();
+            MinionPreset preset = minion.getPreset();
             if (!entity.isValid() || entity.isDead() || !minion.isReady()) {
                 continue;
             }
 
-            if (config.isFireImmune()) {
+            if (preset.isFireImmune()) {
                 entity.setFireTicks(0);
             }
 
             manager.syncBossBarViewers(minion);
             minion.updateBossBar();
 
-            if (config.isBacklineMode()) {
-                tickPassiveUntilHit(minion, config);
+            if (preset.isBacklineMode()) {
+                tickPassiveUntilHit(minion, preset);
             } else {
-                tickAggressive(minion, config);
+                tickAggressive(minion, preset);
             }
         }
     }
 
-    private void tickAggressive(SkeMinion minion, MinionConfig config) {
-        tickCombat(minion, config, minion.findNearestPlayer(config.getFollowRange()));
+    private void tickAggressive(SkeMinion minion, MinionPreset preset) {
+        tickCombat(minion, preset, minion.findNearestPlayer(preset.getFollowRange()));
     }
 
-    private void tickPassiveUntilHit(SkeMinion minion, MinionConfig config) {
+    private void tickPassiveUntilHit(SkeMinion minion, MinionPreset preset) {
         LivingEntity entity = minion.getEntity();
 
         if (!minion.isProvoked()) {
@@ -60,23 +59,23 @@ public final class MinionAI implements Runnable {
             mob.setAware(true);
         }
 
-        Player target = resolveProvokedTarget(minion, config);
-        tickCombat(minion, config, target);
+        Player target = resolveProvokedTarget(minion, preset);
+        tickCombat(minion, preset, target);
     }
 
-    private Player resolveProvokedTarget(SkeMinion minion, MinionConfig config) {
+    private Player resolveProvokedTarget(SkeMinion minion, MinionPreset preset) {
         Player attacker = minion.getProvokeTarget();
         if (attacker != null) {
-            double range = config.getFollowRange();
+            double range = preset.getFollowRange();
             if (attacker.getWorld().equals(minion.getEntity().getWorld())
                     && minion.getEntity().getLocation().distanceSquared(attacker.getLocation()) <= range * range) {
                 return attacker;
             }
         }
-        return minion.findNearestPlayer(config.getFollowRange());
+        return minion.findNearestPlayer(preset.getFollowRange());
     }
 
-    private void tickCombat(SkeMinion minion, MinionConfig config, Player target) {
+    private void tickCombat(SkeMinion minion, MinionPreset preset, Player target) {
         LivingEntity entity = minion.getEntity();
         if (target == null) {
             if (entity instanceof Mob mob) {
@@ -94,9 +93,9 @@ public final class MinionAI implements Runnable {
             mob.setTarget(target);
         }
 
-        if (distance <= config.getMeleeRange()) {
+        if (distance <= preset.getMeleeRange()) {
             manager.meleeAttack(minion, target);
-        } else if (distance <= config.getFollowRange()) {
+        } else if (distance <= preset.getFollowRange()) {
             manager.playWalk(minion);
         }
     }

@@ -43,7 +43,7 @@ public final class MinionSpawnerStorage {
             double y = config.getDouble(path + "y");
             double z = config.getDouble(path + "z");
             float yaw = (float) config.getDouble(path + "yaw", 0.0);
-            MinionSpawner spawner = new MinionSpawner(id, world, x, y, z, yaw);
+            MinionSpawner spawner = new MinionSpawner(id, config.getString(path + "preset"), world, x, y, z, yaw);
             String active = config.getString(path + "active-minion");
             if (active != null) {
                 try {
@@ -68,6 +68,9 @@ public final class MinionSpawnerStorage {
                 config.set(path + "y", loc.getY());
                 config.set(path + "z", loc.getZ());
                 config.set(path + "yaw", loc.getYaw());
+            }
+            if (spawner.getPresetId() != null) {
+                config.set(path + "preset", spawner.getPresetId());
             }
             if (spawner.getActiveMinionId() != null) {
                 config.set(path + "active-minion", spawner.getActiveMinionId().toString());

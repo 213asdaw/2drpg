@@ -9,6 +9,7 @@ import java.util.UUID;
 public final class MinionSpawner {
 
     private final String id;
+    private final String presetId;
     private final String worldName;
     private final double x;
     private final double y;
@@ -16,8 +17,9 @@ public final class MinionSpawner {
     private final float yaw;
     private UUID activeMinionId;
 
-    public MinionSpawner(String id, Location location) {
+    public MinionSpawner(String id, String presetId, Location location) {
         this.id = id;
+        this.presetId = presetId == null || presetId.isBlank() ? null : presetId;
         this.worldName = location.getWorld().getName();
         this.x = location.getX();
         this.y = location.getY();
@@ -25,8 +27,9 @@ public final class MinionSpawner {
         this.yaw = location.getYaw();
     }
 
-    public MinionSpawner(String id, String worldName, double x, double y, double z, float yaw) {
+    public MinionSpawner(String id, String presetId, String worldName, double x, double y, double z, float yaw) {
         this.id = id;
+        this.presetId = presetId == null || presetId.isBlank() ? null : presetId;
         this.worldName = worldName;
         this.x = x;
         this.y = y;
@@ -36,6 +39,10 @@ public final class MinionSpawner {
 
     public String getId() {
         return id;
+    }
+
+    public String getPresetId() {
+        return presetId;
     }
 
     public Location toLocation() {

@@ -16,6 +16,7 @@ public final class SkeMinion {
     private final UUID id;
     private final LivingEntity entity;
     private final String spawnerId;
+    private final MinionPreset preset;
     private final BossBar bossBar;
     private Location homeLocation;
     private ModelEngineBridge.BossModel model;
@@ -25,15 +26,16 @@ public final class SkeMinion {
     private UUID provokeTargetId;
     private long lastMeleeMs;
 
-    public SkeMinion(LivingEntity entity, String spawnerId, MinionConfig config) {
+    public SkeMinion(LivingEntity entity, String spawnerId, MinionPreset preset) {
         this.id = entity.getUniqueId();
         this.entity = entity;
         this.spawnerId = spawnerId;
-        if (config.isBossBarEnabled()) {
+        this.preset = preset;
+        if (preset.isBossBarEnabled()) {
             this.bossBar = Bukkit.createBossBar(
-                    TextUtil.color(config.getDisplayName()),
-                    config.getBossBarColor(),
-                    config.getBossBarStyle()
+                    TextUtil.color(preset.getDisplayName()),
+                    preset.getBossBarColor(),
+                    preset.getBossBarStyle()
             );
             bossBar.setProgress(1.0);
         } else {
@@ -51,6 +53,10 @@ public final class SkeMinion {
 
     public String getSpawnerId() {
         return spawnerId;
+    }
+
+    public MinionPreset getPreset() {
+        return preset;
     }
 
     public Location getHomeLocation() {

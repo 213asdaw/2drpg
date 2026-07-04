@@ -91,12 +91,31 @@ public final class MinionManager {
     }
 
     public MinionSpawner createSpawner(String id, Location location) {
+        return createSpawner(id, location, null);
+    }
+
+    public MinionSpawner createSpawner(String id, Location location, String presetId) {
         if (spawnerStorage.get(id) != null) {
             throw new IllegalStateException("이미 있는 스포너 ID: " + id);
         }
-        MinionSpawner spawner = spawnerStorage.put(new MinionSpawner(id, location));
+        String resolvedPreset = resolvePresetId(presetId);
+        MinionSpawner spawner = spawnerStorage.put(new MinionSpawner(id, resolvedPreset, location));
         spawnForSpawner(spawner);
         return spawner;
+    }
+
+    public SkeMinion spawnPresetAt(Location location, String presetId) {
+        return spawnAt(location, null, resolvePresetId(presetId));
+    }
+
+    private String resolvePresetId(String presetId) {
+        if (presetId == null || presetId.isBlank()) {
+            return config.getDefaultPresetId();
+        }
+        if (!config.hasPreset(presetId)) {
+            throw new IllegalStateException("잡몹 프리셋 없음: " + presetId);
+        }
+        return presetId;
     }
 
     public boolean removeSpawner(String id) {
@@ -125,13 +144,18 @@ public final class MinionManager {
         if (location == null) {
             throw new IllegalStateException("월드를 찾을 수 없습니다.");
         }
-        SkeMinion minion = spawnAt(location, spawner.getId());
+        SkeMinion minion = spawnAt(location, spawner.getId(), spawner.getPresetId());
         spawner.setActiveMinionId(minion.getId());
         spawnerStorage.save();
         return minion;
     }
 
     public SkeMinion spawnAt(Location location, String spawnerId) {
+        return spawnAt(location, spawnerId, config.getDefaultPresetId());
+    }
+
+    private SkeMinion spawnAt(Location location, String spawnerId, String presetId) {
+        MinionPreset preset = config.getPreset(presetId);
         Location spawnLoc = location.clone();
 
         Zombie zombie = location.getWorld().spawn(spawnLoc, Zombie.class, entity -> {
@@ -143,29 +167,29 @@ public final class MinionManager {
             entity.setFireTicks(0);
             entity.setInvisible(true);
             entity.setCustomNameVisible(true);
-            entity.setCustomName(TextUtil.color(config.getDisplayName()));
+            entity.setCustomName(TextUtil.color(preset.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));
             entity.addScoreboardTag(SCOREBOARD_TAG);
 
             Attribute maxHealth = Attribute.GENERIC_MAX_HEALTH;
             if (entity.getAttribute(maxHealth) != null) {
-                entity.getAttribute(maxHealth).setBaseValue(config.getMaxHealth());
+                entity.getAttribute(maxHealth).setBaseValue(preset.getMaxHealth());
             }
-            entity.setHealth(config.getMaxHealth());
+            entity.setHealth(preset.getMaxHealth());
 
             Attribute speed = Attribute.GENERIC_MOVEMENT_SPEED;
             if (entity.getAttribute(speed) != null) {
-                entity.getAttribute(speed).setBaseValue(config.getMovementSpeed());
+                entity.getAttribute(speed).setBaseValue(preset.getMovementSpeed());
             }
 
             Attribute follow = Attribute.GENERIC_FOLLOW_RANGE;
-            entity.setAware(!config.isBacklineMode());
+            entity.setAware(!preset.isBacklineMode());
             if (entity.getAttribute(follow) != null) {
-                entity.getAttribute(follow).setBaseValue(config.getFollowRange());
+                entity.getAttribute(follow).setBaseValue(preset.getFollowRange());
             }
         });
 
-        SkeMinion minion = new SkeMinion(zombie, spawnerId, config);
+        SkeMinion minion = new SkeMinion(zombie, spawnerId, preset);
         minion.setHomeLocation(spawnLoc);
         minions.put(zombie.getUniqueId(), minion);
 
@@ -180,13 +204,14 @@ public final class MinionManager {
 
     private void finishSpawn(SkeMinion minion) {
         LivingEntity entity = minion.getEntity();
+        MinionPreset preset = minion.getPreset();
         if (!entity.isValid() || entity.isDead()) {
             minions.remove(entity.getUniqueId());
             return;
         }
 
         String resolvedModelId = modelEngine.resolveAvailableModelId(
-                config.getModelId(), config.getModelFallbackIds());
+                preset.getModelId(), preset.getModelFallbackIds());
         if (resolvedModelId == null) {
             plugin.getLogger().warning("잡몹 blueprint 없음 — 좀비만 표시합니다. /skeboss minion check");
             registerBossBarViewers(minion);
@@ -197,10 +222,10 @@ public final class MinionManager {
         try {
             ModelEngineBridge.BossModel model = modelEngine.attachMinionModel(
                     entity,
-                    config.getModelId(),
-                    config.getModelFallbackIds(),
-                    config.getModelScale(),
-                    config.getHitboxScale()
+                    preset.getModelId(),
+                    preset.getModelFallbackIds(),
+                    preset.getModelScale(),
+                    preset.getHitboxScale()
             );
 
             int limbBones = modelEngine.countPlayerLimbs(model);
@@ -209,10 +234,10 @@ public final class MinionManager {
             }
 
             minion.setModel(model);
-            double syncRadius = config.getViewerSyncRadius();
-            modelEngine.applyPlayerSkin(model, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
+            double syncRadius = preset.getViewerSyncRadius();
+            applyMinionSkin(minion, model, entity, preset, syncRadius, appliedLimbs -> {
                 int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(model));
-                if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
+                if (appliedLimbs >= requiredLimbs && preset.isHideBaseEntity()) {
                     if (!entity.isValid() || entity.isDead()) {
                         return;
                     }
@@ -234,14 +259,37 @@ public final class MinionManager {
             });
             registerBossBarViewers(minion);
             minion.setReady(true);
-            plugin.getLogger().info("잡몹 스폰: " + config.getSkinUsername() + " (모델: " + resolvedModelId
+            plugin.getLogger().info("잡몹 스폰: " + preset.getId() + " (모델: " + resolvedModelId
                     + ") @ " + entity.getLocation());
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "잡몹 모델 적용 실패 — 좀비만 사용 (/meg reload, model-id: "
-                    + config.getModelId() + ")", ex);
+                    + preset.getModelId() + ")", ex);
             modelEngine.restoreBaseEntityVisibility(entity);
             registerBossBarViewers(minion);
             minion.setReady(true);
+        }
+    }
+
+    private void applyMinionSkin(SkeMinion minion, ModelEngineBridge.BossModel model, LivingEntity entity,
+                                 MinionPreset preset, double syncRadius,
+                                 java.util.function.IntConsumer onComplete) {
+        if (preset.hasSkinFile()) {
+            var textures = SkinTexturesUtil.loadTexturesProperty(plugin, preset.getSkinFile(), preset.skinProfileName());
+            if (textures.isPresent()) {
+                modelEngine.applyPlayerSkinTextures(model, entity, preset.skinProfileName(), textures.get(),
+                        syncRadius, onComplete);
+                return;
+            }
+            plugin.getLogger().warning("잡몹 스킨 파일 없음: " + preset.getSkinFile()
+                    + " — skin-username 폴백 시도");
+        }
+        if (preset.hasSkinUsername()) {
+            modelEngine.applyPlayerSkin(model, entity, preset.getSkinUsername(), syncRadius, onComplete);
+            return;
+        }
+        plugin.getLogger().warning("잡몹 프리셋 " + preset.getId() + " — skin-file / skin-username 없음");
+        if (onComplete != null) {
+            onComplete.accept(0);
         }
     }
 
@@ -249,7 +297,7 @@ public final class MinionManager {
         if (!minion.hasBossBar()) {
             return;
         }
-        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        double radiusSq = minion.getPreset().getViewerSyncRadius() * minion.getPreset().getViewerSyncRadius();
         LivingEntity entity = minion.getEntity();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.getWorld().equals(entity.getWorld())) {
@@ -263,7 +311,7 @@ public final class MinionManager {
 
     public void syncMinionViewers(SkeMinion minion, Player player) {
         if (minion.getModel() != null) {
-            modelEngine.syncNearbyPlayers(minion.getModel(), minion.getEntity(), config.getViewerSyncRadius());
+            modelEngine.syncNearbyPlayers(minion.getModel(), minion.getEntity(), minion.getPreset().getViewerSyncRadius());
         }
         minion.addViewer(player);
     }
@@ -272,7 +320,7 @@ public final class MinionManager {
         if (!minion.hasBossBar()) {
             return;
         }
-        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        double radiusSq = minion.getPreset().getViewerSyncRadius() * minion.getPreset().getViewerSyncRadius();
         LivingEntity entity = minion.getEntity();
         for (Player player : entity.getWorld().getPlayers()) {
             if (!player.isValid() || player.isDead()) {
@@ -287,33 +335,35 @@ public final class MinionManager {
     }
 
     public void playWalk(SkeMinion minion) {
-        if (minion.getModel() == null || config.getWalkAnimation() == null
-                || config.getWalkAnimation().equalsIgnoreCase("none")) {
+        MinionPreset preset = minion.getPreset();
+        if (minion.getModel() == null || preset.getWalkAnimation() == null
+                || preset.getWalkAnimation().equalsIgnoreCase("none")) {
             return;
         }
         if (minion.isAttacking()) {
             return;
         }
         try {
-            modelEngine.playLoopAnimation(minion.getModel(), config.getWalkAnimation(),
-                    config.getBlendIn(), config.getBlendOut());
+            modelEngine.playLoopAnimation(minion.getModel(), preset.getWalkAnimation(),
+                    preset.getBlendIn(), preset.getBlendOut());
         } catch (RuntimeException ignored) {
         }
     }
 
     public void playAttack(SkeMinion minion) {
-        String attack = config.getAttackAnimation();
+        MinionPreset preset = minion.getPreset();
+        String attack = preset.getAttackAnimation();
         if (minion.getModel() == null || attack == null || attack.equalsIgnoreCase("none")) {
             return;
         }
         try {
             minion.setAttacking(true);
-            String walk = config.getWalkAnimation();
+            String walk = preset.getWalkAnimation();
             if (walk != null && !walk.equalsIgnoreCase("none")) {
                 modelEngine.stopAnimation(minion.getModel(), walk);
             }
             modelEngine.playAnimation(minion.getModel(), attack,
-                    config.getBlendIn(), config.getBlendOut(), false);
+                    preset.getBlendIn(), preset.getBlendOut(), false);
             int ticks = modelEngine.estimateDurationTicks(minion.getModel(), attack, 10);
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 minion.setAttacking(false);
@@ -365,11 +415,12 @@ public final class MinionManager {
             return;
         }
         double dist = entity.getLocation().distance(home);
-        if (dist <= config.getHomeTolerance()) {
+        MinionPreset preset = minion.getPreset();
+        if (dist <= preset.getHomeTolerance()) {
             return;
         }
         if (entity instanceof Mob mob) {
-            mob.getPathfinder().moveTo(home, config.getMovementSpeed());
+            mob.getPathfinder().moveTo(home, preset.getMovementSpeed());
         }
         faceLocation(minion, home);
         playWalk(minion);
@@ -381,7 +432,7 @@ public final class MinionManager {
         }
         minion.markMelee();
         playAttack(minion);
-        target.damage(config.getMeleeDamage(), minion.getEntity());
+        target.damage(minion.getPreset().getMeleeDamage(), minion.getEntity());
     }
 
     public void onMinionDeath(SkeMinion minion) {

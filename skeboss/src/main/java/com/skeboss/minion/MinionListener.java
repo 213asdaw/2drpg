@@ -27,21 +27,24 @@ public final class MinionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCombust(EntityCombustEvent event) {
-        if (!minionManager.getConfig().isFireImmune()) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !minionManager.isMinion(living)) {
             return;
         }
-        if (event.getEntity() instanceof LivingEntity living && minionManager.isMinion(living)) {
-            event.setCancelled(true);
-            living.setFireTicks(0);
+        SkeMinion minion = minionManager.resolveMinion(living);
+        if (minion == null || !minion.getPreset().isFireImmune()) {
+            return;
         }
+        event.setCancelled(true);
+        living.setFireTicks(0);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFireDamage(EntityDamageEvent event) {
-        if (!minionManager.getConfig().isFireImmune()) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !minionManager.isMinion(living)) {
             return;
         }
-        if (!(event.getEntity() instanceof LivingEntity living) || !minionManager.isMinion(living)) {
+        SkeMinion minion = minionManager.resolveMinion(living);
+        if (minion == null || !minion.getPreset().isFireImmune()) {
             return;
         }
         EntityDamageEvent.DamageCause cause = event.getCause();
@@ -59,15 +62,14 @@ public final class MinionListener implements Listener {
         if (!(event.getEntity() instanceof LivingEntity victim) || !minionManager.isMinion(victim)) {
             return;
         }
-        if (!minionManager.getConfig().isBacklineMode()) {
-            return;
-        }
-
         SkeMinion minion = minionManager.resolveMinion(victim);
         if (minion == null) {
             minion = minionManager.getMinion(victim.getUniqueId());
         }
         if (minion == null) {
+            return;
+        }
+        if (!minion.getPreset().isBacklineMode()) {
             return;
         }
 
@@ -101,11 +103,9 @@ public final class MinionListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        MinionConfig config = minionManager.getConfig();
-        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
-
         for (SkeMinion minion : minionManager.getMinions()) {
             LivingEntity entity = minion.getEntity();
+            double radiusSq = minion.getPreset().getViewerSyncRadius() * minion.getPreset().getViewerSyncRadius();
             ModelEngineBridge.BossModel model = minion.getModel();
             if (!entity.getWorld().equals(player.getWorld())) {
                 continue;
@@ -127,9 +127,6 @@ public final class MinionListener implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        MinionConfig config = minionManager.getConfig();
-        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
-
         for (MinionSpawner spawner : minionManager.getSpawnerStorage().all()) {
             Location spawnerLoc = spawner.toLocation();
             if (spawnerLoc == null || !spawnerLoc.getWorld().equals(event.getWorld())) {
@@ -142,6 +139,7 @@ public final class MinionListener implements Listener {
 
         for (SkeMinion minion : minionManager.getMinions()) {
             LivingEntity entity = minion.getEntity();
+            double radiusSq = minion.getPreset().getViewerSyncRadius() * minion.getPreset().getViewerSyncRadius();
             if (!entity.getWorld().equals(event.getWorld())) {
                 continue;
             }
@@ -154,7 +152,7 @@ public final class MinionListener implements Listener {
             }
             for (Player player : event.getWorld().getPlayers()) {
                 if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
-                    minionManager.getModelEngine().syncNearbyPlayers(model, entity, config.getViewerSyncRadius());
+                    minionManager.getModelEngine().syncNearbyPlayers(model, entity, minion.getPreset().getViewerSyncRadius());
                 }
             }
         }

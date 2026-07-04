@@ -1,5 +1,6 @@
 package com.skeboss.modelengine;
 
+import com.skeboss.minion.SkinTexturesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
@@ -383,6 +384,20 @@ public final class ModelEngineBridge {
         }
         plugin.getLogger().info("잡몹 스킨 조회 시작: " + username);
         applyPlayerSkinWithCacheWait(model, entity, username, syncRadius, onComplete);
+    }
+
+    /** PNG 등에서 만든 base64 textures 프로퍼티 직접 적용 */
+    public void applyPlayerSkinTextures(BossModel model, Entity entity, String profileName, String textures,
+                                        double syncRadius, IntConsumer onComplete) {
+        if (model == null || textures == null || textures.isBlank()) {
+            if (onComplete != null) {
+                onComplete.accept(0);
+            }
+            return;
+        }
+        UUID uuid = SkinTexturesUtil.profileUuidFor(profileName);
+        plugin.getLogger().info("잡몹 PNG 스킨 적용: " + profileName);
+        applyPlayerSkinOnMainThread(model, entity, profileName, syncRadius, uuid, textures, onComplete);
     }
 
     private void applyPlayerSkinWithCacheWait(BossModel model, Entity entity, String username, double syncRadius,

@@ -30,6 +30,10 @@ public final class SkeBossPlugin extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
         mergeDefaultConfig();
+        if (!getDataFolder().exists()) {
+            getDataFolder().mkdirs();
+        }
+        new java.io.File(getDataFolder(), "skins").mkdirs();
 
         if (!getServer().getPluginManager().isPluginEnabled("ModelEngine")) {
             getLogger().severe("ModelEngine이 없습니다. plugins/ModelEngine.jar 를 넣고 재시작하세요.");
@@ -57,7 +61,8 @@ public final class SkeBossPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
 
-        modelEngine.preloadPlayerSkin(getConfig().getString("minion.skin-username", "EMP4348"));
+        modelEngine.preloadPlayerSkin(getConfig().getString("minion.presets.emp4348.skin-username",
+                getConfig().getString("minion.skin-username", "EMP4348")));
         minionManager.startupSpawners();
 
         SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager);
@@ -76,7 +81,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (minion-v14) — /skeboss help | /skeweapon | /skeboss minion spawner");
+        getLogger().info("SkeBoss 활성화 (minion-v15) — 잡몹 프리셋 + PNG 스킨");
     }
 
     public void mergeAndReloadConfig() {
