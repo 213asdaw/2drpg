@@ -343,9 +343,6 @@ public final class CutsceneManager {
             if (!fire.enable()) {
                 burningActors.clear();
                 stopFireParticles();
-                for (CutsceneActor actor : actors.values()) {
-                    actor.getEntity().setFireTicks(0);
-                }
                 return;
             }
             for (String actorId : fire.actors()) {
@@ -358,7 +355,8 @@ public final class CutsceneManager {
             for (String actorId : burningActors) {
                 CutsceneActor actor = actors.get(actorId);
                 if (actor != null && actor.isValid()) {
-                    actor.getEntity().setFireTicks(Integer.MAX_VALUE);
+                    actor.getEntity().setFireTicks(0);
+                    actor.getEntity().setVisualFire(false);
                 }
             }
             ensureFireParticles();
@@ -478,6 +476,8 @@ public final class CutsceneManager {
                 entity.setCanPickupItems(false);
                 entity.setRemoveWhenFarAway(false);
                 entity.setShouldBurnInDay(false);
+                entity.setFireTicks(0);
+                entity.setVisualFire(false);
                 entity.setAI(false);
                 entity.setInvisible(true);
                 entity.setCustomNameVisible(false);
@@ -491,16 +491,29 @@ public final class CutsceneManager {
 
             String modelId = spawn.model() != null ? spawn.model() : minionManager.getConfig().getModelId();
             List<String> fallbacks = minionManager.getConfig().getModelFallbackIds();
-            ModelEngineBridge.BossModel model = modelEngine.attachMinionModel(
-                    zombie, modelId, fallbacks, 1.0, 1.0);
+            String resolvedId = modelEngine.resolveAvailableModelId(modelId, fallbacks);
+            if (resolvedId == null) {
+                plugin.getLogger().warning("컷신 blueprint 없음 — /skeboss minion install-model 후 /meg reload");
+                viewer.sendMessage(TextUtil.color("&c[연출] player_model 없음 — &f/skeboss minion install-model &c→ &f/meg reload"));
+                zombie.remove();
+                onComplete.accept(0);
+                return;
+            }
+
+            ModelEngineBridge.BossModel model;
+            try {
+                model = modelEngine.attachMinionModel(zombie, modelId, fallbacks, 1.0, 1.0);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().log(Level.WARNING, "컷신 모델 부착 실패: " + spawn.actorId(), ex);
+                viewer.sendMessage(TextUtil.color("&c[연출] 모델 적용 실패 — ModelEngine·blueprint 확인"));
+                zombie.remove();
+                onComplete.accept(0);
+                return;
+            }
             CutsceneActor actor = new CutsceneActor(spawn.actorId(), zombie, model);
             actors.put(spawn.actorId(), actor);
 
-            Runnable finish = () -> {
-                modelEngine.setBaseEntityVisible(model, zombie, true, 48.0);
-                zombie.setInvisible(false);
-                onComplete.accept(1);
-            };
+            Runnable finish = () -> finalizeActorModel(model, zombie, onComplete);
 
             if (spawn.preset() != null && !spawn.preset().isBlank()) {
                 applyPresetSkin(spawn.preset(), model, zombie, finish);
@@ -509,6 +522,20 @@ public final class CutsceneManager {
             } else {
                 finish.run();
             }
+        }
+
+        private void finalizeActorModel(ModelEngineBridge.BossModel model, Zombie zombie, IntConsumer onComplete) {
+            if (!zombie.isValid() || zombie.isDead()) {
+                onComplete.accept(0);
+                return;
+            }
+            double syncRadius = 48.0;
+            modelEngine.setBaseEntityVisible(model, zombie, false, syncRadius);
+            modelEngine.forceResyncNearbyPlayers(model, zombie, syncRadius);
+            zombie.setInvisible(false);
+            zombie.setFireTicks(0);
+            zombie.setVisualFire(false);
+            onComplete.accept(1);
         }
 
         private void applyPresetSkin(String presetId, ModelEngineBridge.BossModel model, Zombie zombie, Runnable finish) {
