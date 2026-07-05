@@ -26,21 +26,24 @@ public final class BossListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCombust(EntityCombustEvent event) {
-        if (!bossManager.getConfig().isFireImmune()) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
             return;
         }
-        if (event.getEntity() instanceof LivingEntity living && bossManager.isBoss(living)) {
-            event.setCancelled(true);
-            living.setFireTicks(0);
+        SkeBoss boss = bossManager.getBoss(living.getUniqueId());
+        if (boss == null || !boss.getConfig().isFireImmune()) {
+            return;
         }
+        event.setCancelled(true);
+        living.setFireTicks(0);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFireDamage(EntityDamageEvent event) {
-        if (!bossManager.getConfig().isFireImmune()) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
             return;
         }
-        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
+        SkeBoss boss = bossManager.getBoss(living.getUniqueId());
+        if (boss == null || !boss.getConfig().isFireImmune()) {
             return;
         }
         EntityDamageEvent.DamageCause cause = event.getCause();
@@ -78,6 +81,17 @@ public final class BossListener implements Listener {
             return shooter;
         }
         return null;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBossDamageMonitor(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity living) || !bossManager.isBoss(living)) {
+            return;
+        }
+        SkeBoss boss = bossManager.getBoss(living.getUniqueId());
+        if (boss != null) {
+            boss.updateBossBar();
+        }
     }
 
     @EventHandler

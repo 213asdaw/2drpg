@@ -24,6 +24,8 @@ public final class WeaponConfig {
     private final double restoreRadius;
     private final double beamAttackMultiplier;
     private final double beamBaseDamage;
+    private final String laserActionBarMessage;
+    private final String chainActionBarMessage;
     private final List<String> restoreKeywords;
     private final Map<String, WeaponDefinition> weapons;
 
@@ -39,6 +41,12 @@ public final class WeaponConfig {
         restoreRadius = root == null ? 48.0 : root.getDouble("restore-radius", 48.0);
         beamAttackMultiplier = root == null ? 2.0 : root.getDouble("beam-attack-multiplier", 2.0);
         beamBaseDamage = root == null ? 3.0 : root.getDouble("beam-base-damage", 3.0);
+        laserActionBarMessage = root == null
+                ? "&b&l◆ 레이저 &7발사"
+                : root.getString("action-bar-messages.laser", "&b&l◆ 레이저 &7발사");
+        chainActionBarMessage = root == null
+                ? "&6&l◆ 사슬 &7발사"
+                : root.getString("action-bar-messages.chain", "&6&l◆ 사슬 &7발사");
         restoreKeywords = loadRestoreKeywords(root);
         weapons = loadWeapons(root);
     }
@@ -68,7 +76,8 @@ public final class WeaponConfig {
                     || key.equals("plugin-right-click") || key.equals("require-nbt")
                     || key.equals("restore-after-skill") || key.equals("restore-keywords")
                     || key.equals("restore-near-boss") || key.equals("restore-radius")
-                    || key.equals("beam-attack-multiplier") || key.equals("beam-base-damage")) {
+                    || key.equals("beam-attack-multiplier") || key.equals("beam-base-damage")
+                    || key.equals("action-bar-messages")) {
                 continue;
             }
             ConfigurationSection section = root.getConfigurationSection(key);
@@ -130,16 +139,16 @@ public final class WeaponConfig {
         return new WeaponDefinition(
                 "artificial-arm",
                 Material.BLAZE_ROD,
-                "&c&l인조 무기",
+                "&6&l인조인간의 코어",
                 List.of(
-                        "&7인조인간의 전투 장비",
+                        "&7인조인간의 핵심 동력원",
                         "&e우클릭 &7- 레이저",
                         "&e웅크린 채 우클릭 &7- 사슬"
                 ),
                 "laser",
                 "chain",
                 8,
-                List.of("인조 무기", "인조무기")
+                List.of("인조인간의 코어", "인조인간코어")
         );
     }
 
@@ -201,6 +210,14 @@ public final class WeaponConfig {
         return beamBaseDamage;
     }
 
+    public String getLaserActionBarMessage() {
+        return laserActionBarMessage;
+    }
+
+    public String getChainActionBarMessage() {
+        return chainActionBarMessage;
+    }
+
     public List<String> getRestoreKeywords() {
         return restoreKeywords;
     }
@@ -236,7 +253,7 @@ public final class WeaponConfig {
     private WeaponDefinition resolveAlias(String id) {
         String key = id.toLowerCase(Locale.ROOT).replace('_', '-');
         return switch (key) {
-            case "arm", "weapon", "무기", "인조무기", "인조-무기" -> findByKey("artificial-arm");
+            case "arm", "weapon", "무기", "코어", "인조인간의-코어", "인조인간코어" -> findByKey("artificial-arm");
             case "laser", "레이저" -> findByKey("laser-rifle");
             case "chain", "사슬" -> findByKey("chain-hook");
             default -> null;

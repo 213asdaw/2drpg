@@ -18,14 +18,14 @@ public final class BossAI implements Runnable {
 
     @Override
     public void run() {
-        BossConfig config = manager.getConfig();
-
         for (SkeBoss boss : manager.getBosses()) {
             LivingEntity entity = boss.getEntity();
+            BossConfig config = boss.getConfig();
             if (!entity.isValid() || entity.isDead() || !boss.isReady()) {
                 continue;
             }
 
+            manager.syncBossBarViewers(boss);
             boss.updateBossBar();
 
             if (config.isFireImmune()) {
@@ -56,9 +56,8 @@ public final class BossAI implements Runnable {
             }
 
             SkillDefinition readySkill = pickSkill(boss, distance);
-            if (readySkill != null) {
-                Player skillTarget = manager.resolveSkillTarget(boss, readySkill.range());
-                if (skillTarget != null && manager.castSkill(boss, readySkill)) {
+            if (readySkill != null && canCastSkill(boss, readySkill)) {
+                if (manager.castSkill(boss, readySkill)) {
                     continue;
                 }
             }
@@ -71,11 +70,23 @@ public final class BossAI implements Runnable {
         }
     }
 
+    private boolean canCastSkill(SkeBoss boss, SkillDefinition skill) {
+        Player skillTarget = manager.resolveSkillTarget(boss, skill.range());
+        if (skillTarget != null) {
+            return true;
+        }
+        if (!skill.isUntitledSkill()) {
+            return false;
+        }
+        String untitled = skill.untitledSkill().toLowerCase();
+        return untitled.contains("shield") || untitled.contains("방패");
+    }
+
     private SkillDefinition pickSkill(SkeBoss boss, double distance) {
         SkillDefinition best = null;
         int bestPriority = Integer.MIN_VALUE;
 
-        for (SkillDefinition skill : manager.getConfig().getSkills()) {
+        for (SkillDefinition skill : boss.getConfig().getSkills()) {
             if (!boss.isSkillReady(skill)) {
                 continue;
             }

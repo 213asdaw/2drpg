@@ -1,6 +1,9 @@
 package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
+import org.bukkit.Material;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -10,7 +13,10 @@ import java.util.List;
 
 public final class BossConfig {
 
+    private final String presetId;
     private final String modelId;
+    private final List<String> modelFallbackIds;
+    private final String skinUsername;
     private final String idleAnimation;
     private final String walkAnimation;
     private final float yawOffset;
@@ -38,41 +44,122 @@ public final class BossConfig {
     private final double fallbackAttackStat;
     private final float skillMaxPitch;
     private final boolean fireImmune;
+    private final boolean bossBarEnabled;
+    private final BarColor bossBarColor;
+    private final BarStyle bossBarStyle;
+    private final Material handMaterial;
+    private final String handDisplayName;
     private final List<SkillDefinition> skills;
 
     public BossConfig(SkeBossPlugin plugin) {
-        FileConfiguration config = plugin.getConfig();
-        modelId = config.getString("model-id", "ske");
-        idleAnimation = config.getString("animations.idle", "none");
-        walkAnimation = config.getString("animations.walk", "walk");
-        yawOffset = (float) config.getDouble("yaw-offset", 180.0);
-        faceYawOffset = (float) config.getDouble("face-yaw-offset", 180.0);
-        skillFaceYawOffset = (float) config.getDouble("skill-face-yaw-offset", 0.0);
-        blendIn = config.getDouble("blend-in", 0.15);
-        blendOut = config.getDouble("blend-out", 0.25);
+        this(plugin, "default");
+    }
 
-        maxHealth = config.getDouble("boss.max-health", 500.0);
-        displayName = config.getString("boss.display-name", "&c&l인조인간");
-        followRange = config.getDouble("boss.follow-range", 32.0);
-        meleeRange = config.getDouble("boss.melee-range", 3.5);
-        meleeDamage = config.getDouble("boss.melee-damage", 8.0);
-        movementSpeed = config.getDouble("boss.movement-speed", 0.38);
-        aiIntervalTicks = config.getInt("boss.ai-interval-ticks", 5);
-        spawnDelayTicks = config.getInt("boss.spawn-delay-ticks", 2);
-        hideBaseEntity = config.getBoolean("boss.hide-base-entity", true);
-        viewerSyncRadius = config.getDouble("boss.viewer-sync-radius", 64.0);
-        modelScale = config.getDouble("boss.model-scale", 2.0);
-        hitboxScale = config.getDouble("boss.hitbox-scale", 2.0);
-        targetMode = config.getString("boss.target-mode", "aggro");
-        skillTargetMode = config.getString("boss.skill-target-mode", "aggro");
-        aggroDropSeconds = config.getLong("boss.aggro-drop-seconds", 30L);
-        skriptAttackVariable = config.getString("boss.rpg.skript-attack-variable", "공격력");
-        beamAttackMultiplier = config.getDouble("boss.rpg.beam-attack-multiplier", 2.0);
-        fallbackAttackStat = config.getDouble("boss.rpg.fallback-attack-stat", 80.0);
-        skillMaxPitch = (float) config.getDouble("boss.skill-max-pitch", 75.0);
-        fireImmune = config.getBoolean("boss.fire-immune", true);
+    public BossConfig(SkeBossPlugin plugin, String presetId) {
+        FileConfiguration root = plugin.getConfig();
+        this.presetId = presetId;
+        ConfigurationSection preset = "default".equals(presetId)
+                ? root.getConfigurationSection("boss-presets.default")
+                : root.getConfigurationSection("boss-presets." + presetId);
 
-        skills = loadSkills(config.getConfigurationSection("skills"));
+        modelId = str(preset, root, "model-id", "ske");
+        modelFallbackIds = readModelFallbackIds(preset, root);
+        String skin = preset != null && preset.contains("skin-username")
+                ? preset.getString("skin-username")
+                : (preset != null && preset.contains("skin.username")
+                ? preset.getString("skin.username")
+                : root.getString("skin-username"));
+        skinUsername = skin != null && !skin.isBlank() ? skin : null;
+        idleAnimation = str(preset, root, "animations.idle", "none");
+        walkAnimation = str(preset, root, "animations.walk", "walk");
+        yawOffset = (float) num(preset, root, "yaw-offset", 180.0);
+        faceYawOffset = (float) num(preset, root, "face-yaw-offset", 180.0);
+        skillFaceYawOffset = (float) num(preset, root, "skill-face-yaw-offset", 0.0);
+        blendIn = num(preset, root, "blend-in", 0.15);
+        blendOut = num(preset, root, "blend-out", 0.25);
+
+        maxHealth = num(preset, root, "boss.max-health", 500.0);
+        displayName = str(preset, root, "boss.display-name", "&c&l보스");
+        followRange = num(preset, root, "boss.follow-range", 32.0);
+        meleeRange = num(preset, root, "boss.melee-range", 3.5);
+        meleeDamage = num(preset, root, "boss.melee-damage", 8.0);
+        movementSpeed = num(preset, root, "boss.movement-speed", 0.38);
+        aiIntervalTicks = (int) num(preset, root, "boss.ai-interval-ticks", 5);
+        spawnDelayTicks = (int) num(preset, root, "boss.spawn-delay-ticks", 2);
+        hideBaseEntity = bool(preset, root, "boss.hide-base-entity", true);
+        viewerSyncRadius = num(preset, root, "boss.viewer-sync-radius", 64.0);
+        modelScale = num(preset, root, "boss.model-scale", 2.0);
+        hitboxScale = num(preset, root, "boss.hitbox-scale", 2.0);
+        targetMode = str(preset, root, "boss.target-mode", "aggro");
+        skillTargetMode = str(preset, root, "boss.skill-target-mode", "aggro");
+        aggroDropSeconds = (long) num(preset, root, "boss.aggro-drop-seconds", 30L);
+        skriptAttackVariable = str(preset, root, "boss.rpg.skript-attack-variable", "공격력");
+        beamAttackMultiplier = num(preset, root, "boss.rpg.beam-attack-multiplier", 2.0);
+        fallbackAttackStat = num(preset, root, "boss.rpg.fallback-attack-stat", 80.0);
+        skillMaxPitch = (float) num(preset, root, "boss.skill-max-pitch", 75.0);
+        fireImmune = bool(preset, root, "boss.fire-immune", true);
+        bossBarEnabled = bool(preset, root, "boss.boss-bar.enabled", true);
+        bossBarColor = parseBarColor(str(preset, root, "boss.boss-bar.color", "RED"));
+        bossBarStyle = parseBarStyle(str(preset, root, "boss.boss-bar.style", "SEGMENTED_10"));
+
+        ConfigurationSection hand = section(preset, root, "hand-item");
+        if (hand != null) {
+            Material material = Material.matchMaterial(hand.getString("material", "DIAMOND_SWORD"));
+            handMaterial = material != null ? material : Material.DIAMOND_SWORD;
+            handDisplayName = hand.getString("display-name");
+        } else {
+            handMaterial = null;
+            handDisplayName = null;
+        }
+
+        ConfigurationSection skillsSection = preset != null && preset.isConfigurationSection("skills")
+                ? preset.getConfigurationSection("skills")
+                : root.getConfigurationSection("skills");
+        skills = loadSkills(skillsSection);
+    }
+
+    private static ConfigurationSection section(ConfigurationSection preset, FileConfiguration root, String path) {
+        if (preset != null && preset.isConfigurationSection(path)) {
+            return preset.getConfigurationSection(path);
+        }
+        return root.getConfigurationSection(path);
+    }
+
+    private static String str(ConfigurationSection preset, FileConfiguration root, String path, String def) {
+        if (preset != null && preset.contains(path)) {
+            return preset.getString(path, def);
+        }
+        return root.getString(path, def);
+    }
+
+    private static double num(ConfigurationSection preset, FileConfiguration root, String path, double def) {
+        if (preset != null && preset.contains(path)) {
+            return preset.getDouble(path, def);
+        }
+        return root.getDouble(path, def);
+    }
+
+    private static boolean bool(ConfigurationSection preset, FileConfiguration root, String path, boolean def) {
+        if (preset != null && preset.contains(path)) {
+            return preset.getBoolean(path, def);
+        }
+        return root.getBoolean(path, def);
+    }
+
+    private static BarColor parseBarColor(String raw) {
+        try {
+            return BarColor.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarColor.RED;
+        }
+    }
+
+    private static BarStyle parseBarStyle(String raw) {
+        try {
+            return BarStyle.valueOf(raw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return BarStyle.SEGMENTED_10;
+        }
     }
 
     private List<SkillDefinition> loadSkills(ConfigurationSection section) {
@@ -142,6 +229,11 @@ public final class BossConfig {
             }
         }
 
+        String untitled = skill.getString("untitled");
+        if (untitled != null && untitled.isBlank()) {
+            untitled = null;
+        }
+
         return new SkillDefinition(
                 key,
                 skill.getString("animation", key),
@@ -154,15 +246,48 @@ public final class BossConfig {
                 skill.getDouble("knockback", 0.5),
                 skill.getDouble("aoe-radius", 0.0),
                 beam,
-                chain
+                chain,
+                untitled
         );
     }
 
     private static SkillDefinition defaultLaserSkill() {
         return new SkillDefinition(
                 "laser", "attack_laser", 10, 50, 18.0, 20.0, 6.0, 10, 0.6, 0.0,
-                BeamSettings.defaults(), null
+                BeamSettings.defaults(), null, null
         );
+    }
+
+    private static List<String> readModelFallbackIds(ConfigurationSection preset, FileConfiguration root) {
+        List<String> ids = new ArrayList<>();
+        if (preset != null && preset.isList("model-fallback-ids")) {
+            ids.addAll(preset.getStringList("model-fallback-ids"));
+        } else if (root.isList("model-fallback-ids")) {
+            ids.addAll(root.getStringList("model-fallback-ids"));
+        }
+        if (ids.isEmpty()) {
+            ids.add("player_model");
+            ids.add("skin_2");
+            ids.add("skin");
+            ids.add("player");
+        }
+        return List.copyOf(ids);
+    }
+
+    public boolean usesPlayerSkin() {
+        return skinUsername != null;
+    }
+
+    public String getSkinUsername() {
+        return skinUsername;
+    }
+
+    public List<String> getModelFallbackIds() {
+        return modelFallbackIds;
+    }
+
+    public String getPresetId() {
+        return presetId;
     }
 
     public String getModelId() {
@@ -275,6 +400,30 @@ public final class BossConfig {
 
     public boolean isFireImmune() {
         return fireImmune;
+    }
+
+    public boolean isBossBarEnabled() {
+        return bossBarEnabled;
+    }
+
+    public BarColor getBossBarColor() {
+        return bossBarColor;
+    }
+
+    public BarStyle getBossBarStyle() {
+        return bossBarStyle;
+    }
+
+    public Material getHandMaterial() {
+        return handMaterial;
+    }
+
+    public String getHandDisplayName() {
+        return handDisplayName;
+    }
+
+    public boolean hasHandItem() {
+        return handMaterial != null;
     }
 
     public List<SkillDefinition> getSkills() {

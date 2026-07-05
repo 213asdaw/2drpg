@@ -4,10 +4,11 @@ import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.skill.ChainPullSkill;
 import com.skeboss.skill.LaserBeamSkill;
+import com.skeboss.skill.UntitledSlashSkills;
 import com.skeboss.skript.SkriptBridge;
 import com.skeboss.util.TextUtil;
-import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.LivingEntity;
@@ -32,17 +33,28 @@ public final class BossManager {
     private final SkeBossPlugin plugin;
     private final ModelEngineBridge modelEngine;
     private final SkriptBridge skriptBridge;
-    private final BossConfig config;
+    private BossPresetRegistry presetRegistry;
+    private BossConfig defaultConfig;
     private final Map<UUID, SkeBoss> bosses = new ConcurrentHashMap<>();
 
     public BossManager(SkeBossPlugin plugin, ModelEngineBridge modelEngine, SkriptBridge skriptBridge) {
         this.plugin = plugin;
         this.modelEngine = modelEngine;
         this.skriptBridge = skriptBridge;
-        this.config = new BossConfig(plugin);
+        reload();
+    }
+
+    public void reload() {
+        presetRegistry = new BossPresetRegistry(plugin);
+        defaultConfig = presetRegistry.loadDefault(plugin);
     }
 
     public SkeBoss spawn(Location location) {
+        return spawn(presetRegistry.getDefaultPresetId(), location);
+    }
+
+    public SkeBoss spawn(String presetId, Location location) {
+        BossConfig config = presetRegistry.load(plugin, presetId);
         Location spawnLoc = location.clone();
         spawnLoc.setYaw(spawnLoc.getYaw() + config.getYawOffset());
 
@@ -53,9 +65,11 @@ public final class BossManager {
             entity.setRemoveWhenFarAway(false);
             entity.setShouldBurnInDay(false);
             entity.setFireTicks(0);
+            entity.setInvisible(config.isHideBaseEntity());
             entity.setCustomNameVisible(true);
             entity.setCustomName(TextUtil.color(config.getDisplayName()));
             entity.setMetadata(METADATA_KEY, new FixedMetadataValue(plugin, true));
+            entity.addScoreboardTag("skeboss_preset:" + config.getPresetId());
 
             Attribute maxHealth = Attribute.GENERIC_MAX_HEALTH;
             if (entity.getAttribute(maxHealth) != null) {
@@ -83,7 +97,169 @@ public final class BossManager {
     }
 
     private void finishSpawn(SkeBoss boss) {
+        if (boss.getConfig().usesPlayerSkin()) {
+            finishSpawnWithPlayerSkin(boss);
+        } else {
+            finishSpawnWithModel(boss);
+        }
+    }
+
+    private void finishSpawnWithPlayerSkin(SkeBoss boss) {
         LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
+        if (!entity.isValid() || entity.isDead()) {
+            bosses.remove(entity.getUniqueId());
+            return;
+        }
+
+        String resolvedModelId = modelEngine.resolveAvailableModelId(
+                config.getModelId(), config.getModelFallbackIds());
+        if (resolvedModelId == null) {
+            plugin.getLogger().warning("보스 PlayerLimb blueprint 없음 — /skeboss minion install-model 후 /meg reload");
+            registerBossBarViewers(boss);
+            boss.setReady(true);
+            return;
+        }
+
+        try {
+            ModelEngineBridge.BossModel bossModel = modelEngine.attachMinionModel(
+                    entity,
+                    config.getModelId(),
+                    config.getModelFallbackIds(),
+                    config.getModelScale(),
+                    config.getHitboxScale()
+            );
+            boss.setModel(bossModel);
+            playAnimation(boss, config.getWalkAnimation());
+
+            double syncRadius = config.getViewerSyncRadius();
+            modelEngine.applyPlayerSkin(bossModel, entity, config.getSkinUsername(), syncRadius, appliedLimbs -> {
+                int requiredLimbs = Math.max(1, modelEngine.countPlayerLimbs(bossModel));
+                if (appliedLimbs >= requiredLimbs && config.isHideBaseEntity()) {
+                    if (!entity.isValid() || entity.isDead()) {
+                        return;
+                    }
+                    modelEngine.setBaseEntityVisible(bossModel, entity, false, syncRadius);
+                    modelEngine.forceResyncNearbyPlayers(bossModel, entity, syncRadius);
+                    entity.setInvisible(false);
+                } else if (appliedLimbs > 0) {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
+                    if (appliedLimbs < requiredLimbs) {
+                        plugin.getLogger().warning("보스 스킨 일부만 적용 (" + appliedLimbs
+                                + "개) — 좀비 본체 유지");
+                    }
+                } else {
+                    modelEngine.restoreBaseEntityVisibility(entity);
+                    entity.setInvisible(false);
+                    plugin.getLogger().warning("보스 스킨 미적용 (" + config.getSkinUsername()
+                            + ") — /skeboss boss check");
+                }
+            });
+            registerBossBarViewers(boss);
+            plugin.getLogger().info("보스 스폰: " + config.getDisplayName()
+                    + " (프리셋: " + config.getPresetId() + ", 스킨: " + config.getSkinUsername()
+                    + ", 모델: " + resolvedModelId + ")");
+            boss.setReady(true);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "보스 PlayerLimb 적용 실패 — /skeboss minion install-model, /meg reload",
+                    ex);
+            modelEngine.restoreBaseEntityVisibility(entity);
+            entity.setInvisible(false);
+            entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            registerBossBarViewers(boss);
+            boss.setReady(true);
+        }
+    }
+
+    private boolean isUntitledShield(SkillDefinition skill) {
+        if (!skill.isUntitledSkill()) {
+            return false;
+        }
+        String id = skill.untitledSkill().toLowerCase();
+        return id.contains("shield") || id.contains("방패");
+    }
+
+    private void beginSkillMovementLock(SkeBoss boss) {
+        endSkillMovementLock(boss);
+        LivingEntity entity = boss.getEntity();
+        Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
+        if (entity.getAttribute(speedAttr) != null) {
+            boss.setSkillLockSavedSpeed(entity.getAttribute(speedAttr).getBaseValue());
+            entity.getAttribute(speedAttr).setBaseValue(0);
+        }
+        if (entity instanceof Mob mob) {
+            mob.setAI(false);
+            mob.setTarget(null);
+        }
+        entity.setVelocity(new Vector(0, 0, 0));
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid() || entity.isDead() || !boss.isCastingSkill()) {
+                return;
+            }
+            Vector velocity = entity.getVelocity();
+            entity.setVelocity(new Vector(0, velocity.getY(), 0));
+            if (entity instanceof Mob mob) {
+                mob.setTarget(null);
+            }
+        }, 0L, 1L);
+        boss.setSkillLockTask(task);
+    }
+
+    private void endSkillMovementLock(SkeBoss boss) {
+        boss.cancelSkillLockTask();
+        LivingEntity entity = boss.getEntity();
+        if (!entity.isValid()) {
+            boss.setSkillLockSavedSpeed(null);
+            return;
+        }
+        Double saved = boss.getSkillLockSavedSpeed();
+        Attribute speedAttr = Attribute.GENERIC_MOVEMENT_SPEED;
+        if (saved != null && entity.getAttribute(speedAttr) != null) {
+            entity.getAttribute(speedAttr).setBaseValue(saved);
+            boss.setSkillLockSavedSpeed(null);
+        } else if (entity.getAttribute(speedAttr) != null
+                && entity.getAttribute(speedAttr).getBaseValue() < 0.01) {
+            entity.getAttribute(speedAttr).setBaseValue(boss.getConfig().getMovementSpeed());
+        }
+    }
+
+    /** 방패 등: 버프는 길게, AI 잠금은 짧게 (애니 길이 + 여유) */
+    private int resolveCastLockTicks(SkeBoss boss, SkillDefinition skill, boolean shieldSkill) {
+        if (!shieldSkill) {
+            return skill.durationTicks();
+        }
+        int animTicks = 20;
+        if (boss.getModel() != null && skill.animation() != null
+                && !skill.animation().isBlank()
+                && !"none".equalsIgnoreCase(skill.animation())) {
+            animTicks = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), animTicks);
+        }
+        return Math.max(animTicks + 10, 15);
+    }
+
+    private void resumeBossAfterSkill(SkeBoss boss) {
+        endSkillMovementLock(boss);
+        LivingEntity entity = boss.getEntity();
+        if (!entity.isValid()) {
+            return;
+        }
+        if (entity instanceof Mob mob) {
+            mob.setAI(true);
+        }
+        Player target = boss.getTarget();
+        if (target == null) {
+            target = resolveSkillTarget(boss, boss.getConfig().getFollowRange());
+        }
+        if (target != null && entity instanceof Mob mob) {
+            mob.setTarget(target);
+            boss.setTarget(target);
+        }
+    }
+
+    private void finishSpawnWithModel(SkeBoss boss) {
+        LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
         if (!entity.isValid() || entity.isDead()) {
             bosses.remove(entity.getUniqueId());
             return;
@@ -104,42 +280,72 @@ public final class BossManager {
             modelEngine.syncNearbyPlayers(bossModel, entity, config.getViewerSyncRadius());
             registerBossBarViewers(boss);
 
-            plugin.getLogger().info("보스 스폰 완료: " + entity.getUniqueId() + " (모델: " + config.getModelId() + ")");
-        } catch (RuntimeException ex) {
-            plugin.getLogger().log(Level.SEVERE, "보스 모델 적용 실패 — 좀비만 남습니다. /meg reload 확인", ex);
-            if (!config.isHideBaseEntity()) {
-                entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            if (config.isHideBaseEntity()) {
+                entity.setInvisible(false);
             }
+
+            plugin.getLogger().info("보스 스폰: " + config.getDisplayName()
+                    + " (프리셋: " + config.getPresetId() + ", 모델: " + config.getModelId() + ")");
+            boss.setReady(true);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "보스 모델 적용 실패 — /meg reload 확인 (모델: "
+                    + config.getModelId() + "). 스킬·AI는 계속 동작합니다.", ex);
+            entity.setInvisible(false);
+            entity.setCustomName(TextUtil.color(config.getDisplayName() + " &7(모델 로드 실패)"));
+            boss.setReady(true);
         }
     }
 
     private void registerBossBarViewers(SkeBoss boss) {
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            if (online.getWorld().equals(boss.getEntity().getWorld())
-                    && online.getLocation().distanceSquared(boss.getEntity().getLocation())
-                    <= config.getViewerSyncRadius() * config.getViewerSyncRadius()) {
-                boss.addViewer(online);
+        syncBossBarViewers(boss);
+    }
+
+    public void syncBossBarViewers(SkeBoss boss) {
+        if (!boss.hasBossBar()) {
+            return;
+        }
+        BossConfig config = boss.getConfig();
+        double radiusSq = config.getViewerSyncRadius() * config.getViewerSyncRadius();
+        LivingEntity entity = boss.getEntity();
+        for (Player player : entity.getWorld().getPlayers()) {
+            if (!player.isValid() || player.isDead()) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                boss.addViewer(player);
+            } else {
+                boss.removeViewer(player);
             }
         }
     }
 
     public void syncBossViewers(SkeBoss boss, Player player) {
+        BossConfig config = boss.getConfig();
         if (boss.getModel() != null) {
             modelEngine.syncNearbyPlayers(boss.getModel(), boss.getEntity(), config.getViewerSyncRadius());
         }
-        boss.addViewer(player);
+        if (boss.hasBossBar()
+                && player.getWorld().equals(boss.getEntity().getWorld())
+                && player.getLocation().distanceSquared(boss.getEntity().getLocation())
+                <= config.getViewerSyncRadius() * config.getViewerSyncRadius()) {
+            boss.addViewer(player);
+        }
     }
 
     public void playIdle(SkeBoss boss) {
-        playAnimation(boss, config.getIdleAnimation());
+        playAnimation(boss, boss.getConfig().getIdleAnimation());
     }
 
     public void playWalk(SkeBoss boss) {
-        playAnimation(boss, config.getWalkAnimation());
+        playAnimation(boss, boss.getConfig().getWalkAnimation());
     }
 
     public void playAnimation(SkeBoss boss, String animation) {
+        BossConfig config = boss.getConfig();
         if (!boss.isReady() || animation == null || animation.isBlank() || "none".equalsIgnoreCase(animation)) {
+            return;
+        }
+        if (boss.getModel() == null) {
             return;
         }
         if (animation.equals(boss.getCurrentAnimation())) {
@@ -166,6 +372,7 @@ public final class BossManager {
         if (target == null || !boss.getEntity().isValid()) {
             return;
         }
+        BossConfig config = boss.getConfig();
         LivingEntity entity = boss.getEntity();
         Location aim = getTargetAimPoint(target);
         Location origin = forSkill ? getBeamOrigin(boss) : entity.getLocation();
@@ -183,7 +390,7 @@ public final class BossManager {
         float pitch = 0.0f;
         if (forSkill && horizontal > 0.0001) {
             pitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
-            pitch = clampPitch(pitch);
+            pitch = clampPitch(pitch, config);
         }
         entity.setRotation(yaw, pitch);
         if (boss.getModel() != null) {
@@ -191,7 +398,7 @@ public final class BossManager {
         }
     }
 
-    private float clampPitch(float pitch) {
+    private float clampPitch(float pitch, BossConfig config) {
         float max = config.getSkillMaxPitch();
         return Math.max(-max, Math.min(max, pitch));
     }
@@ -212,6 +419,7 @@ public final class BossManager {
         if (!isValidTarget(player)) {
             return false;
         }
+        BossConfig config = boss.getConfig();
         if ("aggro".equalsIgnoreCase(config.getTargetMode())) {
             return boss.hasAggro(player, config.getAggroDropMs());
         }
@@ -244,7 +452,7 @@ public final class BossManager {
         if (player.getLocation().distanceSquared(boss.getEntity().getLocation()) > range * range) {
             return false;
         }
-        if ("nearest".equalsIgnoreCase(config.getSkillTargetMode())) {
+        if ("nearest".equalsIgnoreCase(boss.getConfig().getSkillTargetMode())) {
             return true;
         }
         return isEnemy(boss, player);
@@ -255,7 +463,7 @@ public final class BossManager {
         if (current != null && isSkillTarget(boss, current, range)) {
             return current;
         }
-        if ("nearest".equalsIgnoreCase(config.getSkillTargetMode())) {
+        if ("nearest".equalsIgnoreCase(boss.getConfig().getSkillTargetMode())) {
             return findNearestPlayer(boss.getEntity(), range);
         }
         return findNearestEnemy(boss, boss.getEntity(), range);
@@ -322,8 +530,8 @@ public final class BossManager {
         ).normalize();
     }
 
-    /** Skript {공격력::%uuid%} × 배율 — 빔 최종 데미지 */
     public double getBeamDamage(SkeBoss boss) {
+        BossConfig config = boss.getConfig();
         LivingEntity entity = boss.getEntity();
         double attackStat = skriptBridge.getEntityStat(
                 entity,
@@ -338,7 +546,12 @@ public final class BossManager {
             return false;
         }
 
+        if (skill.isUntitledSkill()) {
+            return castUntitledSkill(boss, skill);
+        }
+
         LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
 
         double trackRange = Math.max(skill.range(), config.getFollowRange());
         Player target = resolveSkillTarget(boss, trackRange);
@@ -381,6 +594,70 @@ public final class BossManager {
         return true;
     }
 
+    private boolean castUntitledSkill(SkeBoss boss, SkillDefinition skill) {
+        LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
+
+        double trackRange = Math.max(skill.range(), config.getFollowRange());
+        Player target = resolveSkillTarget(boss, trackRange);
+        String untitledId = skill.untitledSkill().toLowerCase();
+        if (target == null && (untitledId.contains("slash") || untitledId.contains("검기"))) {
+            return false;
+        }
+
+        boolean shieldSkill = isUntitledShield(skill);
+
+        boss.setCastingSkill(true);
+        boss.setCurrentSkillId(skill.id());
+        boss.setSkillCooldown(skill);
+
+        if (entity instanceof Mob mob) {
+            mob.setAI(false);
+            mob.setTarget(null);
+        }
+        entity.setVelocity(new Vector(0, 0, 0));
+
+        if (shieldSkill) {
+            beginSkillMovementLock(boss);
+            if (boss.getModel() != null && skill.animation() != null
+                    && !skill.animation().isBlank() && !"none".equalsIgnoreCase(skill.animation())) {
+                modelEngine.playLoopAnimation(
+                        boss.getModel(),
+                        skill.animation(),
+                        config.getBlendIn(),
+                        config.getBlendOut()
+                );
+                boss.setCurrentAnimation(skill.animation());
+            }
+        } else if (target != null) {
+            boss.setTarget(target);
+            faceTarget(boss, target, true);
+            startSkillTracking(boss, trackRange);
+        }
+
+        boolean cast = UntitledSlashSkills.cast(
+                plugin,
+                boss,
+                skill.untitledSkill(),
+                target,
+                config.getSkriptAttackVariable(),
+                config.getFallbackAttackStat()
+        );
+        if (!cast) {
+            boss.setCastingSkill(false);
+            boss.setCurrentSkillId(null);
+            endSkillMovementLock(boss);
+            if (entity instanceof Mob mob) {
+                mob.setAI(true);
+            }
+            return false;
+        }
+
+        int castLockTicks = resolveCastLockTicks(boss, skill, shieldSkill);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), castLockTicks);
+        return true;
+    }
+
     private void applySkillDamage(SkeBoss boss, SkillDefinition skill) {
         LivingEntity entity = boss.getEntity();
         if (!entity.isValid()) {
@@ -404,7 +681,7 @@ public final class BossManager {
         if (boss.isCastingSkill() || !isEnemy(boss, target)) {
             return;
         }
-        target.damage(config.getMeleeDamage(), boss.getEntity());
+        target.damage(boss.getConfig().getMeleeDamage(), boss.getEntity());
     }
 
     private void finishSkill(SkeBoss boss, SkillDefinition skill) {
@@ -416,13 +693,17 @@ public final class BossManager {
 
         stopSkillTracking(boss);
 
-        modelEngine.stopAnimation(boss.getModel(), skill.animation());
+        if (skill.isUntitledSkill()) {
+            if (skill.animation() != null && !skill.animation().isBlank()
+                    && !"none".equalsIgnoreCase(skill.animation())) {
+                modelEngine.stopAnimation(boss.getModel(), skill.animation());
+            }
+        } else if (skill.animation() != null && !skill.animation().isBlank()) {
+            modelEngine.stopAnimation(boss.getModel(), skill.animation());
+        }
         clearAnimationState(boss);
         playWalk(boss);
-
-        if (entity instanceof Mob mob) {
-            mob.setAI(true);
-        }
+        resumeBossAfterSkill(boss);
 
         boss.setCastingSkill(false);
         boss.setCurrentSkillId(null);
@@ -450,6 +731,7 @@ public final class BossManager {
 
     public void remove(SkeBoss boss) {
         bosses.remove(boss.getId());
+        endSkillMovementLock(boss);
         boss.removeAllViewers();
         if (boss.getModel() != null) {
             modelEngine.destroy(boss.getModel());
@@ -477,7 +759,15 @@ public final class BossManager {
     }
 
     public BossConfig getConfig() {
-        return config;
+        return defaultConfig;
+    }
+
+    public BossPresetRegistry getPresetRegistry() {
+        return presetRegistry;
+    }
+
+    public SkriptBridge getSkriptBridge() {
+        return skriptBridge;
     }
 
     private record EntityTarget(Player player, double distance) {
