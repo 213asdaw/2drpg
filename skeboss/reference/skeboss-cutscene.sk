@@ -7,9 +7,9 @@
 on cutscene end:
     broadcast "&7[연출] %player% — %event-cutscene-id% 완료=%event-completed%"
 
-command /스토리전투:
+command /불타는난투:
     trigger:
-        execute console command "skeboss cutscene play tutorial_fight %player%"
+        execute console command "skeboss cutscene play burning_brawl %player%"
 
 # 퀘스트 단계에서 호출 예시:
 # function playStoryFight(p: player):

@@ -71,14 +71,19 @@ public final class CutsceneLoader {
     }
 
     private void saveDefaultExamples(File folder) {
-        File example = new File(folder, "tutorial_fight.yml");
-        if (example.exists()) {
+        saveResourceIfMissing(folder, "tutorial_fight.yml");
+        saveResourceIfMissing(folder, "burning_brawl.yml");
+    }
+
+    private void saveResourceIfMissing(File folder, String name) {
+        File target = new File(folder, name);
+        if (target.exists()) {
             return;
         }
         try {
-            plugin.saveResource("cutscenes/tutorial_fight.yml", false);
+            plugin.saveResource("cutscenes/" + name, false);
         } catch (IllegalArgumentException ex) {
-            plugin.getLogger().warning("기본 컷신 예시를 찾을 수 없습니다.");
+            plugin.getLogger().warning("기본 컷신 없음: " + name);
         }
     }
 }

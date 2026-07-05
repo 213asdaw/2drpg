@@ -88,7 +88,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (cutscene-v1) — 스토리 연출 + 잡몹 프리셋");
+        getLogger().info("SkeBoss 활성화 (cutscene-v2) — 고퀄 연출 + clash/fall/stab");
     }
 
     public void mergeAndReloadConfig() {

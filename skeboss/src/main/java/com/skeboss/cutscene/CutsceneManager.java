@@ -110,6 +110,10 @@ public final class CutsceneManager {
         private float savedWalkSpeed;
         private float savedFlySpeed;
 
+        private double[] currentCameraOffset = {0, 2.5, 7};
+        private final java.util.Set<String> burningActors = new java.util.LinkedHashSet<>();
+        private BukkitTask fireParticleTask;
+
         private CutsceneSession(Player viewer, CutsceneDefinition definition) {
             this.viewer = viewer;
             this.definition = definition;
@@ -208,6 +212,23 @@ public final class CutsceneManager {
             } else if (step instanceof CutsceneStep.Despawn despawn) {
                 despawnActor(despawn.actorId());
                 onComplete.run();
+            } else if (step instanceof CutsceneStep.Fire fire) {
+                applyFire(fire);
+                onComplete.run();
+            } else if (step instanceof CutsceneStep.Particle particle) {
+                spawnParticles(particle);
+                onComplete.run();
+            } else if (step instanceof CutsceneStep.CameraMove cameraMove) {
+                applyCameraMove(cameraMove, onComplete);
+            } else if (step instanceof CutsceneStep.AnimateMulti multi) {
+                playAnimateMulti(multi);
+                int maxTicks = multi.entries().stream()
+                        .mapToInt(CutsceneStep.AnimateMultiEntry::durationTicks)
+                        .max().orElse(20);
+                schedule(onComplete, Math.max(1, maxTicks));
+            } else if (step instanceof CutsceneStep.Clash clash) {
+                playClash(clash);
+                schedule(onComplete, Math.max(1, clash.durationTicks()));
             } else {
                 onComplete.run();
             }
@@ -245,35 +266,199 @@ public final class CutsceneManager {
                 cameraTask.cancel();
                 cameraTask = null;
             }
-            Location cameraLoc = offsetLocation(camera.offset());
-            if (camera.lookAtActor() != null && !camera.lookAtActor().isBlank()) {
-                CutsceneActor actor = actors.get(camera.lookAtActor());
-                if (actor != null && actor.isValid()) {
-                    faceLocation(cameraLoc, actor.getLocation().clone().add(0, 1.4, 0));
-                }
-            } else if (camera.yaw() != null && camera.pitch() != null) {
+            currentCameraOffset = camera.offset().clone();
+            Location cameraLoc = offsetLocation(currentCameraOffset);
+            applyLookAt(cameraLoc, camera.lookAtActor(), List.of());
+            if (camera.yaw() != null && camera.pitch() != null) {
                 cameraLoc.setYaw(camera.yaw());
                 cameraLoc.setPitch(camera.pitch());
             }
             teleportViewer(cameraLoc);
 
             if (camera.hold()) {
-                final Location held = cameraLoc.clone();
-                final String lookAt = camera.lookAtActor();
-                cameraTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-                    if (!viewer.isOnline()) {
-                        return;
-                    }
-                    Location next = held.clone();
-                    if (lookAt != null && !lookAt.isBlank()) {
-                        CutsceneActor actor = actors.get(lookAt);
-                        if (actor != null && actor.isValid()) {
-                            faceLocation(next, actor.getLocation().clone().add(0, 1.4, 0));
-                        }
-                    }
-                    teleportViewer(next);
-                }, 1L, 1L);
+                startCameraHold(currentCameraOffset, camera.lookAtActor(), List.of());
             }
+        }
+
+        private void applyCameraMove(CutsceneStep.CameraMove move, Runnable onComplete) {
+            if (cameraTask != null) {
+                cameraTask.cancel();
+                cameraTask = null;
+            }
+            double[] from = currentCameraOffset.clone();
+            double[] to = move.toOffset();
+            int duration = Math.max(1, move.durationTicks());
+            final int[] tick = {0};
+            stepTask = new org.bukkit.scheduler.BukkitRunnable() {
+                @Override
+                public void run() {
+                    tick[0]++;
+                    double t = easeInOut(Math.min(1.0, tick[0] / (double) duration));
+                    currentCameraOffset = lerpOffset(from, to, t);
+                    Location cameraLoc = offsetLocation(currentCameraOffset);
+                    applyLookAt(cameraLoc, move.lookAtActor(), move.lookAtMidpoint());
+                    teleportViewer(cameraLoc);
+                    if (tick[0] >= duration) {
+                        cancel();
+                        if (move.hold()) {
+                            startCameraHold(currentCameraOffset, move.lookAtActor(), move.lookAtMidpoint());
+                        }
+                        onComplete.run();
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }
+
+        private void startCameraHold(double[] offset, String lookAtActor, List<String> lookAtMidpoint) {
+            cameraTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!viewer.isOnline()) {
+                    return;
+                }
+                Location next = offsetLocation(offset);
+                applyLookAt(next, lookAtActor, lookAtMidpoint);
+                teleportViewer(next);
+            }, 1L, 1L);
+        }
+
+        private void applyLookAt(Location cameraLoc, String lookAtActor, List<String> lookAtMidpoint) {
+            if (lookAtMidpoint != null && lookAtMidpoint.size() >= 2) {
+                CutsceneActor first = actors.get(lookAtMidpoint.get(0));
+                CutsceneActor second = actors.get(lookAtMidpoint.get(1));
+                if (first != null && second != null && first.isValid() && second.isValid()) {
+                    Vector mid = first.getLocation().toVector().add(second.getLocation().toVector())
+                            .multiply(0.5).add(new Vector(0, 1.2, 0));
+                    faceLocation(cameraLoc, mid.toLocation(cameraLoc.getWorld()));
+                    return;
+                }
+            }
+            if (lookAtActor != null && !lookAtActor.isBlank()) {
+                CutsceneActor actor = actors.get(lookAtActor);
+                if (actor != null && actor.isValid()) {
+                    faceLocation(cameraLoc, actor.getLocation().clone().add(0, 1.2, 0));
+                }
+            }
+        }
+
+        private void applyFire(CutsceneStep.Fire fire) {
+            if (!fire.enable()) {
+                burningActors.clear();
+                stopFireParticles();
+                for (CutsceneActor actor : actors.values()) {
+                    actor.getEntity().setFireTicks(0);
+                }
+                return;
+            }
+            for (String actorId : fire.actors()) {
+                if ("all".equalsIgnoreCase(actorId)) {
+                    burningActors.addAll(actors.keySet());
+                } else {
+                    burningActors.add(actorId);
+                }
+            }
+            for (String actorId : burningActors) {
+                CutsceneActor actor = actors.get(actorId);
+                if (actor != null && actor.isValid()) {
+                    actor.getEntity().setFireTicks(Integer.MAX_VALUE);
+                }
+            }
+            ensureFireParticles();
+        }
+
+        private void ensureFireParticles() {
+            if (fireParticleTask != null || burningActors.isEmpty()) {
+                return;
+            }
+            fireParticleTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (burningActors.isEmpty()) {
+                    stopFireParticles();
+                    return;
+                }
+                for (String actorId : burningActors) {
+                    CutsceneActor actor = actors.get(actorId);
+                    if (actor == null || !actor.isValid()) {
+                        continue;
+                    }
+                    Location flame = actor.getLocation().clone().add(0, 1.0, 0);
+                    flame.getWorld().spawnParticle(Particle.FLAME, flame, 10, 0.28, 0.55, 0.28, 0.02);
+                    flame.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, flame, 4, 0.2, 0.35, 0.2, 0.01);
+                    flame.getWorld().spawnParticle(Particle.LAVA, flame, 1, 0.15, 0.2, 0.15, 0);
+                }
+            }, 0L, 3L);
+        }
+
+        private void stopFireParticles() {
+            if (fireParticleTask != null) {
+                fireParticleTask.cancel();
+                fireParticleTask = null;
+            }
+        }
+
+        private void spawnParticles(CutsceneStep.Particle particle) {
+            Location base;
+            if (particle.actor() != null && !particle.actor().isBlank()) {
+                CutsceneActor actor = actors.get(particle.actor());
+                if (actor == null) {
+                    return;
+                }
+                base = actor.getLocation().clone().add(0, 1.0, 0);
+            } else {
+                base = offsetLocation(particle.offset()).add(0, 1.0, 0);
+            }
+            Particle type = parseParticleType(particle.particle());
+            double spread = particle.spread();
+            base.getWorld().spawnParticle(type, base, particle.count(), spread, spread, spread, 0.02);
+        }
+
+        private void playAnimateMulti(CutsceneStep.AnimateMulti multi) {
+            for (CutsceneStep.AnimateMultiEntry entry : multi.entries()) {
+                playActorAnimation(new CutsceneStep.Animate(
+                        entry.actorId(), entry.animation(), entry.durationTicks(), entry.loop()));
+            }
+        }
+
+        private void playClash(CutsceneStep.Clash clash) {
+            CutsceneActor actorA = actors.get(clash.actorA());
+            CutsceneActor actorB = actors.get(clash.actorB());
+            if (actorA != null && actorA.getModel() != null) {
+                modelEngine.playAnimation(actorA.getModel(), clash.animation(), 0.05, 0.1, false);
+            }
+            if (actorB != null && actorB.getModel() != null) {
+                modelEngine.playAnimation(actorB.getModel(), clash.animation(), 0.05, 0.1, false);
+            }
+            if (actorA != null && actorB != null) {
+                Vector mid = actorA.getLocation().toVector().add(actorB.getLocation().toVector())
+                        .multiply(0.5).add(new Vector(0, 1.3, 0));
+                Location hit = mid.toLocation(actorA.getEntity().getWorld());
+                hit.getWorld().spawnParticle(Particle.CRIT, hit, 20, 0.15, 0.2, 0.15, 0.15);
+                hit.getWorld().spawnParticle(Particle.FIREWORKS_SPARK, hit, 15, 0.1, 0.15, 0.1, 0.08);
+                hit.getWorld().spawnParticle(Particle.SWEEP_ATTACK, hit, 2, 0, 0, 0, 0);
+                viewer.playSound(hit, org.bukkit.Sound.ENTITY_ZOMBIE_ATTACK_IRON_DOOR, 1.0f, 1.35f);
+                viewer.playSound(hit, org.bukkit.Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.85f);
+            }
+        }
+
+        private static Particle parseParticleType(String name) {
+            try {
+                return Particle.valueOf(name.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                return Particle.CRIT;
+            }
+        }
+
+        private static double[] lerpOffset(double[] from, double[] to, double t) {
+            return new double[]{
+                    lerp(from.length > 0 ? from[0] : 0, to.length > 0 ? to[0] : 0, t),
+                    lerp(from.length > 1 ? from[1] : 0, to.length > 1 ? to[1] : 0, t),
+                    lerp(from.length > 2 ? from[2] : 0, to.length > 2 ? to[2] : 0, t)
+            };
+        }
+
+        private static double lerp(double from, double to, double t) {
+            return from + (to - from) * t;
+        }
+
+        private static double easeInOut(double t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         }
 
         private void spawnActor(CutsceneStep.Spawn spawn, IntConsumer onComplete) {
@@ -489,6 +674,8 @@ public final class CutsceneManager {
                 cameraTask.cancel();
                 cameraTask = null;
             }
+            stopFireParticles();
+            burningActors.clear();
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.skeboss.cutscene;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public sealed interface CutsceneStep permits
@@ -15,7 +17,12 @@ public sealed interface CutsceneStep permits
         CutsceneStep.Animate,
         CutsceneStep.StopAnimation,
         CutsceneStep.Despawn,
-        CutsceneStep.Cleanup {
+        CutsceneStep.Cleanup,
+        CutsceneStep.Fire,
+        CutsceneStep.Particle,
+        CutsceneStep.CameraMove,
+        CutsceneStep.AnimateMulti,
+        CutsceneStep.Clash {
 
     record Freeze(boolean enabled) implements CutsceneStep {
     }
@@ -63,6 +70,26 @@ public sealed interface CutsceneStep permits
     record Cleanup() implements CutsceneStep {
     }
 
+    record Fire(List<String> actors, boolean enable) implements CutsceneStep {
+    }
+
+    record Particle(String actor, String particle, int count, double spread, double[] offset) implements CutsceneStep {
+    }
+
+    record CameraMove(double[] toOffset, int durationTicks, String lookAtActor, List<String> lookAtMidpoint,
+                      boolean hold) implements CutsceneStep {
+    }
+
+    record AnimateMultiEntry(String actorId, String animation, int durationTicks, boolean loop) {
+    }
+
+    record AnimateMulti(List<AnimateMultiEntry> entries) implements CutsceneStep {
+    }
+
+    /** 두 액터 검격 교차 + 스파크 파티클 */
+    record Clash(String actorA, String actorB, String animation, int durationTicks) implements CutsceneStep {
+    }
+
     static CutsceneStep parse(Map<?, ?> raw) {
         if (raw == null || raw.isEmpty()) {
             throw new IllegalArgumentException("빈 스텝");
@@ -91,6 +118,16 @@ public sealed interface CutsceneStep permits
             case "animate" -> parseAnimate(asMap(value));
             case "stop-animation", "stop_animation" -> parseStopAnimation(asMap(value));
             case "despawn" -> new Despawn(String.valueOf(value));
+            case "fire" -> {
+                if (value instanceof Iterable<?>) {
+                    yield new Fire(readStringList(value), true);
+                }
+                yield parseFire(asMap(value));
+            }
+            case "particle" -> parseParticle(asMap(value));
+            case "camera-move", "camera_move" -> parseCameraMove(asMap(value));
+            case "animate-multi", "animate_multi" -> parseAnimateMulti(value);
+            case "clash" -> parseClash(asMap(value));
             default -> throw new IllegalArgumentException("알 수 없는 스텝: " + key);
         };
     }
@@ -135,6 +172,23 @@ public sealed interface CutsceneStep permits
         }
         if (map.containsKey("despawn")) {
             return new Despawn(String.valueOf(map.get("despawn")));
+        }
+        if (map.containsKey("fire")) {
+            return parseFire(asMap(map.get("fire")));
+        }
+        if (map.containsKey("particle")) {
+            return parseParticle(asMap(map.get("particle")));
+        }
+        if (map.containsKey("camera-move") || map.containsKey("camera_move")) {
+            Object cameraMove = map.containsKey("camera-move") ? map.get("camera-move") : map.get("camera_move");
+            return parseCameraMove(asMap(cameraMove));
+        }
+        if (map.containsKey("animate-multi") || map.containsKey("animate_multi")) {
+            Object multi = map.containsKey("animate-multi") ? map.get("animate-multi") : map.get("animate_multi");
+            return parseAnimateMulti(multi);
+        }
+        if (map.containsKey("clash")) {
+            return parseClash(asMap(map.get("clash")));
         }
         throw new IllegalArgumentException("스텝 키를 찾을 수 없습니다: " + map.keySet());
     }
@@ -217,6 +271,90 @@ public sealed interface CutsceneStep permits
                 string(map, "actor", string(map, "id", "")),
                 string(map, "animation", null)
         );
+    }
+
+    private static Fire parseFire(Map<?, ?> map) {
+        List<String> actors = readStringList(map.get("actors"));
+        if (actors.isEmpty() && map.containsKey("actor")) {
+            actors = List.of(String.valueOf(map.get("actor")));
+        }
+        return new Fire(actors, asBool(map.get("enable"), true));
+    }
+
+    private static Particle parseParticle(Map<?, ?> map) {
+        return new Particle(
+                string(map, "actor", null),
+                string(map, "particle", string(map, "type", "CRIT")),
+                asInt(map.get("count"), 12),
+                asDouble(map.get("spread"), 0.15),
+                readOffset(map, "offset")
+        );
+    }
+
+    private static CameraMove parseCameraMove(Map<?, ?> map) {
+        return new CameraMove(
+                readOffset(map, "to-offset", "to_offset", "offset"),
+                asInt(map.get("duration"), asInt(map.get("duration-ticks"), 30)),
+                string(map, "look-at", string(map, "look_at", null)),
+                readStringList(map.get("look-at-midpoint"), map.get("look_at_midpoint"), map.get("between")),
+                asBool(map.get("hold"), true)
+        );
+    }
+
+    private static AnimateMulti parseAnimateMulti(Object value) {
+        List<AnimateMultiEntry> entries = new ArrayList<>();
+        if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                entries.add(parseAnimateEntry(asMap(item)));
+            }
+        } else {
+            entries.add(parseAnimateEntry(asMap(value)));
+        }
+        return new AnimateMulti(List.copyOf(entries));
+    }
+
+    private static AnimateMultiEntry parseAnimateEntry(Map<?, ?> map) {
+        return new AnimateMultiEntry(
+                string(map, "actor", string(map, "id", "")),
+                string(map, "animation", "attack"),
+                asInt(map.get("duration"), asInt(map.get("duration-ticks"), 20)),
+                asBool(map.get("loop"), false)
+        );
+    }
+
+    private static Clash parseClash(Map<?, ?> map) {
+        return new Clash(
+                string(map, "a", string(map, "actor-a", string(map, "actor_a", ""))),
+                string(map, "b", string(map, "actor-b", string(map, "actor_b", ""))),
+                string(map, "animation", "clash"),
+                asInt(map.get("duration"), asInt(map.get("duration-ticks"), 18))
+        );
+    }
+
+    @SafeVarargs
+    private static List<String> readStringList(Object... values) {
+        List<String> result = new ArrayList<>();
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            if (value instanceof Iterable<?> iterable) {
+                for (Object item : iterable) {
+                    if (item != null) {
+                        result.add(String.valueOf(item));
+                    }
+                }
+            } else if (value instanceof String text && !text.isBlank()) {
+                for (String part : text.split(",")) {
+                    result.add(part.trim());
+                }
+            }
+        }
+        return result;
+    }
+
+    private static List<String> readStringList(Object value) {
+        return readStringList(new Object[]{value});
     }
 
     private static double[] readOffset(Map<?, ?> map, String... keys) {
