@@ -4,6 +4,8 @@ import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.boss.SkillDefinition;
+import com.skeboss.cutscene.CutsceneDefinition;
+import com.skeboss.cutscene.CutsceneManager;
 import com.skeboss.minion.MinionBlueprintInstaller;
 import com.skeboss.minion.MinionManager;
 import com.skeboss.minion.MinionSpawner;
@@ -34,11 +36,14 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
     private final BossManager bossManager;
     private final MinionManager minionManager;
     private final WeaponManager weaponManager;
+    private final CutsceneManager cutsceneManager;
 
-    public SkeBossCommand(BossManager bossManager, MinionManager minionManager, WeaponManager weaponManager) {
+    public SkeBossCommand(BossManager bossManager, MinionManager minionManager, WeaponManager weaponManager,
+                          CutsceneManager cutsceneManager) {
         this.bossManager = bossManager;
         this.minionManager = minionManager;
         this.weaponManager = weaponManager;
+        this.cutsceneManager = cutsceneManager;
     }
 
     @Override
@@ -76,6 +81,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             }
             case "minion" -> {
                 return requireAdmin(sender, () -> handleMinion((Player) sender, args));
+            }
+            case "cutscene", "scene", "연출" -> {
+                return handleCutscene(sender, args);
             }
             default -> {
                 sender.sendMessage(TextUtil.color("&c알 수 없는 명령입니다. &7/skeboss help"));
@@ -317,8 +325,92 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         plugin.mergeAndReloadConfig();
         weaponManager.reload();
         minionManager.reload();
+        cutsceneManager.reload();
         sender.sendMessage(TextUtil.color("&aconfig.yml 리로드 완료. &7(이미 스폰된 보스·잡몹은 재시작 권장)"));
         sender.sendMessage(TextUtil.color("&7무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
+        sender.sendMessage(TextUtil.color("&7컷신: &f" + String.join(", ", cutsceneManager.getScenes().keySet())));
+    }
+
+    private boolean handleCutscene(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(TextUtil.color("&e/skeboss cutscene list"));
+            sender.sendMessage(TextUtil.color("&e/skeboss cutscene play <ID> [플레이어]"));
+            sender.sendMessage(TextUtil.color("&e/skeboss cutscene stop [플레이어]"));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("list")) {
+            if (cutsceneManager.getScenes().isEmpty()) {
+                sender.sendMessage(TextUtil.color("&7등록된 컷신이 없습니다. &fplugins/SkeBoss/cutscenes/"));
+                return true;
+            }
+            sender.sendMessage(TextUtil.color("&6&l━━━━ 스토리 연출 목록 ━━━━"));
+            for (CutsceneDefinition scene : cutsceneManager.getScenes().values()) {
+                sender.sendMessage(TextUtil.color("&e" + scene.getId() + " &7— " + scene.getDescription()));
+            }
+            return true;
+        }
+
+        if (action.equals("play")) {
+            if (args.length < 3) {
+                sender.sendMessage(TextUtil.color("&c/skeboss cutscene play <ID> [플레이어]"));
+                return true;
+            }
+            Player target = resolveTargetPlayer(sender, args, 2);
+            if (target == null) {
+                return true;
+            }
+            if (!sender.hasPermission("skeboss.cutscene.play") && !sender.hasPermission("skeboss.admin")) {
+                sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7skeboss.cutscene.play"));
+                return true;
+            }
+            if (!cutsceneManager.play(target, args[2])) {
+                sender.sendMessage(TextUtil.color("&c컷신을 찾을 수 없습니다: &f" + args[2]));
+                return true;
+            }
+            if (!target.equals(sender)) {
+                sender.sendMessage(TextUtil.color("&a" + target.getName() + " 에게 연출 재생: &f" + args[2]));
+            }
+            return true;
+        }
+
+        if (action.equals("stop")) {
+            if (!sender.hasPermission("skeboss.admin")) {
+                sender.sendMessage(TextUtil.color("&c권한이 없습니다."));
+                return true;
+            }
+            Player target = resolveTargetPlayer(sender, args, 2);
+            if (target == null) {
+                return true;
+            }
+            cutsceneManager.stop(target, false);
+            sender.sendMessage(TextUtil.color("&7연출 중단: &f" + target.getName()));
+            return true;
+        }
+
+        sender.sendMessage(TextUtil.color("&c/skeboss cutscene <list|play|stop>"));
+        return true;
+    }
+
+    private Player resolveTargetPlayer(CommandSender sender, String[] args, int idIndex) {
+        if (args.length > idIndex + 1) {
+            if (!sender.hasPermission("skeboss.admin")) {
+                sender.sendMessage(TextUtil.color("&c다른 플레이어에게 재생하려면 OP가 필요합니다."));
+                return null;
+            }
+            Player target = Bukkit.getPlayer(args[idIndex + 1]);
+            if (target == null) {
+                sender.sendMessage(TextUtil.color("&c플레이어를 찾을 수 없습니다: &f" + args[idIndex + 1]));
+                return null;
+            }
+            return target;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(TextUtil.color("&c콘솔: 플레이어를 지정하세요."));
+            return null;
+        }
+        return player;
     }
 
     private void handleMinion(Player player, String[] args) {
@@ -624,6 +716,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner create <ID> [프리셋] &7- 잡몹 스포너"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner remove <ID> &7- 잡몹 스포너 삭제"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion spawner list &7- 스포너 목록"));
+            sender.sendMessage(TextUtil.color("&e/skeboss cutscene play <ID> [플레이어] &7- 스토리 연출 재생"));
+            sender.sendMessage(TextUtil.color("&e/skeboss cutscene list &7- 연출 목록"));
+            sender.sendMessage(TextUtil.color("&7  YAML: &fplugins/SkeBoss/cutscenes/"));
             sender.sendMessage(TextUtil.color("&e/skeboss reload &7- 설정 리로드"));
         }
         if (!sender.hasPermission("skeboss.weapon.give")
@@ -647,11 +742,20 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("skeboss.weapon.use") && sender instanceof Player) {
                 options.add("cast");
             }
+            if (sender.hasPermission("skeboss.cutscene.play") || sender.hasPermission("skeboss.admin")) {
+                options.add("cutscene");
+            }
             options.add("help");
             return filter(options, args[0]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("cast") && sender.hasPermission("skeboss.weapon.use")) {
             return filter(List.of("laser", "chain"), args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("cutscene")) {
+            return filter(List.of("list", "play", "stop"), args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("cutscene") && args[1].equalsIgnoreCase("play")) {
+            return filter(new ArrayList<>(cutsceneManager.getScenes().keySet()), args[2]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("skill") && sender.hasPermission("skeboss.admin")) {
             List<String> names = bossManager.getConfig().getSkills().stream().map(SkillDefinition::id).toList();

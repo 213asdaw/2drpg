@@ -1,0 +1,94 @@
+# 스토리 연출 예시 — 플레이어 vs 잡몹 전투 장면
+# 재생: /skeboss cutscene play tutorial_fight
+# 앵커: 재생 시 플레이어가 서 있던 위치·방향 기준 (offset 좌표)
+
+id: tutorial_fight
+description: "첫 전투 — 영웅이 몬스터와 맞붙는 연출"
+
+steps:
+  - freeze: true
+
+  - title:
+      main: "&6&l첫 전투"
+      sub: "&7몬스터가 나타났다!"
+      fade-in: 10
+      stay: 50
+      fade-out: 15
+
+  - spawn:
+      id: hero
+      model: player_model
+      skin: EMP4348
+      offset: [-2, 0, 0]
+      yaw: 90
+
+  - spawn:
+      id: enemy
+      model: player_model
+      preset: emp4348
+      offset: [3, 0, 0]
+      yaw: -90
+
+  - camera:
+      offset: [0, 2.5, 7]
+      look-at: hero
+      hold: true
+
+  - wait: 30
+
+  - message: "&e영웅이 돌진한다!"
+
+  - move:
+      actor: hero
+      to-offset: [0.5, 0, 0]
+      duration: 25
+      animation: walk
+
+  - animate:
+      actor: hero
+      animation: attack
+      duration: 18
+
+  - sound:
+      sound: ENTITY_PLAYER_ATTACK_SWEEP
+      volume: 1.0
+      pitch: 1.1
+
+  - wait: 8
+
+  - animate:
+      actor: enemy
+      animation: attack
+      duration: 18
+
+  - sound:
+      sound: ENTITY_PLAYER_HURT
+      volume: 0.8
+      pitch: 0.9
+
+  - wait: 20
+
+  - animate:
+      actor: hero
+      animation: attack
+      duration: 18
+
+  - sound:
+      sound: ENTITY_PLAYER_ATTACK_CRIT
+      volume: 1.0
+      pitch: 1.0
+
+  - wait: 15
+
+  - title:
+      main: "&a&l승리!"
+      sub: "&7몬스터를 쓰러뜨렸다"
+      fade-in: 5
+      stay: 50
+      fade-out: 20
+
+  - wait: 40
+
+  - cleanup: true
+  - freeze: false
+  - restore: true

@@ -24,6 +24,9 @@ permissions:
   skeboss.admin:
     description: SkeBoss 관리자
     default: op
+  skeboss.cutscene.play:
+    description: 스토리 연출 재생
+    default: true
   skeboss.weapon.use:
     description: 인조인간 무기 사용
     default: true

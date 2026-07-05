@@ -3,6 +3,8 @@ package com.skeboss;
 import com.skeboss.boss.BossAI;
 import com.skeboss.boss.BossManager;
 import com.skeboss.command.SkeBossCommand;
+import com.skeboss.cutscene.CutsceneListener;
+import com.skeboss.cutscene.CutsceneManager;
 import com.skeboss.listener.BossListener;
 import com.skeboss.listener.WeaponItemGuard;
 import com.skeboss.listener.WeaponListener;
@@ -12,6 +14,8 @@ import com.skeboss.minion.MinionManager;
 import com.skeboss.modelengine.ModelEngineBridge;
 import com.skeboss.skript.SkriptBridge;
 import com.skeboss.weapon.WeaponManager;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SkeBossPlugin extends JavaPlugin {
@@ -22,6 +26,7 @@ public final class SkeBossPlugin extends JavaPlugin {
     private BossManager bossManager;
     private MinionManager minionManager;
     private WeaponManager weaponManager;
+    private CutsceneManager cutsceneManager;
     private BossAI bossAI;
     private MinionAI minionAI;
 
@@ -50,6 +55,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         SkriptBridge skriptBridge = new SkriptBridge(this);
         bossManager = new BossManager(this, modelEngine, skriptBridge);
         minionManager = new MinionManager(this, modelEngine);
+        cutsceneManager = new CutsceneManager(this, modelEngine, minionManager);
         weaponManager = new WeaponManager(this, bossManager, skriptBridge);
         bossAI = new BossAI(this, bossManager);
         bossAI.start();
@@ -60,12 +66,13 @@ public final class SkeBossPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MinionListener(minionManager), this);
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
+        getServer().getPluginManager().registerEvents(new CutsceneListener(this, cutsceneManager), this);
 
         modelEngine.preloadPlayerSkin(getConfig().getString("minion.presets.emp4348.skin-username",
                 getConfig().getString("minion.skin-username", "EMP4348")));
         minionManager.startupSpawners();
 
-        SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager);
+        SkeBossCommand command = new SkeBossCommand(bossManager, minionManager, weaponManager, cutsceneManager);
         var skebossCmd = getCommand("skeboss");
         if (skebossCmd == null) {
             getLogger().severe("plugin.yml에 skeboss 명령이 없습니다.");
@@ -81,7 +88,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (minion-v15) — 잡몹 프리셋 + PNG 스킨");
+        getLogger().info("SkeBoss 활성화 (cutscene-v1) — 스토리 연출 + 잡몹 프리셋");
     }
 
     public void mergeAndReloadConfig() {
@@ -96,6 +103,13 @@ public final class SkeBossPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (cutsceneManager != null) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (cutsceneManager.isPlaying(player)) {
+                    cutsceneManager.stop(player, false);
+                }
+            }
+        }
         if (minionManager != null) {
             minionManager.shutdownPersist();
             minionManager.removeAll();
@@ -119,5 +133,9 @@ public final class SkeBossPlugin extends JavaPlugin {
 
     public WeaponManager getWeaponManager() {
         return weaponManager;
+    }
+
+    public CutsceneManager getCutsceneManager() {
+        return cutsceneManager;
     }
 }
