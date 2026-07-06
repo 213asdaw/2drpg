@@ -1,6 +1,7 @@
 package com.skeboss.skill;
 
 import com.skeboss.SkeBossPlugin;
+import com.skeboss.boss.BossManager;
 import com.skeboss.boss.SkeBoss;
 import com.skeboss.coin.CoinModelDataHelper;
 import org.bukkit.GameMode;
@@ -77,6 +78,10 @@ public final class BombBossSkills {
 
     public static PendingBomb removePending(UUID projectileId) {
         return PENDING_BOMBS.remove(projectileId);
+    }
+
+    public static PendingBomb peekPending(UUID projectileId) {
+        return PENDING_BOMBS.get(projectileId);
     }
 
     public static void clearPending(UUID projectileId) {
@@ -164,7 +169,6 @@ public final class BombBossSkills {
         Location loc = snowball.getLocation();
         LivingEntity caster = resolveCaster(pending.casterId());
         playExplosionFx(loc, 2.0f, 0.5f, 5);
-        loc.getWorld().createExplosion(loc, 0.0f, false, false);
         if (caster != null) {
             damageNearby(caster, loc, pending.damage(), pending.radiusX(), pending.radiusY(), pending.radiusZ(), true);
         }
@@ -201,18 +205,13 @@ public final class BombBossSkills {
             double radiusZ,
             boolean knockback
     ) {
+        UUID casterId = caster.getUniqueId();
         for (Entity entity : origin.getWorld().getNearbyEntities(origin, radiusX, radiusY, radiusZ)) {
             if (!(entity instanceof LivingEntity target)) {
                 continue;
             }
-            if (entity.equals(caster)) {
+            if (shouldSkipBombDamage(casterId, target)) {
                 continue;
-            }
-            if (target instanceof Player player) {
-                if (player.getGameMode() == GameMode.SPECTATOR
-                        || player.getGameMode() == GameMode.CREATIVE) {
-                    continue;
-                }
             }
             target.damage(damage, caster);
             if (knockback) {
@@ -223,5 +222,28 @@ public final class BombBossSkills {
                 }
             }
         }
+    }
+
+    /** 보스 본인·다른 SkeBoss에는 폭탄 스킬 피해 없음 */
+    private static boolean shouldSkipBombDamage(UUID casterId, LivingEntity target) {
+        if (target.getUniqueId().equals(casterId)) {
+            return true;
+        }
+        SkeBossPlugin plugin = SkeBossPlugin.getInstance();
+        if (plugin == null) {
+            return false;
+        }
+        BossManager manager = plugin.getBossManager();
+        if (manager == null) {
+            return false;
+        }
+        if (manager.isBoss(target)) {
+            return true;
+        }
+        if (target instanceof Player player) {
+            return player.getGameMode() == GameMode.SPECTATOR
+                    || player.getGameMode() == GameMode.CREATIVE;
+        }
+        return false;
     }
 }
