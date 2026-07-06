@@ -1,0 +1,149 @@
+# 고퀄 연출 — 불타는 잡몹 난투 → 검격 클로즈업 → 쓰러짐 → 마무리 일격
+# 재생: /skeboss cutscene play burning_brawl
+# player_model 에 clash / fall / stab 애니 필요 → /skeboss minion install-model 후 /meg reload
+
+id: burning_brawl
+description: "불타는 잡몹끼리 싸우다 검격·쓰러짐·찌르기 마무리"
+
+steps:
+  - freeze: true
+
+  - title:
+      main: "&c&l불타는 전장"
+      sub: "&7잡몹들이 서로를 향해 달려든다"
+      fade-in: 8
+      stay: 45
+      fade-out: 12
+
+  - spawn:
+      id: raider_a
+      model: player_model
+      preset: emp4348
+      offset: [-1.1, 0, 0.2]
+      yaw: 50
+
+  - spawn:
+      id: raider_b
+      model: player_model
+      skin: EMP4348
+      offset: [1.1, 0, -0.2]
+      yaw: -130
+
+  - fire: [raider_a, raider_b]
+
+  - camera:
+      offset: [0, 3.0, 8]
+      look-at: raider_a
+      hold: true
+
+  - wait: 30
+
+  - message: "&6불꽃 속에서 검을 겨냥한다!"
+
+  - camera-move:
+      to-offset: [0, 1.5, 2.0]
+      duration: 40
+      look-at-midpoint: [raider_a, raider_b]
+      hold: true
+
+  - wait: 10
+
+  - clash:
+      a: raider_a
+      b: raider_b
+      animation: clash
+      duration: 20
+
+  - wait: 6
+
+  - clash:
+      a: raider_b
+      b: raider_a
+      animation: clash
+      duration: 18
+
+  - particle:
+      actor: raider_a
+      particle: FLAME
+      count: 8
+      spread: 0.2
+
+  - wait: 8
+
+  - animate:
+      actor: raider_b
+      animation: fall
+      duration: 35
+      loop: true
+
+  - sound:
+      sound: ENTITY_PLAYER_HURT
+      volume: 1.0
+      pitch: 0.7
+
+  - sound:
+      sound: ENTITY_ZOMBIE_FALL
+      volume: 0.9
+      pitch: 0.8
+
+  - move:
+      actor: raider_b
+      to-offset: [1.0, -0.35, -0.5]
+      duration: 20
+
+  - wait: 12
+
+  - camera-move:
+      to-offset: [0.3, 0.9, 1.1]
+      duration: 30
+      look-at: raider_b
+      hold: true
+
+  - wait: 8
+
+  - message: "&c쓰러진 적을 향해 검을 내린다"
+
+  - move:
+      actor: raider_a
+      to-offset: [0.5, 0, -0.1]
+      duration: 18
+
+  - animate:
+      actor: raider_a
+      animation: stab
+      duration: 25
+
+  - sound:
+      sound: ENTITY_PLAYER_ATTACK_CRIT
+      volume: 1.0
+      pitch: 0.9
+
+  - sound:
+      sound: ENTITY_ZOMBIE_DEATH
+      volume: 0.85
+      pitch: 0.75
+
+  - particle:
+      actor: raider_b
+      particle: CRIT
+      count: 25
+      spread: 0.12
+
+  - wait: 15
+
+  - title:
+      main: "&4&l처치"
+      sub: "&7전투가 끝났다"
+      fade-in: 5
+      stay: 55
+      fade-out: 20
+
+  - wait: 50
+
+  - fire:
+      actors: [raider_a, raider_b]
+      enable: false
+
+  - cleanup: true
+  - freeze: false
+  - restore: true
