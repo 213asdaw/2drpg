@@ -1,6 +1,7 @@
 package com.skeboss.command;
 
 import com.skeboss.SkeBossPlugin;
+import com.skeboss.blueprint.BossBlueprintInstaller;
 import com.skeboss.blueprint.ModelBlueprintPaths;
 import com.skeboss.boss.BossConfig;
 import com.skeboss.boss.BossManager;
@@ -264,6 +265,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return null;
         }
         String token = args[1].toLowerCase(Locale.ROOT);
+        if ("폭탄".equals(token)) {
+            return "bomb";
+        }
         if (isNumericSpawnArg(token)) {
             return null;
         }
@@ -515,7 +519,26 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             handleBossCheck(player, presetId);
             return;
         }
+        if (args.length >= 2 && (args[1].equalsIgnoreCase("install-model")
+                || args[1].equalsIgnoreCase("install"))) {
+            String modelId = args.length >= 3 ? args[2] : "bombboss";
+            handleBossInstallModel(player, modelId);
+            return;
+        }
         player.sendMessage(TextUtil.color("&c/skeboss boss check [프리셋]"));
+        player.sendMessage(TextUtil.color("&c/skeboss boss install-model [모델ID] &7(기본: bombboss)"));
+    }
+
+    private void handleBossInstallModel(Player player, String modelId) {
+        SkeBossPlugin plugin = SkeBossPlugin.getInstance();
+        try {
+            BossBlueprintInstaller.install(plugin, modelId);
+            Path target = BossBlueprintInstaller.blueprintPath(plugin, modelId);
+            player.sendMessage(TextUtil.color("&a보스 blueprint 설치: &f" + target));
+            player.sendMessage(TextUtil.color("&e→ &f/meg reload &e후 &f/skeboss spawn bomb"));
+        } catch (IOException ex) {
+            player.sendMessage(TextUtil.color("&c설치 실패: &f" + ex.getMessage()));
+        }
     }
 
     private void handleBossCheck(Player player, String presetId) {
@@ -576,6 +599,8 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             } else if ("ske".equalsIgnoreCase(modelId)) {
                 player.sendMessage(TextUtil.color("&e→ ske.bbmodel 을 blueprints 폴더에 복사하세요"));
                 player.sendMessage(TextUtil.color("&7  (레포: &fskeboss/reference/ske.bbmodel&7)"));
+            } else if ("bombboss".equalsIgnoreCase(modelId)) {
+                player.sendMessage(TextUtil.color("&e→ &f/skeboss boss install-model bombboss"));
             }
         }
 
@@ -593,6 +618,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(TextUtil.color("&7── 설정 순서 ──"));
         player.sendMessage(TextUtil.color("  &e1. &fplugins/ModelEngine/blueprints/" + modelId + ".bbmodel &e배치"));
+        if ("bombboss".equalsIgnoreCase(modelId)) {
+            player.sendMessage(TextUtil.color("     &7또는 &f/skeboss boss install-model bombboss"));
+        }
         player.sendMessage(TextUtil.color("  &e2. &f/meg reload &e(&cmodels만 말고 전체 reload&7)"));
         player.sendMessage(TextUtil.color("  &e3. 클라이언트 리소스팩 &c다시 받기"));
         player.sendMessage(TextUtil.color("  &e4. &f/skeboss spawn " + presetId));
@@ -824,8 +852,10 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         if (sender.hasPermission("skeboss.admin")) {
             sender.sendMessage(TextUtil.color("&e/skeboss spawn [프리셋] &7- 보스 스폰 (기본: default)"));
             sender.sendMessage(TextUtil.color("&e/skeboss spawn fire-swordsman &7- 불의 검사 (CHUNSAMGOD 스킨)"));
+            sender.sendMessage(TextUtil.color("&e/skeboss spawn bomb &7- 폭탄 보스 (bombboss 모델 + bomb 스킬)"));
             sender.sendMessage(TextUtil.color("&7  프리셋: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
             sender.sendMessage(TextUtil.color("&e/skeboss boss check [프리셋] &7- 보스 모델·ME 등록 진단"));
+            sender.sendMessage(TextUtil.color("&e/skeboss boss install-model [ID] &7- bombboss.bbmodel 설치"));
             sender.sendMessage(TextUtil.color("&e/skeboss skill [이름] &7- 보스 스킬 테스트"));
             sender.sendMessage(TextUtil.color("&e/skeboss remove &7- 보스 제거"));
             sender.sendMessage(TextUtil.color("&e/skeboss minion check &7- 잡몹 모델·스킨 진단"));
@@ -888,11 +918,16 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("boss")
                 && sender.hasPermission("skeboss.admin")) {
-            return filter(List.of("check"), args[1]);
+            return filter(List.of("check", "install-model", "install"), args[1]);
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("boss")
                 && args[1].equalsIgnoreCase("check") && sender.hasPermission("skeboss.admin")) {
             return filter(bossManager.getPresetRegistry().getPresetIds(), args[2]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("boss")
+                && (args[1].equalsIgnoreCase("install-model") || args[1].equalsIgnoreCase("install"))
+                && sender.hasPermission("skeboss.admin")) {
+            return filter(List.of("bombboss"), args[2]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("cutscene")) {
             return filter(List.of("list", "play", "stop"), args[1]);

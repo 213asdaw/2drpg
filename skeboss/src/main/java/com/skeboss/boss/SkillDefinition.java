@@ -13,7 +13,8 @@ public record SkillDefinition(
         double aoeRadius,
         BeamSettings beam,
         ChainSettings chain,
-        String untitledSkill
+        String untitledSkill,
+        String bombSkill
 ) {
     public boolean isBeamSkill() {
         return beam != null;
@@ -25,5 +26,9 @@ public record SkillDefinition(
 
     public boolean isUntitledSkill() {
         return untitledSkill != null && !untitledSkill.isBlank();
+    }
+
+    public boolean isBombSkill() {
+        return bombSkill != null && !bombSkill.isBlank();
     }
 }

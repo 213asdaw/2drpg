@@ -75,11 +75,15 @@ public final class BossAI implements Runnable {
         if (skillTarget != null) {
             return true;
         }
-        if (!skill.isUntitledSkill()) {
-            return false;
+        if (skill.isUntitledSkill()) {
+            String untitled = skill.untitledSkill().toLowerCase();
+            return untitled.contains("shield") || untitled.contains("방패");
         }
-        String untitled = skill.untitledSkill().toLowerCase();
-        return untitled.contains("shield") || untitled.contains("방패");
+        if (skill.isBombSkill()) {
+            String bomb = skill.bombSkill().toLowerCase();
+            return bomb.contains("self") || bomb.contains("explode") || bomb.contains("자폭");
+        }
+        return false;
     }
 
     private SkillDefinition pickSkill(SkeBoss boss, double distance) {

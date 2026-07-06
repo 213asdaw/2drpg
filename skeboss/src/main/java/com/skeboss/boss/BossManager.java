@@ -2,6 +2,7 @@ package com.skeboss.boss;
 
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.modelengine.ModelEngineBridge;
+import com.skeboss.skill.BombBossSkills;
 import com.skeboss.skill.ChainPullSkill;
 import com.skeboss.skill.LaserBeamSkill;
 import com.skeboss.skill.UntitledSlashSkills;
@@ -550,6 +551,10 @@ public final class BossManager {
             return castUntitledSkill(boss, skill);
         }
 
+        if (skill.isBombSkill()) {
+            return castBombSkill(boss, skill);
+        }
+
         LivingEntity entity = boss.getEntity();
         BossConfig config = boss.getConfig();
 
@@ -591,6 +596,73 @@ public final class BossManager {
             Bukkit.getScheduler().runTaskLater(plugin, () -> applySkillDamage(boss, skill), Math.max(5, duration / 2));
         }
         Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), duration);
+        return true;
+    }
+
+    private boolean castBombSkill(SkeBoss boss, SkillDefinition skill) {
+        LivingEntity entity = boss.getEntity();
+        BossConfig config = boss.getConfig();
+
+        double trackRange = Math.max(skill.range(), config.getFollowRange());
+        Player target = resolveSkillTarget(boss, trackRange);
+        String bombId = skill.bombSkill().toLowerCase();
+        if (target == null && (bombId.contains("throw") || bombId.contains("dash")
+                || bombId.contains("투척") || bombId.equals("bomb") || bombId.equals("폭탄"))) {
+            return false;
+        }
+
+        boss.setCastingSkill(true);
+        boss.setCurrentSkillId(skill.id());
+        boss.setSkillCooldown(skill);
+
+        if (entity instanceof Mob mob) {
+            mob.setAI(false);
+            mob.setTarget(null);
+        }
+        entity.setVelocity(new Vector(0, 0, 0));
+
+        if (target != null) {
+            boss.setTarget(target);
+            faceTarget(boss, target, true);
+            startSkillTracking(boss, trackRange);
+        }
+
+        if (boss.getModel() != null && skill.animation() != null
+                && !skill.animation().isBlank() && !"none".equalsIgnoreCase(skill.animation())) {
+            modelEngine.playLoopAnimation(
+                    boss.getModel(),
+                    skill.animation(),
+                    config.getBlendIn(),
+                    config.getBlendOut()
+            );
+            boss.setCurrentAnimation(skill.animation());
+        }
+
+        boolean cast = BombBossSkills.cast(
+                plugin,
+                boss,
+                skill.bombSkill(),
+                target,
+                config.getSkriptAttackVariable(),
+                config.getFallbackAttackStat()
+        );
+        if (!cast) {
+            boss.setCastingSkill(false);
+            boss.setCurrentSkillId(null);
+            stopSkillTracking(boss);
+            if (entity instanceof Mob mob) {
+                mob.setAI(true);
+            }
+            return false;
+        }
+
+        int duration = skill.durationTicks();
+        if (boss.getModel() != null && skill.animation() != null
+                && !skill.animation().isBlank() && !"none".equalsIgnoreCase(skill.animation())) {
+            duration = modelEngine.estimateDurationTicks(boss.getModel(), skill.animation(), duration);
+        }
+        int castLockTicks = Math.max(duration + 5, 12);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> finishSkill(boss, skill), castLockTicks);
         return true;
     }
 
@@ -693,7 +765,7 @@ public final class BossManager {
 
         stopSkillTracking(boss);
 
-        if (skill.isUntitledSkill()) {
+        if (skill.isUntitledSkill() || skill.isBombSkill()) {
             if (skill.animation() != null && !skill.animation().isBlank()
                     && !"none".equalsIgnoreCase(skill.animation())) {
                 modelEngine.stopAnimation(boss.getModel(), skill.animation());

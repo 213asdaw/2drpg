@@ -234,6 +234,11 @@ public final class BossConfig {
             untitled = null;
         }
 
+        String bomb = skill.getString("bomb");
+        if (bomb != null && bomb.isBlank()) {
+            bomb = null;
+        }
+
         return new SkillDefinition(
                 key,
                 skill.getString("animation", key),
@@ -247,14 +252,15 @@ public final class BossConfig {
                 skill.getDouble("aoe-radius", 0.0),
                 beam,
                 chain,
-                untitled
+                untitled,
+                bomb
         );
     }
 
     private static SkillDefinition defaultLaserSkill() {
         return new SkillDefinition(
                 "laser", "attack_laser", 10, 50, 18.0, 20.0, 6.0, 10, 0.6, 0.0,
-                BeamSettings.defaults(), null, null
+                BeamSettings.defaults(), null, null, null
         );
     }
 

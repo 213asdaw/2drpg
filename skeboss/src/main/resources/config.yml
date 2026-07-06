@@ -129,6 +129,61 @@ boss-presets:
         min-range: 0.0
         priority: 10
 
+  bomb:
+    model-id: bombboss
+    yaw-offset: 180
+    face-yaw-offset: 180
+    skill-face-yaw-offset: 0
+    animations:
+      idle: none
+      walk: work
+    boss:
+      display-name: "&c&l폭탄"
+      max-health: 450.0
+      follow-range: 28.0
+      melee-range: 3.0
+      melee-damage: 10.0
+      movement-speed: 0.34
+      fire-immune: true
+      hide-base-entity: true
+      model-scale: 1.2
+      hitbox-scale: 1.2
+      viewer-sync-radius: 64.0
+      boss-bar:
+        enabled: true
+        color: RED
+        style: SEGMENTED_10
+      target-mode: nearest
+      skill-target-mode: nearest
+      rpg:
+        skript-attack-variable: "공격력"
+        fallback-attack-stat: 50.0
+    skills:
+      bomb-throw:
+        bomb: bomb-throw
+        animation: bomb
+        cooldown-seconds: 4
+        duration-ticks: 12
+        range: 24.0
+        min-range: 6.0
+        priority: 30
+      self-explode:
+        bomb: self-explode
+        animation: bomb
+        cooldown-seconds: 12
+        duration-ticks: 20
+        range: 5.0
+        min-range: 0.0
+        priority: 25
+      blast-dash:
+        bomb: blast-dash
+        animation: work
+        cooldown-seconds: 8
+        duration-ticks: 16
+        range: 16.0
+        min-range: 4.0
+        priority: 15
+
 # 인조인간 스킬 무기 — 플러그인이 아이템 이름·우클릭 처리 (OP 불필요)
 weapons:
   plugin-right-click: true

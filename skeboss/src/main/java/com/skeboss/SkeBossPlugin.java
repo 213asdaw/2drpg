@@ -6,6 +6,7 @@ import com.skeboss.coin.CoinManager;
 import com.skeboss.command.SkeBossCommand;
 import com.skeboss.cutscene.CutsceneListener;
 import com.skeboss.cutscene.CutsceneManager;
+import com.skeboss.listener.BossBombListener;
 import com.skeboss.listener.BossListener;
 import com.skeboss.listener.CoinListener;
 import com.skeboss.listener.WeaponItemGuard;
@@ -67,6 +68,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         minionAI.start();
 
         getServer().getPluginManager().registerEvents(new BossListener(bossManager), this);
+        getServer().getPluginManager().registerEvents(new BossBombListener(), this);
         getServer().getPluginManager().registerEvents(new MinionListener(minionManager), this);
         getServer().getPluginManager().registerEvents(new WeaponListener(weaponManager), this);
         getServer().getPluginManager().registerEvents(new WeaponItemGuard(this, weaponManager), this);
@@ -103,7 +105,7 @@ public final class SkeBossPlugin extends JavaPlugin {
             skeWeaponCmd.setTabCompleter(command);
         }
 
-        getLogger().info("SkeBoss 활성화 (통합) — 코어·불의검사·코인·컷신");
+        getLogger().info("SkeBoss 활성화 (통합) — 코어·불의검사·폭탄·코인·컷신");
     }
 
     public void mergeAndReloadConfig() {
