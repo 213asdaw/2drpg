@@ -21,7 +21,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 public final class SkeBossPlugin extends JavaPlugin {
 
@@ -118,6 +123,7 @@ public final class SkeBossPlugin extends JavaPlugin {
         reloadConfig();
         getConfig().options().copyDefaults(true);
         migrateLegacyWeaponNames();
+        migrateMissingBossPresets();
         saveConfig();
     }
 
@@ -151,6 +157,36 @@ public final class SkeBossPlugin extends JavaPlugin {
                 }
             }
             arm.set("name-keywords", merged);
+        }
+    }
+
+    /** 예전 config에 boss-presets.bomb 등 신규 프리셋이 없으면 JAR 기본값으로 추가 */
+    private void migrateMissingBossPresets() {
+        try (var stream = getResource("config.yml")) {
+            if (stream == null) {
+                return;
+            }
+            YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
+                    new InputStreamReader(stream, StandardCharsets.UTF_8)
+            );
+            ConfigurationSection presets = defaults.getConfigurationSection("boss-presets");
+            if (presets == null) {
+                return;
+            }
+            for (String presetId : presets.getKeys(false)) {
+                String path = "boss-presets." + presetId;
+                if (getConfig().isConfigurationSection(path)) {
+                    continue;
+                }
+                ConfigurationSection source = presets.getConfigurationSection(presetId);
+                if (source == null) {
+                    continue;
+                }
+                getConfig().createSection(path, source.getValues(true));
+                getLogger().info("config 마이그레이션: boss-presets." + presetId + " 추가");
+            }
+        } catch (Exception ex) {
+            getLogger().warning("보스 프리셋 마이그레이션 실패: " + ex.getMessage());
         }
     }
 

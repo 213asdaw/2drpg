@@ -232,7 +232,15 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        String requested = resolveRequestedPreset(args);
         String presetId = resolvePresetArg(args);
+        if (requested != null && presetId == null) {
+            sender.sendMessage(TextUtil.color("&c알 수 없는 보스 프리셋: &f" + requested));
+            sender.sendMessage(TextUtil.color("&7→ &f/skeboss reload &7후 다시 시도"));
+            sender.sendMessage(TextUtil.color("&7폭탄 보스: &f/skeboss spawn bomb &7또는 &f/skeboss spawn 폭탄"));
+            sender.sendMessage(TextUtil.color("&7사용 가능: &f" + String.join(", ", bossManager.getPresetRegistry().getPresetIds())));
+            return true;
+        }
         Location location = resolveSpawnLocation(sender, args, presetId);
         if (location == null) {
             return true;
@@ -260,20 +268,58 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /** 플레이어가 프리셋 이름을 적었는지 (좌표/월드명이 아닌 경우) */
+    private String resolveRequestedPreset(String[] args) {
+        if (args.length < 2) {
+            return null;
+        }
+        String token = normalizePresetToken(args[1]);
+        if (isNumericSpawnArg(token)) {
+            return null;
+        }
+        if (Bukkit.getWorld(token) != null) {
+            return null;
+        }
+        if (bossManager.getPresetRegistry().getPresetIds().contains(token)
+                || SkeBossPlugin.getInstance().getConfig().isConfigurationSection("boss-presets." + token)) {
+            return null;
+        }
+        if (isKnownPresetAlias(token)) {
+            return normalizePresetToken(token);
+        }
+        return token;
+    }
+
+    private static boolean isKnownPresetAlias(String token) {
+        String t = token.toLowerCase(Locale.ROOT);
+        return t.equals("bomb") || t.equals("폭탄")
+                || t.equals("fire-swordsman") || t.equals("불의검사");
+    }
+
+    private static String normalizePresetToken(String token) {
+        if ("폭탄".equals(token)) {
+            return "bomb";
+        }
+        return token.toLowerCase(Locale.ROOT);
+    }
+
     private String resolvePresetArg(String[] args) {
         if (args.length < 2) {
             return null;
         }
-        String token = args[1].toLowerCase(Locale.ROOT);
-        if ("폭탄".equals(token)) {
-            return "bomb";
-        }
+        String token = normalizePresetToken(args[1]);
         if (isNumericSpawnArg(token)) {
+            return null;
+        }
+        if (Bukkit.getWorld(token) != null) {
             return null;
         }
         if (bossManager.getPresetRegistry().getPresetIds().contains(token)
                 || SkeBossPlugin.getInstance().getConfig().isConfigurationSection("boss-presets." + token)) {
             return token;
+        }
+        if ("bomb".equals(token) || "폭탄".equals(args[1])) {
+            return null;
         }
         return null;
     }
