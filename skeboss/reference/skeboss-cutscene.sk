@@ -1,0 +1,16 @@
+# SkeBoss 스토리 연출 — Skript 예시
+# plugins/Skript/scripts/skeboss-cutscene.sk
+#
+# 컷신 YAML: plugins/SkeBoss/cutscenes/*.yml
+# 재생 명령: execute console command "skeboss cutscene play tutorial_fight %player%"
+
+on cutscene end:
+    broadcast "&7[연출] %player% — %event-cutscene-id% 완료=%event-completed%"
+
+command /불타는난투:
+    trigger:
+        execute console command "skeboss cutscene play burning_brawl %player%"
+
+# 퀘스트 단계에서 호출 예시:
+# function playStoryFight(p: player):
+#     execute console command "skeboss cutscene play tutorial_fight %{_p}%"

@@ -1,0 +1,300 @@
+# ske.bbmodel 기준 설정 (model-id: ske) — default 프리셋 폴백
+default-boss-preset: default
+model-id: ske
+
+# ske 모델 facing 보정 (반대 보면 0 ↔ 180)
+yaw-offset: 180
+face-yaw-offset: 180
+# 스킬 시전 시 모델 방향 (attack 애니는 보통 0, 반대면 180)
+skill-face-yaw-offset: 0
+# 스킬 위·아래 조준 각도 제한 (도)
+skill-max-pitch: 75
+
+blend-in: 0.15
+blend-out: 0.25
+
+# idle 애니 없음 → 가만히 있을 때는 애니 재생 안 함 (walk 루프 유지)
+animations:
+  idle: none
+  walk: walk
+
+boss:
+  max-health: 400.0
+  display-name: "&c&l인조인간"
+  follow-range: 32.0
+  melee-range: 3.5
+  melee-damage: 8.0
+  movement-speed: 0.38
+  fire-immune: true
+  ai-interval-ticks: 5
+  spawn-delay-ticks: 2
+  hide-base-entity: true
+  viewer-sync-radius: 64.0
+  model-scale: 2.0
+  hitbox-scale: 2.0
+  # aggro = 보스를 공격한 플레이어만 추적 / nearest = 가까운 플레이어
+  target-mode: aggro
+  # 스킬 조준: aggro | nearest (nearest = 어그로 없어도 스킬 사용)
+  skill-target-mode: aggro
+  aggro-drop-seconds: 30
+  # Skript {공격력::%uuid%} 연동 — 빔 데미지 = 공격력 × beam-attack-multiplier
+  rpg:
+    skript-attack-variable: "공격력"
+    beam-attack-multiplier: 2.0
+    fallback-attack-stat: 80.0
+
+# attack_laser: loop=hold, length=2.5초 → 끝나면 코드에서 walk(idle)로 강제 복귀
+skills:
+  chain:
+    chain: true
+    animation: walk
+    cooldown-seconds: 12
+    duration-ticks: 45
+    damage: 6.0
+    range: 16.0
+    min-range: 4.0
+    priority: 20
+    fire-delay-ticks: 8
+    chain-speed: 1.1
+    hit-radius: 1.4
+    pull-speed: 0.5
+    pull-ticks: 14
+  laser:
+    animation: attack_laser
+    beam: true
+    cooldown-seconds: 10
+    duration-ticks: 50
+    damage: 18.0
+    range: 20.0
+    min-range: 6.0
+    priority: 10
+    knockback: 0.6
+    aoe-radius: 0.0
+    beam-width: 1.8
+    fire-delay-ticks: 11
+    particle-ticks: 25
+    damage-interval-ticks: 4
+    particle-step: 0.25
+    particle-size: 2.0
+
+# 보스 프리셋 — /skeboss spawn <프리셋>
+boss-presets:
+  fire-swordsman:
+    model-id: player_model
+    model-fallback-ids:
+      - player_model
+      - skin_2
+      - skin
+    skin-username: CHUNSAMGOD
+    yaw-offset: 0
+    face-yaw-offset: 0
+    animations:
+      idle: none
+      walk: walk
+    boss:
+      display-name: "&6&l불의 검사"
+      max-health: 500.0
+      follow-range: 28.0
+      melee-range: 3.0
+      melee-damage: 12.0
+      movement-speed: 0.36
+      fire-immune: true
+      hide-base-entity: true
+      model-scale: 1.0
+      hitbox-scale: 1.0
+      viewer-sync-radius: 64.0
+      boss-bar:
+        enabled: true
+        color: YELLOW
+        style: SEGMENTED_10
+      target-mode: nearest
+      skill-target-mode: nearest
+      rpg:
+        skript-attack-variable: "공격력"
+        fallback-attack-stat: 60.0
+    skills:
+      slash-wave:
+        untitled: slash-wave
+        cooldown-seconds: 5
+        duration-ticks: 45
+        range: 22.0
+        min-range: 2.5
+        priority: 20
+      fire-shield:
+        untitled: fire-shield
+        animation: attack
+        cooldown-seconds: 15
+        duration-ticks: 200
+        range: 8.0
+        min-range: 0.0
+        priority: 10
+
+  bomb:
+    model-id: bombboss
+    yaw-offset: 180
+    face-yaw-offset: 180
+    skill-face-yaw-offset: 0
+    animations:
+      idle: none
+      walk: work
+    boss:
+      display-name: "&c&l폭탄"
+      max-health: 450.0
+      follow-range: 28.0
+      melee-range: 3.0
+      melee-damage: 10.0
+      movement-speed: 0.34
+      fire-immune: true
+      hide-base-entity: true
+      model-scale: 1.2
+      hitbox-scale: 1.2
+      viewer-sync-radius: 64.0
+      boss-bar:
+        enabled: true
+        color: RED
+        style: SEGMENTED_10
+      target-mode: nearest
+      skill-target-mode: nearest
+      rpg:
+        skript-attack-variable: "공격력"
+        fallback-attack-stat: 50.0
+    skills:
+      bomb-throw:
+        bomb: bomb-throw
+        animation: bomb
+        cooldown-seconds: 4
+        duration-ticks: 12
+        range: 24.0
+        min-range: 6.0
+        priority: 30
+      self-explode:
+        bomb: self-explode
+        animation: bomb
+        cooldown-seconds: 12
+        duration-ticks: 20
+        range: 5.0
+        min-range: 0.0
+        priority: 25
+      blast-dash:
+        bomb: blast-dash
+        animation: work
+        cooldown-seconds: 8
+        duration-ticks: 16
+        range: 16.0
+        min-range: 4.0
+        priority: 15
+
+# 인조인간 스킬 무기 — 플러그인이 아이템 이름·우클릭 처리 (OP 불필요)
+weapons:
+  plugin-right-click: true
+  beam-attack-multiplier: 2.0
+  beam-base-damage: 3.0
+  require-nbt: false
+  restore-after-skill: true
+  restore-near-boss: true
+  restore-radius: 48.0
+  restore-keywords:
+    - "검기"
+    - "불꽃"
+  pvp: true
+  target-boss: true
+  target-mobs: true
+  action-bar-messages:
+    laser: "&b&l◆ 레이저 &7발사!"
+    chain: "&6&l◆ 사슬 &7발사!"
+  artificial-arm:
+    material: BLAZE_ROD
+    display-name: "&6&l인조인간의 코어"
+    name-keywords:
+      - "인조인간의 코어"
+      - "인조인간코어"
+      - "인조인간"
+      - "핵심 동력원"
+      - "인조 무기"
+      - "인조무기"
+    lore:
+      - "&7인조인간의 핵심 동력원"
+      - "&e우클릭 &7- 레이저"
+      - "&e웅크린 채 우클릭 &7- 사슬"
+    skill: laser
+    sneak-skill: chain
+    cooldown-seconds: 8
+  laser-rifle:
+    material: BLAZE_ROD
+    display-name: "&c&l인조 레이저"
+    name-keywords:
+      - "인조 레이저"
+      - "인조레이저"
+    lore:
+      - "&7인조인간의 레이저 기술"
+      - "&7우클릭: 레이저 발사"
+      - "&7데미지: {공격력} ×2 + 3"
+    skill: laser
+    cooldown-seconds: 8
+  chain-hook:
+    material: FISHING_ROD
+    display-name: "&7&l인조 사슬"
+    name-keywords:
+      - "인조 사슬"
+      - "인조사슬"
+    lore:
+      - "&7인조인간의 사슬 기술"
+      - "&7우클릭: 사슬 발사·끌어오기"
+    skill: chain
+    cooldown-seconds: 10
+
+# 코인 — custom_model_data 1003 (range_dispatch)
+coin-item:
+  enabled: true
+  material: PAPER
+  custom-model-data: 1003
+  require-model-data: true
+  display-name: "&e&l코인"
+  name-keywords:
+    - "코인"
+    - "coin"
+  throw-speed: 1.0
+  consume: false
+  cooldown-seconds: 4
+  throw-message: "&e&l◆ 코인 &7던짐!"
+  projectile:
+    material: PAPER
+    custom-model-data: 1003
+
+# 잡몹 — 프리셋 여러 개 + PNG 스킨 (plugins/SkeBoss/skins/)
+minion:
+  default-preset: emp4348
+  model-id: player_model
+  model-fallback-ids:
+    - player_model
+    - skin_2
+    - skin
+    - player
+  spawn-delay-ticks: 0
+  ai-interval-ticks: 5
+  spawner-respawn-seconds: 30
+  presets:
+    emp4348:
+      display-name: "&e조연우"
+      skin-username: "EMP4348"
+      skript-tag: "EMP4348"
+      max-health: 20.0
+      movement-speed: 0.32
+      follow-range: 24.0
+      ai-mode: backline
+      melee-range: 2.5
+      melee-damage: 4.0
+      fire-immune: true
+      hide-base-entity: true
+      boss-bar:
+        enabled: true
+        color: YELLOW
+        style: SEGMENTED_6
+    guard:
+      display-name: "&c경비병"
+      skin-file: "guard.png"
+      skript-tag: "guard"
+      max-health: 25.0
+      movement-speed: 0.30
+      ai-mode: aggressive
+      melee-damage: 6.0
