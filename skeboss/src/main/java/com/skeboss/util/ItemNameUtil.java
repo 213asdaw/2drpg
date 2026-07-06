@@ -47,24 +47,50 @@ public final class ItemNameUtil {
             return List.of();
         }
         ItemMeta meta = item.getItemMeta();
-        if (meta == null || !meta.hasLore() || meta.getLore() == null) {
+        if (meta == null) {
             return List.of();
         }
         List<String> lines = new ArrayList<>();
-        for (String line : meta.getLore()) {
-            if (line == null || line.isBlank()) {
-                continue;
+        if (meta.hasLore() && meta.getLore() != null) {
+            for (String line : meta.getLore()) {
+                if (line == null || line.isBlank()) {
+                    continue;
+                }
+                lines.add(ChatColor.stripColor(line).trim());
             }
-            lines.add(ChatColor.stripColor(line).trim());
+        }
+        try {
+            Object loreComponent = meta.getClass().getMethod("lore").invoke(meta);
+            if (loreComponent instanceof List<?> components) {
+                for (Object entry : components) {
+                    if (entry instanceof Component component) {
+                        String plain = PLAIN.serialize(component).trim();
+                        if (!plain.isEmpty() && !lines.contains(plain)) {
+                            lines.add(plain);
+                        }
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
         }
         return lines;
     }
 
     private static String legacyDisplayName(ItemMeta meta) {
-        if (!meta.hasDisplayName()) {
-            return "";
+        try {
+            String raw = meta.getDisplayName();
+            if (raw != null && !raw.isBlank()) {
+                String stripped = ChatColor.stripColor(raw).trim();
+                if (!stripped.isEmpty()) {
+                    return stripped;
+                }
+            }
+        } catch (Exception ignored) {
         }
-        return ChatColor.stripColor(meta.getDisplayName()).trim();
+        if (meta.hasDisplayName()) {
+            return ChatColor.stripColor(meta.getDisplayName()).trim();
+        }
+        return "";
     }
 
     private static String adventureItemName(ItemMeta meta) {

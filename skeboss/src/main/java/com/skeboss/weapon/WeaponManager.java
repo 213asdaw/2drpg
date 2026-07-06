@@ -260,8 +260,14 @@ public final class WeaponManager {
             sb.append(" → 인식: ").append(weapon.id()).append(" (").append(TextUtil.stripColor(weapon.displayName())).append(")");
         } else {
             sb.append(" → 인식 실패");
+            sb.append(" | lore=").append(ItemNameUtil.plainLore(item));
             if (weaponConfig.isRequireNbt()) {
                 sb.append(" (require-nbt=true — /skeweapon 또는 /skeboss weapon artificial-arm 으로 받으세요)");
+            } else {
+                WeaponDefinition core = weaponConfig.getWeapon("artificial-arm");
+                if (core != null) {
+                    sb.append(" — config 키워드: ").append(core.nameKeywords());
+                }
             }
         }
         return sb.toString();

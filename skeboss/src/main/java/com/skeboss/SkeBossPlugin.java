@@ -21,6 +21,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
+
 public final class SkeBossPlugin extends JavaPlugin {
 
     private static SkeBossPlugin instance;
@@ -115,7 +117,41 @@ public final class SkeBossPlugin extends JavaPlugin {
     private void mergeDefaultConfig() {
         reloadConfig();
         getConfig().options().copyDefaults(true);
+        migrateLegacyWeaponNames();
         saveConfig();
+    }
+
+    /** 서버 config에 예전 "인조 무기" 이름이 남아 있으면 코어로 맞춤 */
+    private void migrateLegacyWeaponNames() {
+        var arm = getConfig().getConfigurationSection("weapons.artificial-arm");
+        if (arm == null) {
+            return;
+        }
+        String display = arm.getString("display-name", "");
+        String plain = org.bukkit.ChatColor.stripColor(
+                display.replace('&', '§')
+        );
+        if (plain.contains("인조 무기") || plain.contains("인조무기")) {
+            if (!plain.contains("코어")) {
+                arm.set("display-name", "&6&l인조인간의 코어");
+                getLogger().info("config 마이그레이션: artificial-arm 표시 이름 → 인조인간의 코어");
+            }
+        }
+        List<String> keywords = arm.getStringList("name-keywords");
+        if (keywords.isEmpty()) {
+            arm.set("name-keywords", List.of(
+                    "인조인간의 코어", "인조인간코어", "인조인간",
+                    "핵심 동력원", "인조 무기", "인조무기"
+            ));
+        } else {
+            List<String> merged = new java.util.ArrayList<>(keywords);
+            for (String required : List.of("인조인간의 코어", "인조인간", "핵심 동력원")) {
+                if (merged.stream().noneMatch(k -> k.equalsIgnoreCase(required))) {
+                    merged.add(required);
+                }
+            }
+            arm.set("name-keywords", merged);
+        }
     }
 
     @Override

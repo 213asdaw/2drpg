@@ -148,7 +148,7 @@ public final class WeaponConfig {
                 "laser",
                 "chain",
                 8,
-                List.of("인조인간의 코어", "인조인간코어", "인조 무기", "인조무기")
+                List.of("인조인간의 코어", "인조인간코어", "인조인간", "핵심 동력원", "인조 무기", "인조무기")
         );
     }
 
