@@ -1,5 +1,6 @@
 package com.skeboss.listener;
 
+import com.skeboss.util.TextUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -19,12 +20,15 @@ public final class WeaponListener implements Listener {
     }
 
     /**
-     * 인조 무기는 공중 우클릭도 허용해야 함.
-     * Paper는 블레이즈 막대 등 공중 우클릭을 미리 취소(useItemInHand=DENY)하는 경우가 많아
-     * ignoreCancelled=false 로 받고, 인조 무기일 때만 처리한다.
+     * 블레이즈 막대(코어)는 Paper가 공중 우클릭을 먼저 막는 경우가 많아
+     * LOWEST + ignoreCancelled=false 로 처리한다.
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onUse(PlayerInteractEvent event) {
+        handleInteract(event);
+    }
+
+    private void handleInteract(PlayerInteractEvent event) {
         if (!weaponManager.getWeaponConfig().isPluginRightClick()) {
             return;
         }
@@ -48,6 +52,9 @@ public final class WeaponListener implements Listener {
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setUseInteractedBlock(Event.Result.DENY);
         }
-        weaponManager.tryUse(event.getPlayer(), item, event.getPlayer().isSneaking());
+
+        if (!weaponManager.tryUse(event.getPlayer(), item, event.getPlayer().isSneaking())) {
+            TextUtil.message(event.getPlayer(), "&c[코어] 스킬 시전 실패 — &7/skeboss weapon test");
+        }
     }
 }

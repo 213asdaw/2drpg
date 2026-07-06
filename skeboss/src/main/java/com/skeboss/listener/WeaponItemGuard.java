@@ -2,6 +2,7 @@ package com.skeboss.listener;
 
 import com.skeboss.SkeBossPlugin;
 import com.skeboss.boss.SkeBoss;
+import com.skeboss.util.ItemNameUtil;
 import com.skeboss.weapon.WeaponManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -149,7 +150,7 @@ public final class WeaponItemGuard implements Listener {
             return true;
         }
 
-        String currentName = displayName(current);
+        String currentName = ItemNameUtil.plainName(current);
         for (String keyword : weaponManager.getWeaponConfig().getRestoreKeywords()) {
             if (!keyword.isBlank() && currentName.contains(keyword)) {
                 return true;
@@ -160,7 +161,7 @@ public final class WeaponItemGuard implements Listener {
             return true;
         }
 
-        String backupName = displayName(backup);
+        String backupName = ItemNameUtil.plainName(backup);
         if (!backupName.isEmpty() && !backupName.equals(currentName)) {
             return looksLikeSkillItem(currentName);
         }

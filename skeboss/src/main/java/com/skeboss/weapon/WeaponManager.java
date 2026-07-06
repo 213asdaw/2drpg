@@ -7,9 +7,9 @@ import com.skeboss.boss.SkillDefinition;
 import com.skeboss.skill.PlayerChainSkill;
 import com.skeboss.skill.PlayerLaserSkill;
 import com.skeboss.skript.SkriptBridge;
+import com.skeboss.util.ItemNameUtil;
 import com.skeboss.util.TextUtil;
 import org.bukkit.NamespacedKey;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -93,47 +93,47 @@ public final class WeaponManager {
         return item.getItemMeta().getPersistentDataContainer().get(weaponKey, PersistentDataType.STRING);
     }
 
-    /** NBT 우선, 없으면 config name-keywords / display-name 으로 감지 */
+    /** NBT 우선, 없으면 config name-keywords / display-name / lore 으로 감지 */
     public WeaponDefinition resolveWeapon(ItemStack item) {
         if (item == null || item.getType().isAir()) {
             return null;
         }
 
-        if (item.hasItemMeta()) {
-            String nbtId = getNbtWeaponId(item);
-            if (nbtId != null) {
-                WeaponDefinition weapon = weaponConfig.getWeapon(nbtId);
-                if (weapon != null) {
-                    return weapon;
-                }
+        String nbtId = item.hasItemMeta() ? getNbtWeaponId(item) : null;
+        if (nbtId != null) {
+            WeaponDefinition fromNbt = weaponConfig.getWeapon(nbtId);
+            if (fromNbt != null) {
+                return fromNbt;
             }
         }
 
-        WeaponDefinition byName = resolveWeaponByDisplayName(item);
-        return byName;
+        if (weaponConfig.isRequireNbt()) {
+            return null;
+        }
+
+        return resolveWeaponByItemText(item);
     }
 
-    private WeaponDefinition resolveWeaponByDisplayName(ItemStack item) {
-        if (!item.hasItemMeta() || !item.getItemMeta().hasDisplayName()) {
-            return null;
-        }
-
-        String itemName = ChatColor.stripColor(item.getItemMeta().getDisplayName()).trim();
-        if (itemName.isEmpty()) {
-            return null;
-        }
+    private WeaponDefinition resolveWeaponByItemText(ItemStack item) {
+        String itemName = ItemNameUtil.plainName(item);
+        List<String> loreLines = ItemNameUtil.plainLore(item);
 
         WeaponDefinition exact = null;
         WeaponDefinition contains = null;
 
         for (WeaponDefinition weapon : weaponConfig.getWeapons().values()) {
+            if (item.getType() != weapon.material()) {
+                continue;
+            }
+
             String configName = TextUtil.stripColor(weapon.displayName());
-            if (!configName.isEmpty() && itemName.equalsIgnoreCase(configName)) {
+            if (!configName.isEmpty() && !itemName.isEmpty() && itemName.equalsIgnoreCase(configName)) {
                 exact = weapon;
                 break;
             }
+
             for (String keyword : weapon.nameKeywords()) {
-                if (keyword.isBlank()) {
+                if (keyword.isBlank() || itemName.isEmpty()) {
                     continue;
                 }
                 if (itemName.equalsIgnoreCase(keyword)) {
@@ -142,6 +142,24 @@ public final class WeaponManager {
                 }
                 if (contains == null && itemName.contains(keyword)) {
                     contains = weapon;
+                }
+            }
+            if (exact != null) {
+                break;
+            }
+
+            for (String keyword : weapon.nameKeywords()) {
+                if (keyword.isBlank()) {
+                    continue;
+                }
+                for (String lore : loreLines) {
+                    if (lore.contains(keyword)) {
+                        contains = weapon;
+                        break;
+                    }
+                }
+                if (contains != null) {
+                    break;
                 }
             }
             if (exact != null) {
@@ -189,7 +207,7 @@ public final class WeaponManager {
         }
 
         if (isOnCooldown(player, skillId)) {
-            player.sendMessage(TextUtil.color("&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초"));
+            TextUtil.message(player, "&c쿨타임 &f" + cooldownLeftSeconds(player, skillId) + "초");
             return false;
         }
 
@@ -204,6 +222,7 @@ public final class WeaponManager {
         }
 
         if (cast) {
+            sendSkillActionBar(player, skillId);
             setCooldown(player, skillId, cooldownSeconds);
             player.addScoreboardTag(USING_SKILL_TAG);
             plugin.getServer().getScheduler().runTaskLater(
@@ -213,6 +232,39 @@ public final class WeaponManager {
             );
         }
         return cast;
+    }
+
+    private void sendSkillActionBar(Player player, String skillId) {
+        String message = switch (skillId.toLowerCase()) {
+            case "laser", "레이저" -> weaponConfig.getLaserActionBarMessage();
+            case "chain", "사슬" -> weaponConfig.getChainActionBarMessage();
+            default -> "&e스킬 &f" + skillId;
+        };
+        TextUtil.actionBar(player, message);
+    }
+
+    /** 진단용 — 손에 든 아이템이 코어/무기로 인식되는지 */
+    public String diagnoseItem(ItemStack item) {
+        if (item == null || item.getType().isAir()) {
+            return "손에 아이템이 없습니다.";
+        }
+        String nbt = getNbtWeaponId(item);
+        WeaponDefinition weapon = resolveWeapon(item);
+        String name = ItemNameUtil.plainName(item);
+        StringBuilder sb = new StringBuilder();
+        sb.append("재료=").append(item.getType()).append(", 이름='").append(name).append("'");
+        if (nbt != null) {
+            sb.append(", NBT=").append(nbt);
+        }
+        if (weapon != null) {
+            sb.append(" → 인식: ").append(weapon.id()).append(" (").append(TextUtil.stripColor(weapon.displayName())).append(")");
+        } else {
+            sb.append(" → 인식 실패");
+            if (weaponConfig.isRequireNbt()) {
+                sb.append(" (require-nbt=true — /skeweapon 또는 /skeboss weapon artificial-arm 으로 받으세요)");
+            }
+        }
+        return sb.toString();
     }
 
     private int getCooldownForSkill(String skillId) {

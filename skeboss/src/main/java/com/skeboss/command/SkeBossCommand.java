@@ -167,6 +167,15 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.color("&c권한이 없습니다. &7(OP 또는 skeboss.weapon.give)"));
             return true;
         }
+        if (args.length >= 2 && args[1].equalsIgnoreCase("test")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("플레이어만 사용할 수 있습니다.");
+                return true;
+            }
+            ItemStack hand = player.getInventory().getItemInMainHand();
+            player.sendMessage(TextUtil.color("&7[무기 진단] &f" + weaponManager.diagnoseItem(hand)));
+            return true;
+        }
         if (args.length < 2) {
             sender.sendMessage(TextUtil.color("&c/skeboss weapon <이름> [플레이어]"));
             sender.sendMessage(TextUtil.color("&7무기 목록: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
@@ -803,6 +812,7 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.color("&6&l━━━━ SkeBoss 명령어 ━━━━"));
         if (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin")) {
             sender.sendMessage(TextUtil.color("&e/skeweapon &7- 인조인간의 코어 바로 지급"));
+            sender.sendMessage(TextUtil.color("&e/skeboss weapon test &7- 손에 든 무기 인식 진단"));
             sender.sendMessage(TextUtil.color("&e/skeboss weapon <이름> [플레이어] &7- 무기 지급"));
             sender.sendMessage(TextUtil.color("&e/skeboss coin [플레이어] [개수] &7- 코인 지급"));
             sender.sendMessage(TextUtil.color("&7  무기: &f" + String.join(", ", weaponManager.getWeaponConfig().getWeaponIds())));
@@ -867,7 +877,9 @@ public final class SkeBossCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("weapon")
                 && (sender.hasPermission("skeboss.weapon.give") || sender.hasPermission("skeboss.admin"))) {
-            return filter(weaponManager.getWeaponConfig().getWeaponIds(), args[1]);
+            List<String> ids = new ArrayList<>(weaponManager.getWeaponConfig().getWeaponIds());
+            ids.add("test");
+            return filter(ids, args[1]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("spawn") && sender.hasPermission("skeboss.admin")) {
             List<String> options = new ArrayList<>(bossManager.getPresetRegistry().getPresetIds());
