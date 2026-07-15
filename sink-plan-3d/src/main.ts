@@ -1,5 +1,5 @@
 import "./style.css";
-import { createDefaultPlan, TEMPLATES, type SinkPlan, type TemplateId } from "./types";
+import { createDefaultPlan, TEMPLATES, resizeWidths, sumWidths, syncPlanFromCabinets, type SinkPlan, type TemplateId } from "./types";
 import { PlanEditor } from "./PlanEditor";
 import { SinkScene } from "./SinkScene";
 
@@ -45,11 +45,10 @@ requestAnimationFrame(() => {
 let syncing = false;
 
 function applyPlan(next: SinkPlan, opts: { refitEditor?: boolean; frameCamera?: boolean } = {}) {
-  plan = next;
+  plan = syncPlanFromCabinets(next);
   if (!syncing) {
     syncing = true;
     editor.setPlan(plan, opts.refitEditor ?? false);
-    // Reframe whenever a substantial plan rebuild happens
     scene.setPlan(plan, opts.frameCamera ?? true);
     syncing = false;
   }
@@ -57,8 +56,7 @@ function applyPlan(next: SinkPlan, opts: { refitEditor?: boolean; frameCamera?: 
 }
 
 editor.on("change", (next) => {
-  plan = next;
-  // Drag updates: keep camera
+  plan = syncPlanFromCabinets(next);
   scene.setPlan(plan, false);
 });
 
@@ -83,10 +81,9 @@ function renderControls() {
     <div class="section">
       <h2>전체 치수 (mm)</h2>
       <div class="field">
-        <label for="counterWidth">가로 폭</label>
+        <label>가로 폭 (하부장 합)</label>
         <div class="field-row">
-          <input id="counterWidth" type="range" min="900" max="3200" step="50" value="${plan.counterWidth}" />
-          <output>${plan.counterWidth}</output>
+          <output style="text-align:left">${plan.counterWidth} mm</output>
         </div>
       </div>
       <div class="field">
@@ -99,10 +96,9 @@ function renderControls() {
       ${
         plan.template === "l-shape"
           ? `<div class="field">
-              <label for="returnWidth">리턴 길이 (Z)</label>
+              <label>리턴 길이 (하부장 합)</label>
               <div class="field-row">
-                <input id="returnWidth" type="range" min="900" max="2800" step="50" value="${plan.returnWidth}" />
-                <output>${plan.returnWidth}</output>
+                <output style="text-align:left">${plan.returnWidth} mm</output>
               </div>
             </div>
             <div class="field">
@@ -140,6 +136,46 @@ function renderControls() {
     <div class="section">
       <h2>하부장 디테일</h2>
       <div class="field">
+        <label for="cabinetCount">하부장 개수</label>
+        <div class="field-row">
+          <input id="cabinetCount" type="range" min="1" max="8" step="1" value="${plan.cabinetWidths.length}" />
+          <output>${plan.cabinetWidths.length}</output>
+        </div>
+      </div>
+      ${plan.cabinetWidths
+        .map(
+          (w, i) => `<div class="field">
+        <label for="cabWidth${i}">하부장 ${i + 1} 길이</label>
+        <div class="field-row">
+          <input id="cabWidth${i}" type="range" min="300" max="1200" step="10" value="${w}" data-cab-index="${i}" />
+          <output>${w} mm</output>
+        </div>
+      </div>`,
+        )
+        .join("")}
+      ${
+        plan.template === "l-shape"
+          ? `<div class="field" style="margin-top:0.75rem">
+              <label for="returnCabinetCount">리턴 하부장 개수</label>
+              <div class="field-row">
+                <input id="returnCabinetCount" type="range" min="1" max="6" step="1" value="${Math.max(1, plan.returnCabinetWidths.length)}" />
+                <output>${Math.max(1, plan.returnCabinetWidths.length)}</output>
+              </div>
+            </div>
+            ${plan.returnCabinetWidths
+              .map(
+                (w, i) => `<div class="field">
+              <label for="retCabWidth${i}">리턴 장 ${i + 1} 길이</label>
+              <div class="field-row">
+                <input id="retCabWidth${i}" type="range" min="300" max="1200" step="10" value="${w}" data-ret-cab-index="${i}" />
+                <output>${w} mm</output>
+              </div>
+            </div>`,
+              )
+              .join("")}`
+          : ""
+      }
+      <div class="field">
         <label for="counterOverhang">상판 앞 오버행</label>
         <div class="field-row">
           <input id="counterOverhang" type="range" min="0" max="80" step="1" value="${plan.counterOverhang}" />
@@ -165,13 +201,6 @@ function renderControls() {
         </div>
       </div>
       <div class="field">
-        <label for="doorCount">문짝 개수 (0=자동)</label>
-        <div class="field-row">
-          <input id="doorCount" type="range" min="0" max="8" step="1" value="${plan.doorCount}" />
-          <output>${plan.doorCount === 0 ? "자동" : plan.doorCount}</output>
-        </div>
-      </div>
-      <div class="field">
         <label for="drawerRows">서랍 단수</label>
         <div class="field-row">
           <input id="drawerRows" type="range" min="0" max="2" step="1" value="${plan.drawerRows}" />
@@ -189,7 +218,7 @@ function renderControls() {
           <output>${plan.handleHeightPct}%</output>
         </div>
       </div>
-      <p class="hint">문짝·서랍·걸레받이·오버행을 바꿔 하부장 느낌을 세밀하게 맞출 수 있습니다.</p>
+      <p class="hint">하부장마다 길이를 따로 조절하면 상판 가로(합계 ${sumWidths(plan.cabinetWidths)}mm)가 따라갑니다.</p>
     </div>
 
     <div class="section">
@@ -327,9 +356,7 @@ function bindControls() {
   });
 
   const rangeIds = [
-    "counterWidth",
     "counterDepth",
-    "returnWidth",
     "returnDepth",
     "cabinetHeight",
     "counterThickness",
@@ -339,7 +366,6 @@ function bindControls() {
     "counterOverhang",
     "toeKickHeight",
     "toeKickDepth",
-    "doorCount",
     "drawerRows",
     "handleHeightPct",
     "bowlWidth",
@@ -358,9 +384,7 @@ function bindControls() {
       else if (id === "bowlDepth") next.bowls.forEach((b) => (b.depth = v));
       else if (id === "bowlBowlDepth") next.bowls.forEach((b) => (b.bowlDepth = v));
       else if (id === "blueprintOpacity") next.blueprintOpacity = v;
-      else if (id === "counterWidth") next.counterWidth = v;
       else if (id === "counterDepth") next.counterDepth = v;
-      else if (id === "returnWidth") next.returnWidth = v;
       else if (id === "returnDepth") next.returnDepth = v;
       else if (id === "cabinetHeight") next.cabinetHeight = v;
       else if (id === "counterThickness") next.counterThickness = v;
@@ -370,14 +394,8 @@ function bindControls() {
       else if (id === "counterOverhang") next.counterOverhang = v;
       else if (id === "toeKickHeight") next.toeKickHeight = v;
       else if (id === "toeKickDepth") next.toeKickDepth = v;
-      else if (id === "doorCount") next.doorCount = v;
       else if (id === "drawerRows") next.drawerRows = v;
       else if (id === "handleHeightPct") next.handleHeightPct = v;
-
-      for (const b of next.bowls) {
-        b.offsetX = Math.min(b.offsetX, next.counterWidth - b.width - 20);
-        b.offsetZ = Math.min(b.offsetZ, next.counterDepth - b.depth - 20);
-      }
 
       const out = el.parentElement?.querySelector("output");
       if (out) {
@@ -390,13 +408,53 @@ function bindControls() {
           id === "toeKickDepth"
         ) {
           out.textContent = `${v} mm`;
-        } else if (id === "doorCount") out.textContent = v === 0 ? "자동" : String(v);
-        else if (id === "handleHeightPct") out.textContent = `${v}%`;
+        } else if (id === "handleHeightPct") out.textContent = `${v}%`;
         else out.textContent = String(v);
       }
       applyPlan(next);
     });
   }
+
+  const cabinetCount = document.getElementById("cabinetCount") as HTMLInputElement | null;
+  cabinetCount?.addEventListener("input", () => {
+    const next = structuredClone(plan);
+    next.cabinetWidths = resizeWidths(next.cabinetWidths, Number(cabinetCount.value), next.counterWidth || 1800);
+    applyPlan(next, { refitEditor: true, frameCamera: true });
+  });
+
+  document.querySelectorAll<HTMLInputElement>("[data-cab-index]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.cabIndex);
+      const next = structuredClone(plan);
+      next.cabinetWidths[idx] = Number(el.value);
+      const out = el.parentElement?.querySelector("output");
+      if (out) out.textContent = `${el.value} mm`;
+      applyPlan(next, { refitEditor: true });
+    });
+  });
+
+  const returnCabinetCount = document.getElementById("returnCabinetCount") as HTMLInputElement | null;
+  returnCabinetCount?.addEventListener("input", () => {
+    const next = structuredClone(plan);
+    const fallback = Math.max(600, next.returnWidth - next.counterDepth);
+    next.returnCabinetWidths = resizeWidths(
+      next.returnCabinetWidths,
+      Number(returnCabinetCount.value),
+      fallback || 1000,
+    );
+    applyPlan(next, { refitEditor: true, frameCamera: true });
+  });
+
+  document.querySelectorAll<HTMLInputElement>("[data-ret-cab-index]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.retCabIndex);
+      const next = structuredClone(plan);
+      next.returnCabinetWidths[idx] = Number(el.value);
+      const out = el.parentElement?.querySelector("output");
+      if (out) out.textContent = `${el.value} mm`;
+      applyPlan(next, { refitEditor: true });
+    });
+  });
 
   const faucet = document.getElementById("faucet") as HTMLInputElement | null;
   faucet?.addEventListener("change", () => {

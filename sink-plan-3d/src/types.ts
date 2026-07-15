@@ -20,43 +20,31 @@ export interface SinkBowl {
 
 export interface SinkPlan {
   template: TemplateId;
-  /** Overall counter width (mm) — for L-shape, main run width */
+  /** Overall counter width (mm) — derived from sum of cabinetWidths */
   counterWidth: number;
   /** Overall counter depth (mm) */
   counterDepth: number;
-  /** L-shape return leg width along Z (mm); ignored for non-L */
+  /** L-shape return leg length along Z (mm); derived when return cabinets set */
   returnWidth: number;
   /** L-shape return leg depth along X (mm); ignored for non-L */
   returnDepth: number;
   counterThickness: number;
   cabinetHeight: number;
   backsplashHeight: number;
-  /** Show room walls in 3D */
   showWall: boolean;
-  /**
-   * Gap (mm) between counter back edge and the back wall face.
-   * 0 = flush behind counter; larger = wall moves further back.
-   */
   wallBackOffset: number;
-  /**
-   * Gap (mm) between counter left edge and the left wall (ㄱ자형).
-   * 0 = flush; larger = wall moves further left.
-   */
   wallLeftOffset: number;
   bowls: SinkBowl[];
   faucet: boolean;
-  /** Front overhang of counter beyond cabinet face (mm) */
   counterOverhang: number;
-  /** Toe-kick / plinth height (mm) */
   toeKickHeight: number;
-  /** Toe-kick recess depth (mm) */
   toeKickDepth: number;
-  /** Door count; 0 = auto from width */
-  doorCount: number;
-  /** Drawer rows above doors (0–2) */
+  /** Main-run base cabinet widths (mm), one module each */
+  cabinetWidths: number[];
+  /** L-shape return-leg cabinet widths along Z (mm) */
+  returnCabinetWidths: number[];
   drawerRows: number;
   showHandles: boolean;
-  /** Handle vertical position 0–100 (% of cabinet face) */
   handleHeightPct: number;
   showToeKick: boolean;
   counterMaterial: CounterMaterial;
@@ -64,6 +52,52 @@ export interface SinkPlan {
   sinkMaterial: SinkMaterial;
   showBlueprint: boolean;
   blueprintOpacity: number;
+}
+
+/** Split total mm into `count` widths (10mm steps), last cell absorbs remainder. */
+export function splitEvenWidths(total: number, count: number): number[] {
+  const n = Math.max(1, Math.min(8, Math.round(count)));
+  const safeTotal = Math.max(300 * n, Math.round(total));
+  const base = Math.floor(safeTotal / n / 10) * 10;
+  const widths = Array.from({ length: n }, () => Math.max(300, base));
+  const used = widths.reduce((a, b) => a + b, 0);
+  widths[n - 1] = Math.max(300, widths[n - 1] + (safeTotal - used));
+  return widths;
+}
+
+export function sumWidths(widths: number[]): number {
+  return widths.reduce((a, b) => a + b, 0);
+}
+
+export function resizeWidths(current: number[], count: number, fallbackTotal: number): number[] {
+  const n = Math.max(1, Math.min(8, Math.round(count)));
+  if (current.length === n) return [...current];
+  const total = current.length > 0 ? sumWidths(current) : fallbackTotal;
+  return splitEvenWidths(total, n);
+}
+
+export function syncPlanFromCabinets(plan: SinkPlan): SinkPlan {
+  const next = structuredClone(plan);
+  next.cabinetWidths = next.cabinetWidths.map((w) => Math.max(300, Math.round(w / 10) * 10));
+  next.counterWidth = sumWidths(next.cabinetWidths);
+  if (next.template === "l-shape") {
+    next.returnCabinetWidths = next.returnCabinetWidths.map((w) =>
+      Math.max(300, Math.round(w / 10) * 10),
+    );
+    if (next.returnCabinetWidths.length === 0) {
+      next.returnCabinetWidths = splitEvenWidths(Math.max(600, next.returnWidth - next.counterDepth), 2);
+    }
+    next.returnWidth = next.counterDepth + sumWidths(next.returnCabinetWidths);
+  } else {
+    next.returnCabinetWidths = [];
+  }
+  for (const b of next.bowls) {
+    b.offsetX = Math.min(b.offsetX, next.counterWidth - b.width - 20);
+    b.offsetZ = Math.min(b.offsetZ, next.counterDepth - b.depth - 20);
+    b.offsetX = Math.max(20, b.offsetX);
+    b.offsetZ = Math.max(20, b.offsetZ);
+  }
+  return next;
 }
 
 export const TEMPLATES: Record<
@@ -78,6 +112,8 @@ export const TEMPLATES: Record<
       counterDepth: 600,
       returnWidth: 0,
       returnDepth: 0,
+      cabinetWidths: splitEvenWidths(1800, 4),
+      returnCabinetWidths: [],
       bowls: [{ offsetX: 650, offsetZ: 80, width: 500, depth: 400, bowlDepth: 200 }],
     },
   },
@@ -89,6 +125,8 @@ export const TEMPLATES: Record<
       counterDepth: 600,
       returnWidth: 0,
       returnDepth: 0,
+      cabinetWidths: splitEvenWidths(2000, 5),
+      returnCabinetWidths: [],
       bowls: [
         { offsetX: 400, offsetZ: 80, width: 420, depth: 400, bowlDepth: 200 },
         { offsetX: 860, offsetZ: 80, width: 420, depth: 400, bowlDepth: 180 },
@@ -103,6 +141,8 @@ export const TEMPLATES: Record<
       counterDepth: 600,
       returnWidth: 1600,
       returnDepth: 600,
+      cabinetWidths: splitEvenWidths(2200, 5),
+      returnCabinetWidths: splitEvenWidths(1000, 2),
       bowls: [{ offsetX: 700, offsetZ: 90, width: 520, depth: 400, bowlDepth: 210 }],
     },
   },
@@ -114,6 +154,8 @@ export const TEMPLATES: Record<
       counterDepth: 900,
       returnWidth: 0,
       returnDepth: 0,
+      cabinetWidths: splitEvenWidths(1600, 4),
+      returnCabinetWidths: [],
       bowls: [{ offsetX: 550, offsetZ: 220, width: 500, depth: 400, bowlDepth: 200 }],
     },
   },
@@ -121,7 +163,7 @@ export const TEMPLATES: Record<
 
 export function createDefaultPlan(template: TemplateId = "straight-single"): SinkPlan {
   const base = TEMPLATES[template].plan;
-  return {
+  const plan: SinkPlan = {
     template,
     counterWidth: 1800,
     counterDepth: 600,
@@ -138,7 +180,8 @@ export function createDefaultPlan(template: TemplateId = "straight-single"): Sin
     counterOverhang: 35,
     toeKickHeight: 80,
     toeKickDepth: 50,
-    doorCount: 0,
+    cabinetWidths: splitEvenWidths(1800, 4),
+    returnCabinetWidths: [],
     drawerRows: 1,
     showHandles: true,
     handleHeightPct: 55,
@@ -150,4 +193,5 @@ export function createDefaultPlan(template: TemplateId = "straight-single"): Sin
     blueprintOpacity: 0.35,
     ...base,
   };
+  return syncPlanFromCabinets(plan);
 }

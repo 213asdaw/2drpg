@@ -208,9 +208,8 @@ function addCabinetBox(
     }
   }
 
-  // Door / drawer face layout
-  const doors =
-    plan.doorCount > 0 ? plan.doorCount : Math.max(1, Math.round(w / 0.45));
+  // Door / drawer face layout — one door per module box
+  const doors = 1;
   const gap = 0.003;
   const drawerH = plan.drawerRows > 0 ? Math.min(0.14, bodyH * 0.22) : 0;
   const drawersTotal = drawerH * plan.drawerRows + gap * Math.max(0, plan.drawerRows);
@@ -302,25 +301,30 @@ function addCabinetBox(
 
 function createCabinets(plan: SinkPlan, material: THREE.Material): THREE.Group {
   const group = new THREE.Group();
+  const D = plan.counterDepth * MM;
 
-  if (plan.template === "l-shape" && plan.returnWidth > 0) {
-    const W = plan.counterWidth * MM;
-    const D = plan.counterDepth * MM;
-    const RW = plan.returnWidth * MM;
+  // Main run: one physical cabinet per width entry
+  let x = 0;
+  for (const wMm of plan.cabinetWidths) {
+    const w = wMm * MM;
+    addCabinetBox(group, plan, x, 0, w, D, material, {
+      flush: true,
+      frontAlongZ: true,
+    });
+    x += w;
+  }
+
+  if (plan.template === "l-shape" && plan.returnCabinetWidths.length > 0) {
     const RD = plan.returnDepth * MM;
-    addCabinetBox(group, plan, 0, 0, W, D, material, { flush: true, frontAlongZ: true });
-    addCabinetBox(group, plan, 0, D, RD, RW - D, material, { flush: true, frontAlongZ: false });
-  } else {
-    addCabinetBox(
-      group,
-      plan,
-      0,
-      0,
-      plan.counterWidth * MM,
-      plan.counterDepth * MM,
-      material,
-      { frontAlongZ: true },
-    );
+    let z = D;
+    for (const wMm of plan.returnCabinetWidths) {
+      const depth = wMm * MM;
+      addCabinetBox(group, plan, 0, z, RD, depth, material, {
+        flush: true,
+        frontAlongZ: false,
+      });
+      z += depth;
+    }
   }
   return group;
 }
