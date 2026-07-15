@@ -31,6 +31,18 @@ export interface SinkPlan {
   counterThickness: number;
   cabinetHeight: number;
   backsplashHeight: number;
+  /** Show room walls in 3D */
+  showWall: boolean;
+  /**
+   * Gap (mm) between counter back edge and the back wall face.
+   * 0 = flush behind counter; larger = wall moves further back.
+   */
+  wallBackOffset: number;
+  /**
+   * Gap (mm) between counter left edge and the left wall (ㄱ자형).
+   * 0 = flush; larger = wall moves further left.
+   */
+  wallLeftOffset: number;
   bowls: SinkBowl[];
   faucet: boolean;
   counterMaterial: CounterMaterial;
@@ -104,6 +116,9 @@ export function createDefaultPlan(template: TemplateId = "straight-single"): Sin
     counterThickness: 30,
     cabinetHeight: 720,
     backsplashHeight: 120,
+    showWall: true,
+    wallBackOffset: 20,
+    wallLeftOffset: 20,
     bowls: [{ offsetX: 650, offsetZ: 80, width: 500, depth: 400, bowlDepth: 200 }],
     faucet: true,
     counterMaterial: "white-quartz",

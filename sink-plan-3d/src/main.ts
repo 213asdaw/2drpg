@@ -131,6 +131,33 @@ function renderControls() {
     </div>
 
     <div class="section">
+      <h2>벽 위치</h2>
+      <label class="toggle">
+        <input type="checkbox" id="showWall" ${plan.showWall ? "checked" : ""} />
+        뒷벽 표시
+      </label>
+      <div class="field" style="margin-top:0.65rem">
+        <label for="wallBackOffset">뒷벽 간격 (상판 뒤쪽 기준)</label>
+        <div class="field-row">
+          <input id="wallBackOffset" type="range" min="0" max="1500" step="10" value="${plan.wallBackOffset}" ${plan.showWall ? "" : "disabled"} />
+          <output>${plan.wallBackOffset} mm</output>
+        </div>
+      </div>
+      ${
+        plan.template === "l-shape"
+          ? `<div class="field">
+              <label for="wallLeftOffset">옆벽 간격 (왼쪽 기준)</label>
+              <div class="field-row">
+                <input id="wallLeftOffset" type="range" min="0" max="1500" step="10" value="${plan.wallLeftOffset}" ${plan.showWall ? "" : "disabled"} />
+                <output>${plan.wallLeftOffset} mm</output>
+              </div>
+            </div>`
+          : ""
+      }
+      <p class="hint">값을 키우면 벽이 상판에서 더 멀어집니다. ㄱ자형은 뒷벽·옆벽을 따로 옮길 수 있습니다.</p>
+    </div>
+
+    <div class="section">
       <h2>싱크 볼</h2>
       <div class="field">
         <label for="bowlWidth">볼 가로</label>
@@ -244,6 +271,8 @@ function bindControls() {
     "returnDepth",
     "cabinetHeight",
     "backsplashHeight",
+    "wallBackOffset",
+    "wallLeftOffset",
     "bowlWidth",
     "bowlDepth",
     "bowlBowlDepth",
@@ -266,6 +295,8 @@ function bindControls() {
       else if (id === "returnDepth") next.returnDepth = v;
       else if (id === "cabinetHeight") next.cabinetHeight = v;
       else if (id === "backsplashHeight") next.backsplashHeight = v;
+      else if (id === "wallBackOffset") next.wallBackOffset = v;
+      else if (id === "wallLeftOffset") next.wallLeftOffset = v;
 
       // Keep bowls inside counter
       for (const b of next.bowls) {
@@ -275,7 +306,9 @@ function bindControls() {
 
       const out = el.parentElement?.querySelector("output");
       if (out) {
-        out.textContent = id === "blueprintOpacity" ? `${Math.round(v * 100)}%` : String(v);
+        if (id === "blueprintOpacity") out.textContent = `${Math.round(v * 100)}%`;
+        else if (id === "wallBackOffset" || id === "wallLeftOffset") out.textContent = `${v} mm`;
+        else out.textContent = String(v);
       }
       applyPlan(next);
     });
@@ -285,6 +318,13 @@ function bindControls() {
   faucet?.addEventListener("change", () => {
     const next = structuredClone(plan);
     next.faucet = faucet.checked;
+    applyPlan(next);
+  });
+
+  const showWall = document.getElementById("showWall") as HTMLInputElement | null;
+  showWall?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.showWall = showWall.checked;
     applyPlan(next);
   });
 

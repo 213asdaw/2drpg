@@ -250,12 +250,14 @@ function createRoom(plan: SinkPlan): THREE.Group {
   const group = new THREE.Group();
   const wallMat = new THREE.MeshStandardMaterial({ color: "#ebe6dc", roughness: 0.95 });
   const wallT = 0.06;
+  const backGap = plan.wallBackOffset * MM;
+  const leftGap = plan.wallLeftOffset * MM;
 
   if (plan.template === "l-shape" && plan.returnWidth > 0 && plan.returnDepth > 0) {
     const W = plan.counterWidth * MM;
     const RW = plan.returnWidth * MM;
     const RD = plan.returnDepth * MM;
-    const span = Math.max(W, RW, 1.2);
+    const span = Math.max(W, RW, 1.2) + Math.max(backGap, leftGap, 0);
 
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(span * 1.15, 48),
@@ -266,28 +268,34 @@ function createRoom(plan: SinkPlan): THREE.Group {
     floor.receiveShadow = true;
     group.add(floor);
 
-    // Left room wall along the long return / corner (outside x=0)
-    const leftWall = new THREE.Mesh(
-      new THREE.BoxGeometry(wallT, 2.2, RW + 0.4),
-      wallMat,
-    );
-    leftWall.position.set(-wallT / 2 - 0.01, 1.1, RW / 2);
-    leftWall.receiveShadow = true;
-    group.add(leftWall);
+    if (plan.showWall) {
+      // Left room wall — offset moves it further left (negative X)
+      const leftWall = new THREE.Mesh(
+        new THREE.BoxGeometry(wallT, 2.2, RW + 0.5 + Math.max(0, backGap)),
+        wallMat,
+      );
+      leftWall.position.set(-leftGap - wallT / 2, 1.1, RW / 2 + backGap * 0.15);
+      leftWall.receiveShadow = true;
+      group.add(leftWall);
 
-    // Back room wall behind return leg (outside z=RW) — must NOT cut through the L
-    const backWall = new THREE.Mesh(
-      new THREE.BoxGeometry(Math.max(RD, W * 0.55) + 0.5, 2.2, wallT),
-      wallMat,
-    );
-    backWall.position.set(Math.max(RD, W * 0.55) / 2, 1.1, RW + wallT / 2 + 0.01);
-    backWall.receiveShadow = true;
-    group.add(backWall);
+      // Back room wall behind return — offset moves it further +Z
+      const backLen = Math.max(RD + leftGap, W * 0.5) + 0.5;
+      const backWall = new THREE.Mesh(
+        new THREE.BoxGeometry(backLen, 2.2, wallT),
+        wallMat,
+      );
+      backWall.position.set(backLen / 2 - leftGap * 0.5, 1.1, RW + backGap + wallT / 2);
+      backWall.receiveShadow = true;
+      group.add(backWall);
+    }
 
     return group;
   }
 
-  const span = Math.max(plan.counterWidth * MM, plan.counterDepth * MM, 1.2);
+  const D = plan.counterDepth * MM;
+  const W = plan.counterWidth * MM;
+  const span = Math.max(W, D, 1.2) + Math.max(0, backGap);
+
   const floor = new THREE.Mesh(
     new THREE.CircleGeometry(span * 1.2, 48),
     new THREE.MeshStandardMaterial({ color: "#c8c2b6", roughness: 0.95 }),
@@ -297,17 +305,15 @@ function createRoom(plan: SinkPlan): THREE.Group {
   floor.receiveShadow = true;
   group.add(floor);
 
-  const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(plan.counterWidth * MM + 0.6, 2.2, wallT),
-    wallMat,
-  );
-  wall.position.set(
-    (plan.counterWidth * MM) / 2,
-    1.1,
-    plan.counterDepth * MM + wallT / 2 + 0.02,
-  );
-  wall.receiveShadow = true;
-  group.add(wall);
+  if (plan.showWall) {
+    const wall = new THREE.Mesh(
+      new THREE.BoxGeometry(W + 0.8, 2.2, wallT),
+      wallMat,
+    );
+    wall.position.set(W / 2, 1.1, D + backGap + wallT / 2);
+    wall.receiveShadow = true;
+    group.add(wall);
+  }
 
   return group;
 }

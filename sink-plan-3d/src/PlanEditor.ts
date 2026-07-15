@@ -250,6 +250,9 @@ export class PlanEditor {
     // Dimension labels
     this.drawDims(ctx);
 
+    // Wall guides
+    this.drawWalls(ctx);
+
     // Bowls
     this.plan.bowls.forEach((bowl, i) => this.drawBowl(ctx, bowl, i === this.selectedBowl));
 
@@ -257,6 +260,51 @@ export class PlanEditor {
     ctx.fillStyle = "rgba(31, 58, 74, 0.7)";
     ctx.font = "12px Lexend, sans-serif";
     ctx.fillText("상단뷰 · mm · 볼을 드래그해 위치 조정 · 휠로 줌", 12, h - 12);
+  }
+
+  private drawWalls(ctx: CanvasRenderingContext2D) {
+    if (!this.plan.showWall) return;
+    const p = this.plan;
+    ctx.save();
+    ctx.strokeStyle = "rgba(180, 90, 60, 0.85)";
+    ctx.fillStyle = "rgba(180, 90, 60, 0.75)";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 5]);
+    ctx.font = "600 11px Lexend, sans-serif";
+
+    if (p.template === "l-shape" && p.returnWidth > 0) {
+      const backZ = p.returnWidth + p.wallBackOffset;
+      const leftX = -p.wallLeftOffset;
+      const a = this.mmToPx(leftX - 40, backZ);
+      const b = this.mmToPx(Math.max(p.returnDepth, p.counterWidth * 0.55) + 80, backZ);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText(`뒷벽 +${p.wallBackOffset}mm`, b.x - 90, b.y - 6);
+
+      ctx.setLineDash([8, 5]);
+      const c = this.mmToPx(leftX, -40);
+      const d = this.mmToPx(leftX, p.returnWidth + p.wallBackOffset + 40);
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText(`옆벽 +${p.wallLeftOffset}mm`, c.x + 6, c.y + 14);
+    } else {
+      const backZ = p.counterDepth + p.wallBackOffset;
+      const a = this.mmToPx(-40, backZ);
+      const b = this.mmToPx(p.counterWidth + 40, backZ);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText(`뒷벽 +${p.wallBackOffset}mm`, (a.x + b.x) / 2 - 40, a.y - 6);
+    }
+    ctx.restore();
   }
 
   private drawBowl(ctx: CanvasRenderingContext2D, bowl: SinkBowl, selected: boolean) {
