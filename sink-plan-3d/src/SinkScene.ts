@@ -17,13 +17,13 @@ export class SinkScene {
     this.container = container;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#c5d0d4");
-    this.scene.fog = new THREE.Fog("#c5d0d4", 6, 18);
+    this.scene.fog = new THREE.Fog("#c5d0d4", 18, 55);
 
     const w = container.clientWidth || 800;
     const h = container.clientHeight || 600;
 
-    this.camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 50);
-    this.camera.position.set(2.4, 2.0, 2.8);
+    this.camera = new THREE.PerspectiveCamera(38, w / h, 0.05, 80);
+    this.camera.position.set(3.6, 3.2, 4.2);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -43,8 +43,8 @@ export class SinkScene {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.maxPolarAngle = Math.PI * 0.49;
-    this.controls.minDistance = 0.8;
-    this.controls.maxDistance = 8;
+    this.controls.minDistance = 1.2;
+    this.controls.maxDistance = 35;
 
     this.setupLights();
     window.addEventListener("resize", this.onResize);
@@ -111,19 +111,22 @@ export class SinkScene {
     this.controls.update();
   }
 
-  /** High three-quarter shot that keeps the sink cutout readable. */
+  /** Wider three-quarter shot — full unit readable, zoom-out available. */
   frame(center?: THREE.Vector3, size?: THREE.Vector3) {
     if (!this.model) return;
     const c = center ?? (this.model.userData.center as THREE.Vector3);
     const s = size ?? (this.model.userData.size as THREE.Vector3);
-    const span = Math.max(s.x, s.z, 1.0);
-    // Steep overhead angle — bowls/faucets must be readable on first open
+    const span = Math.max(s.x, s.z, s.y, 1.2);
+    const dist = Math.max(4.5, span * 2.15);
     this.camera.position.set(
-      c.x + span * 0.25,
-      Math.max(2.8, span * 1.45),
-      c.z + span * 0.4,
+      c.x + dist * 0.72,
+      Math.max(2.6, c.y + dist * 0.55),
+      c.z + dist * 0.85,
     );
-    this.controls.target.set(c.x, 0.55, c.z);
+    this.controls.target.set(c.x, Math.max(0.55, c.y * 0.45), c.z);
+    this.camera.near = 0.05;
+    this.camera.far = 80;
+    this.camera.updateProjectionMatrix();
     this.camera.lookAt(this.controls.target);
     this.controls.update();
   }
@@ -132,9 +135,9 @@ export class SinkScene {
     if (!this.model) return;
     const c = this.model.userData.center as THREE.Vector3;
     const s = this.model.userData.size as THREE.Vector3;
-    const span = Math.max(s.x, s.z, 1.0);
-    this.camera.position.set(c.x, Math.max(2.8, span * 1.6), c.z + 0.05);
-    this.controls.target.set(c.x, 0.4, c.z);
+    const span = Math.max(s.x, s.z, 1.2);
+    this.camera.position.set(c.x, Math.max(5.0, span * 2.4), c.z + 0.08);
+    this.controls.target.set(c.x, 0.45, c.z);
     this.controls.update();
   }
 

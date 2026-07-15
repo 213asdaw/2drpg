@@ -49,10 +49,12 @@ function applyPlan(next: SinkPlan, opts: { refitEditor?: boolean; frameCamera?: 
   if (!syncing) {
     syncing = true;
     editor.setPlan(plan, opts.refitEditor ?? false);
-    scene.setPlan(plan, opts.frameCamera ?? true);
+    // Keep current orbit unless caller asks for a reframe (template / reset)
+    scene.setPlan(plan, opts.frameCamera ?? false);
     syncing = false;
   }
   renderControls();
+  if (opts.refitEditor) editor.refitSoon();
 }
 
 editor.on("change", (next) => {

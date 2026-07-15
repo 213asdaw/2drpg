@@ -70,17 +70,33 @@ export class PlanEditor {
   }
 
   private fitView() {
-    const pad = 80;
+    const padX = 56;
+    const padTop = 48;
+    const padBottom = 64; // legend / hints
     const w = this.canvas.clientWidth || 400;
     const h = this.canvas.clientHeight || 400;
-    const planW = this.plan.counterWidth;
+    const planW = Math.max(1, this.plan.counterWidth);
+    // Include wall-offset gutter so guides stay visible without shoving the plan down
+    const wallPad =
+      (this.plan.showWall ? Math.max(this.plan.wallBackOffset, 0) : 0) + 40;
     const planD =
       this.plan.template === "l-shape"
-        ? Math.max(this.plan.counterDepth, this.plan.returnWidth)
-        : this.plan.counterDepth;
-    this.scale = Math.min((w - pad * 2) / planW, (h - pad * 2) / planD);
+        ? Math.max(this.plan.counterDepth, this.plan.returnWidth) + wallPad
+        : this.plan.counterDepth + wallPad;
+    const usableW = Math.max(120, w - padX * 2);
+    const usableH = Math.max(120, h - padTop - padBottom);
+    this.scale = Math.min(usableW / planW, usableH / planD);
+    // Keep the drawing anchored near the top so template switches don't drop it down
     this.offsetX = (w - planW * this.scale) / 2;
-    this.offsetY = (h - planD * this.scale) / 2;
+    this.offsetY = padTop;
+  }
+
+  /** Re-fit after layout settles (sidebar height changes). */
+  refitSoon() {
+    requestAnimationFrame(() => {
+      this.fitView();
+      this.draw();
+    });
   }
 
   private onResize = () => {
@@ -91,6 +107,7 @@ export class PlanEditor {
     this.canvas.height = Math.floor(h * dpr);
     const ctx = this.canvas.getContext("2d");
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.fitView();
     this.draw();
   };
 

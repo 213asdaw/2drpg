@@ -1,7 +1,7 @@
 {
   "name": "sink-plan-3d",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "싱크대 도면을 3D로 보여주는 싱크플랜",
   "author": "싱크플랜",
   "type": "module",
