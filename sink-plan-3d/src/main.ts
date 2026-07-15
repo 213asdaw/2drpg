@@ -122,12 +122,74 @@ function renderControls() {
         </div>
       </div>
       <div class="field">
+        <label for="counterThickness">상판 두께</label>
+        <div class="field-row">
+          <input id="counterThickness" type="range" min="12" max="60" step="1" value="${plan.counterThickness}" />
+          <output>${plan.counterThickness}</output>
+        </div>
+      </div>
+      <div class="field">
         <label for="backsplashHeight">백스플래시</label>
         <div class="field-row">
           <input id="backsplashHeight" type="range" min="0" max="300" step="10" value="${plan.backsplashHeight}" />
           <output>${plan.backsplashHeight}</output>
         </div>
       </div>
+    </div>
+
+    <div class="section">
+      <h2>하부장 디테일</h2>
+      <div class="field">
+        <label for="counterOverhang">상판 앞 오버행</label>
+        <div class="field-row">
+          <input id="counterOverhang" type="range" min="0" max="80" step="1" value="${plan.counterOverhang}" />
+          <output>${plan.counterOverhang} mm</output>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showToeKick" ${plan.showToeKick ? "checked" : ""} />
+        걸레받이 표시
+      </label>
+      <div class="field" style="margin-top:0.55rem">
+        <label for="toeKickHeight">걸레받이 높이</label>
+        <div class="field-row">
+          <input id="toeKickHeight" type="range" min="40" max="150" step="5" value="${plan.toeKickHeight}" ${plan.showToeKick ? "" : "disabled"} />
+          <output>${plan.toeKickHeight} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="toeKickDepth">걸레받이 깊이</label>
+        <div class="field-row">
+          <input id="toeKickDepth" type="range" min="20" max="100" step="5" value="${plan.toeKickDepth}" ${plan.showToeKick ? "" : "disabled"} />
+          <output>${plan.toeKickDepth} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="doorCount">문짝 개수 (0=자동)</label>
+        <div class="field-row">
+          <input id="doorCount" type="range" min="0" max="8" step="1" value="${plan.doorCount}" />
+          <output>${plan.doorCount === 0 ? "자동" : plan.doorCount}</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="drawerRows">서랍 단수</label>
+        <div class="field-row">
+          <input id="drawerRows" type="range" min="0" max="2" step="1" value="${plan.drawerRows}" />
+          <output>${plan.drawerRows}</output>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showHandles" ${plan.showHandles ? "checked" : ""} />
+        손잡이 표시
+      </label>
+      <div class="field" style="margin-top:0.55rem">
+        <label for="handleHeightPct">손잡이 높이</label>
+        <div class="field-row">
+          <input id="handleHeightPct" type="range" min="20" max="85" step="1" value="${plan.handleHeightPct}" ${plan.showHandles ? "" : "disabled"} />
+          <output>${plan.handleHeightPct}%</output>
+        </div>
+      </div>
+      <p class="hint">문짝·서랍·걸레받이·오버행을 바꿔 하부장 느낌을 세밀하게 맞출 수 있습니다.</p>
     </div>
 
     <div class="section">
@@ -270,9 +332,16 @@ function bindControls() {
     "returnWidth",
     "returnDepth",
     "cabinetHeight",
+    "counterThickness",
     "backsplashHeight",
     "wallBackOffset",
     "wallLeftOffset",
+    "counterOverhang",
+    "toeKickHeight",
+    "toeKickDepth",
+    "doorCount",
+    "drawerRows",
+    "handleHeightPct",
     "bowlWidth",
     "bowlDepth",
     "bowlBowlDepth",
@@ -294,11 +363,17 @@ function bindControls() {
       else if (id === "returnWidth") next.returnWidth = v;
       else if (id === "returnDepth") next.returnDepth = v;
       else if (id === "cabinetHeight") next.cabinetHeight = v;
+      else if (id === "counterThickness") next.counterThickness = v;
       else if (id === "backsplashHeight") next.backsplashHeight = v;
       else if (id === "wallBackOffset") next.wallBackOffset = v;
       else if (id === "wallLeftOffset") next.wallLeftOffset = v;
+      else if (id === "counterOverhang") next.counterOverhang = v;
+      else if (id === "toeKickHeight") next.toeKickHeight = v;
+      else if (id === "toeKickDepth") next.toeKickDepth = v;
+      else if (id === "doorCount") next.doorCount = v;
+      else if (id === "drawerRows") next.drawerRows = v;
+      else if (id === "handleHeightPct") next.handleHeightPct = v;
 
-      // Keep bowls inside counter
       for (const b of next.bowls) {
         b.offsetX = Math.min(b.offsetX, next.counterWidth - b.width - 20);
         b.offsetZ = Math.min(b.offsetZ, next.counterDepth - b.depth - 20);
@@ -307,7 +382,16 @@ function bindControls() {
       const out = el.parentElement?.querySelector("output");
       if (out) {
         if (id === "blueprintOpacity") out.textContent = `${Math.round(v * 100)}%`;
-        else if (id === "wallBackOffset" || id === "wallLeftOffset") out.textContent = `${v} mm`;
+        else if (
+          id === "wallBackOffset" ||
+          id === "wallLeftOffset" ||
+          id === "counterOverhang" ||
+          id === "toeKickHeight" ||
+          id === "toeKickDepth"
+        ) {
+          out.textContent = `${v} mm`;
+        } else if (id === "doorCount") out.textContent = v === 0 ? "자동" : String(v);
+        else if (id === "handleHeightPct") out.textContent = `${v}%`;
         else out.textContent = String(v);
       }
       applyPlan(next);
@@ -325,6 +409,20 @@ function bindControls() {
   showWall?.addEventListener("change", () => {
     const next = structuredClone(plan);
     next.showWall = showWall.checked;
+    applyPlan(next);
+  });
+
+  const showToeKick = document.getElementById("showToeKick") as HTMLInputElement | null;
+  showToeKick?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.showToeKick = showToeKick.checked;
+    applyPlan(next);
+  });
+
+  const showHandles = document.getElementById("showHandles") as HTMLInputElement | null;
+  showHandles?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.showHandles = showHandles.checked;
     applyPlan(next);
   });
 

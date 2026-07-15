@@ -45,6 +45,20 @@ export interface SinkPlan {
   wallLeftOffset: number;
   bowls: SinkBowl[];
   faucet: boolean;
+  /** Front overhang of counter beyond cabinet face (mm) */
+  counterOverhang: number;
+  /** Toe-kick / plinth height (mm) */
+  toeKickHeight: number;
+  /** Toe-kick recess depth (mm) */
+  toeKickDepth: number;
+  /** Door count; 0 = auto from width */
+  doorCount: number;
+  /** Drawer rows above doors (0–2) */
+  drawerRows: number;
+  showHandles: boolean;
+  /** Handle vertical position 0–100 (% of cabinet face) */
+  handleHeightPct: number;
+  showToeKick: boolean;
   counterMaterial: CounterMaterial;
   cabinetMaterial: CabinetMaterial;
   sinkMaterial: SinkMaterial;
@@ -121,6 +135,14 @@ export function createDefaultPlan(template: TemplateId = "straight-single"): Sin
     wallLeftOffset: 20,
     bowls: [{ offsetX: 650, offsetZ: 80, width: 500, depth: 400, bowlDepth: 200 }],
     faucet: true,
+    counterOverhang: 35,
+    toeKickHeight: 80,
+    toeKickDepth: 50,
+    doorCount: 0,
+    drawerRows: 1,
+    showHandles: true,
+    handleHeightPct: 55,
+    showToeKick: true,
     counterMaterial: "white-quartz",
     cabinetMaterial: "walnut",
     sinkMaterial: "stainless",

@@ -146,58 +146,181 @@ function createFaucet(bowl: SinkBowl, material: THREE.Material): THREE.Group {
 
 function addCabinetBox(
   group: THREE.Group,
+  plan: SinkPlan,
   x: number,
   z: number,
   w: number,
   d: number,
-  h: number,
   material: THREE.Material,
-  opts: { flush?: boolean } = {},
+  opts: { flush?: boolean; frontAlongZ?: boolean } = {},
 ) {
-  const bw = opts.flush ? w : w * 0.98;
-  const bd = opts.flush ? d : d * 0.94;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(bw, h, bd), material);
-  body.position.set(x + w / 2, h / 2, z + d / 2);
+  const h = plan.cabinetHeight * MM;
+  const kickH = plan.showToeKick ? plan.toeKickHeight * MM : 0;
+  const kickD = plan.showToeKick ? plan.toeKickDepth * MM : 0;
+  const overhang = plan.counterOverhang * MM;
+  // Cabinet body sits inset from front by overhang; slightly shy of back when not flush
+  const bodyH = Math.max(0.2, h - kickH);
+  const frontAlongZ = opts.frontAlongZ !== false;
+
+  let bw: number;
+  let bd: number;
+  let cx: number;
+  let cz: number;
+
+  if (frontAlongZ) {
+    // Front face is toward -Z (smaller z) for main run
+    bw = opts.flush ? w : w * 0.995;
+    bd = Math.max(0.2, d - overhang);
+    cx = x + w / 2;
+    cz = z + overhang + bd / 2;
+  } else {
+    // Return leg: front faces +X (outer) when along left wall — keep simple: front toward +X open side
+    bw = Math.max(0.2, w - overhang);
+    bd = opts.flush ? d : d * 0.995;
+    cx = x + overhang + bw / 2;
+    cz = z + d / 2;
+  }
+
+  // Carcass
+  const body = new THREE.Mesh(new THREE.BoxGeometry(bw, bodyH, bd), material);
+  body.position.set(cx, kickH + bodyH / 2, cz);
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
-  const kick = new THREE.Mesh(
-    new THREE.BoxGeometry(bw, 0.08, 0.04),
-    new THREE.MeshStandardMaterial({ color: "#1a1a1a", roughness: 0.9 }),
-  );
-  kick.position.set(x + w / 2, 0.04, z + 0.03);
-  group.add(kick);
+  // Toe kick
+  if (plan.showToeKick && kickH > 0.01) {
+    const kickMat = new THREE.MeshStandardMaterial({ color: "#1a1a1a", roughness: 0.9 });
+    if (frontAlongZ) {
+      const kick = new THREE.Mesh(
+        new THREE.BoxGeometry(bw, kickH, Math.max(0.02, bd - kickD)),
+        kickMat,
+      );
+      kick.position.set(cx, kickH / 2, z + overhang + kickD + (bd - kickD) / 2);
+      group.add(kick);
+    } else {
+      const kick = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.max(0.02, bw - kickD), kickH, bd),
+        kickMat,
+      );
+      kick.position.set(x + overhang + kickD + (bw - kickD) / 2, kickH / 2, cz);
+      group.add(kick);
+    }
+  }
 
-  // Door handles
-  const handleMat = new THREE.MeshStandardMaterial({
-    color: "#c5c9ce",
-    metalness: 0.8,
-    roughness: 0.25,
+  // Door / drawer face layout
+  const doors =
+    plan.doorCount > 0 ? plan.doorCount : Math.max(1, Math.round(w / 0.45));
+  const gap = 0.003;
+  const drawerH = plan.drawerRows > 0 ? Math.min(0.14, bodyH * 0.22) : 0;
+  const drawersTotal = drawerH * plan.drawerRows + gap * Math.max(0, plan.drawerRows);
+  const doorH = Math.max(0.12, bodyH - drawersTotal - gap);
+  const faceMat = material;
+  const seamMat = new THREE.MeshStandardMaterial({
+    color: "#0d0d0d",
+    roughness: 1,
+    transparent: true,
+    opacity: 0.22,
   });
-  const doors = Math.max(1, Math.round(w / 0.5));
+
+  const faceFrontZ = frontAlongZ ? z + overhang - 0.004 : undefined;
+  const faceFrontX = !frontAlongZ ? x + overhang - 0.004 : undefined;
+
+  // Drawers
+  for (let r = 0; r < plan.drawerRows; r++) {
+    const dy = kickH + bodyH - gap - drawerH / 2 - r * (drawerH + gap);
+    for (let i = 0; i < doors; i++) {
+      const cell = bw / doors;
+      const dw = cell - gap;
+      const dx = cx - bw / 2 + cell * i + cell / 2;
+      if (frontAlongZ) {
+        const face = new THREE.Mesh(new THREE.BoxGeometry(dw, drawerH, 0.016), faceMat);
+        face.position.set(dx, dy, faceFrontZ!);
+        face.castShadow = true;
+        group.add(face);
+        // subtle rail line
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(dw * 0.7, 0.004, 0.01), seamMat);
+        rail.position.set(dx, dy, faceFrontZ! - 0.006);
+        group.add(rail);
+      } else {
+        const face = new THREE.Mesh(new THREE.BoxGeometry(0.016, drawerH, dw), faceMat);
+        face.position.set(faceFrontX!, dy, cz - bd / 2 + cell * i + cell / 2);
+        face.castShadow = true;
+        group.add(face);
+      }
+    }
+  }
+
+  // Doors
+  const doorY = kickH + doorH / 2 + gap * 0.5;
   for (let i = 0; i < doors; i++) {
-    const hx = x + ((i + 0.5) / doors) * w;
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.08, 0.012), handleMat);
-    handle.position.set(hx, h * 0.55, z + 0.02);
-    group.add(handle);
+    const cell = bw / doors;
+    const dw = cell - gap;
+    const dx = cx - bw / 2 + cell * i + cell / 2;
+    if (frontAlongZ) {
+      const face = new THREE.Mesh(new THREE.BoxGeometry(dw, doorH, 0.016), faceMat);
+      face.position.set(dx, doorY, faceFrontZ!);
+      face.castShadow = true;
+      group.add(face);
+      if (i > 0) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.003, doorH * 0.92, 0.012), seamMat);
+        seam.position.set(cx - bw / 2 + cell * i, doorY, faceFrontZ! - 0.005);
+        group.add(seam);
+      }
+    } else {
+      const face = new THREE.Mesh(new THREE.BoxGeometry(0.016, doorH, dw), faceMat);
+      const dz = cz - bd / 2 + cell * i + cell / 2;
+      face.position.set(faceFrontX!, doorY, dz);
+      face.castShadow = true;
+      group.add(face);
+    }
+  }
+
+  // Handles
+  if (plan.showHandles) {
+    const handleMat = new THREE.MeshStandardMaterial({
+      color: "#c5c9ce",
+      metalness: 0.85,
+      roughness: 0.22,
+    });
+    const hy = kickH + bodyH * (plan.handleHeightPct / 100);
+    for (let i = 0; i < doors; i++) {
+      const cell = bw / doors;
+      const dx = cx - bw / 2 + cell * i + cell / 2;
+      if (frontAlongZ) {
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, 0.014), handleMat);
+        handle.position.set(dx + cell * 0.28, hy, faceFrontZ! - 0.012);
+        group.add(handle);
+      } else {
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.09, 0.012), handleMat);
+        handle.position.set(faceFrontX! - 0.012, hy, cz - bd / 2 + cell * i + cell / 2);
+        group.add(handle);
+      }
+    }
   }
 }
 
 function createCabinets(plan: SinkPlan, material: THREE.Material): THREE.Group {
   const group = new THREE.Group();
-  const H = plan.cabinetHeight * MM;
 
   if (plan.template === "l-shape" && plan.returnWidth > 0) {
     const W = plan.counterWidth * MM;
     const D = plan.counterDepth * MM;
     const RW = plan.returnWidth * MM;
     const RD = plan.returnDepth * MM;
-    // Flush boxes so the corner does not show a cut gap
-    addCabinetBox(group, 0, 0, W, D, H, material, { flush: true });
-    addCabinetBox(group, 0, D, RD, RW - D, H, material, { flush: true });
+    addCabinetBox(group, plan, 0, 0, W, D, material, { flush: true, frontAlongZ: true });
+    addCabinetBox(group, plan, 0, D, RD, RW - D, material, { flush: true, frontAlongZ: false });
   } else {
-    addCabinetBox(group, 0, 0, plan.counterWidth * MM, plan.counterDepth * MM, H, material);
+    addCabinetBox(
+      group,
+      plan,
+      0,
+      0,
+      plan.counterWidth * MM,
+      plan.counterDepth * MM,
+      material,
+      { frontAlongZ: true },
+    );
   }
   return group;
 }
