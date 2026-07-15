@@ -222,6 +222,62 @@ function renderControls() {
     </div>
 
     <div class="section">
+      <h2>2층 · 상부장</h2>
+      <label class="toggle">
+        <input type="checkbox" id="showUpperCabinets" ${plan.showUpperCabinets ? "checked" : ""} />
+        상부장(2층) 표시
+      </label>
+      <div class="field" style="margin-top:0.55rem">
+        <label for="upperCabinetHeight">상부장 높이</label>
+        <div class="field-row">
+          <input id="upperCabinetHeight" type="range" min="400" max="1000" step="10" value="${plan.upperCabinetHeight}" ${plan.showUpperCabinets ? "" : "disabled"} />
+          <output>${plan.upperCabinetHeight} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="upperCabinetDepth">상부장 깊이</label>
+        <div class="field-row">
+          <input id="upperCabinetDepth" type="range" min="200" max="450" step="10" value="${plan.upperCabinetDepth}" ${plan.showUpperCabinets ? "" : "disabled"} />
+          <output>${plan.upperCabinetDepth} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="upperGapFromCounter">상판~상부장 간격</label>
+        <div class="field-row">
+          <input id="upperGapFromCounter" type="range" min="300" max="800" step="10" value="${plan.upperGapFromCounter}" ${plan.showUpperCabinets ? "" : "disabled"} />
+          <output>${plan.upperGapFromCounter} mm</output>
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="matchUpperToLower" ${plan.matchUpperToLower ? "checked" : ""} ${plan.showUpperCabinets ? "" : "disabled"} />
+        상부장 길이를 하부장과 같게
+      </label>
+      ${
+        !plan.matchUpperToLower && plan.showUpperCabinets
+          ? `<div class="field" style="margin-top:0.55rem">
+              <label for="upperCabinetCount">상부장 개수</label>
+              <div class="field-row">
+                <input id="upperCabinetCount" type="range" min="1" max="8" step="1" value="${plan.upperCabinetWidths.length || 1}" />
+                <output>${plan.upperCabinetWidths.length || 1}</output>
+              </div>
+            </div>
+            ${(plan.upperCabinetWidths.length ? plan.upperCabinetWidths : [600])
+              .map(
+                (w, i) => `<div class="field">
+              <label for="upCabWidth${i}">상부장 ${i + 1} 길이</label>
+              <div class="field-row">
+                <input id="upCabWidth${i}" type="range" min="300" max="1200" step="10" value="${w}" data-up-cab-index="${i}" />
+                <output>${w} mm</output>
+              </div>
+            </div>`,
+              )
+              .join("")}`
+          : ""
+      }
+      <p class="hint">2D에서 파란 영역이 상부장 자리입니다. 높이·간격으로 싱크 위 공간을 맞추세요.</p>
+    </div>
+
+    <div class="section">
       <h2>벽 위치</h2>
       <label class="toggle">
         <input type="checkbox" id="showWall" ${plan.showWall ? "checked" : ""} />
@@ -320,14 +376,50 @@ function renderControls() {
         <input type="checkbox" id="showBlueprint" ${plan.showBlueprint ? "checked" : ""} />
         도면을 2D에 오버레이
       </label>
+      <label class="toggle">
+        <input type="checkbox" id="blueprintInvert" ${plan.blueprintInvert ? "checked" : ""} />
+        도면 반전(선이 잘 보이게)
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="snapToGrid" ${plan.snapToGrid ? "checked" : ""} />
+        격자 스냅
+      </label>
       <div class="field" style="margin-top:0.6rem">
         <label for="blueprintOpacity">오버레이 투명도</label>
         <div class="field-row">
-          <input id="blueprintOpacity" type="range" min="0.1" max="0.8" step="0.05" value="${plan.blueprintOpacity}" />
+          <input id="blueprintOpacity" type="range" min="0.1" max="0.85" step="0.05" value="${plan.blueprintOpacity}" />
           <output>${Math.round(plan.blueprintOpacity * 100)}%</output>
         </div>
       </div>
-      <p class="hint">스케치·캐드 캡처를 올리면 치수에 맞춰 아래에 깔립니다. 볼 위치를 도면에 맞추세요.</p>
+      <div class="field">
+        <label for="blueprintScale">도면 확대/축소</label>
+        <div class="field-row">
+          <input id="blueprintScale" type="range" min="0.4" max="2.5" step="0.05" value="${plan.blueprintScale}" />
+          <output>×${plan.blueprintScale.toFixed(2)}</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="blueprintOffsetX">도면 좌우 이동</label>
+        <div class="field-row">
+          <input id="blueprintOffsetX" type="range" min="-800" max="800" step="10" value="${plan.blueprintOffsetX}" />
+          <output>${plan.blueprintOffsetX} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="blueprintOffsetZ">도면 앞뒤 이동</label>
+        <div class="field-row">
+          <input id="blueprintOffsetZ" type="range" min="-800" max="800" step="10" value="${plan.blueprintOffsetZ}" />
+          <output>${plan.blueprintOffsetZ} mm</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="gridSizeMm">격자 간격</label>
+        <div class="field-row">
+          <input id="gridSizeMm" type="range" min="10" max="100" step="10" value="${plan.gridSizeMm}" />
+          <output>${plan.gridSizeMm} mm</output>
+        </div>
+      </div>
+      <p class="hint">도면을 올린 뒤 확대·이동으로 상판 윤곽에 맞추세요. 초록=하부장, 파란=상부장, 주황 점선=벽.</p>
     </div>
 
     <div class="section">
@@ -368,10 +460,17 @@ function bindControls() {
     "toeKickDepth",
     "drawerRows",
     "handleHeightPct",
+    "upperCabinetHeight",
+    "upperCabinetDepth",
+    "upperGapFromCounter",
+    "blueprintOpacity",
+    "blueprintScale",
+    "blueprintOffsetX",
+    "blueprintOffsetZ",
+    "gridSizeMm",
     "bowlWidth",
     "bowlDepth",
     "bowlBowlDepth",
-    "blueprintOpacity",
   ] as const;
 
   for (const id of rangeIds) {
@@ -384,6 +483,10 @@ function bindControls() {
       else if (id === "bowlDepth") next.bowls.forEach((b) => (b.depth = v));
       else if (id === "bowlBowlDepth") next.bowls.forEach((b) => (b.bowlDepth = v));
       else if (id === "blueprintOpacity") next.blueprintOpacity = v;
+      else if (id === "blueprintScale") next.blueprintScale = v;
+      else if (id === "blueprintOffsetX") next.blueprintOffsetX = v;
+      else if (id === "blueprintOffsetZ") next.blueprintOffsetZ = v;
+      else if (id === "gridSizeMm") next.gridSizeMm = v;
       else if (id === "counterDepth") next.counterDepth = v;
       else if (id === "returnDepth") next.returnDepth = v;
       else if (id === "cabinetHeight") next.cabinetHeight = v;
@@ -396,20 +499,30 @@ function bindControls() {
       else if (id === "toeKickDepth") next.toeKickDepth = v;
       else if (id === "drawerRows") next.drawerRows = v;
       else if (id === "handleHeightPct") next.handleHeightPct = v;
+      else if (id === "upperCabinetHeight") next.upperCabinetHeight = v;
+      else if (id === "upperCabinetDepth") next.upperCabinetDepth = v;
+      else if (id === "upperGapFromCounter") next.upperGapFromCounter = v;
 
       const out = el.parentElement?.querySelector("output");
       if (out) {
         if (id === "blueprintOpacity") out.textContent = `${Math.round(v * 100)}%`;
+        else if (id === "blueprintScale") out.textContent = `×${v.toFixed(2)}`;
+        else if (id === "handleHeightPct") out.textContent = `${v}%`;
         else if (
           id === "wallBackOffset" ||
           id === "wallLeftOffset" ||
           id === "counterOverhang" ||
           id === "toeKickHeight" ||
-          id === "toeKickDepth"
+          id === "toeKickDepth" ||
+          id === "upperCabinetHeight" ||
+          id === "upperCabinetDepth" ||
+          id === "upperGapFromCounter" ||
+          id === "blueprintOffsetX" ||
+          id === "blueprintOffsetZ" ||
+          id === "gridSizeMm"
         ) {
           out.textContent = `${v} mm`;
-        } else if (id === "handleHeightPct") out.textContent = `${v}%`;
-        else out.textContent = String(v);
+        } else out.textContent = String(v);
       }
       applyPlan(next);
     });
@@ -456,6 +569,31 @@ function bindControls() {
     });
   });
 
+  const upperCabinetCount = document.getElementById("upperCabinetCount") as HTMLInputElement | null;
+  upperCabinetCount?.addEventListener("input", () => {
+    const next = structuredClone(plan);
+    next.matchUpperToLower = false;
+    next.upperCabinetWidths = resizeWidths(
+      next.upperCabinetWidths.length ? next.upperCabinetWidths : next.cabinetWidths,
+      Number(upperCabinetCount.value),
+      next.counterWidth || 1800,
+    );
+    applyPlan(next);
+  });
+
+  document.querySelectorAll<HTMLInputElement>("[data-up-cab-index]").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.upCabIndex);
+      const next = structuredClone(plan);
+      next.matchUpperToLower = false;
+      if (!next.upperCabinetWidths.length) next.upperCabinetWidths = [...next.cabinetWidths];
+      next.upperCabinetWidths[idx] = Number(el.value);
+      const out = el.parentElement?.querySelector("output");
+      if (out) out.textContent = `${el.value} mm`;
+      applyPlan(next);
+    });
+  });
+
   const faucet = document.getElementById("faucet") as HTMLInputElement | null;
   faucet?.addEventListener("change", () => {
     const next = structuredClone(plan);
@@ -484,10 +622,39 @@ function bindControls() {
     applyPlan(next);
   });
 
+  const showUpperCabinets = document.getElementById("showUpperCabinets") as HTMLInputElement | null;
+  showUpperCabinets?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.showUpperCabinets = showUpperCabinets.checked;
+    applyPlan(next);
+  });
+
+  const matchUpperToLower = document.getElementById("matchUpperToLower") as HTMLInputElement | null;
+  matchUpperToLower?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.matchUpperToLower = matchUpperToLower.checked;
+    if (next.matchUpperToLower) next.upperCabinetWidths = [...next.cabinetWidths];
+    applyPlan(next);
+  });
+
   const showBlueprint = document.getElementById("showBlueprint") as HTMLInputElement | null;
   showBlueprint?.addEventListener("change", () => {
     const next = structuredClone(plan);
     next.showBlueprint = showBlueprint.checked;
+    applyPlan(next);
+  });
+
+  const blueprintInvert = document.getElementById("blueprintInvert") as HTMLInputElement | null;
+  blueprintInvert?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.blueprintInvert = blueprintInvert.checked;
+    applyPlan(next);
+  });
+
+  const snapToGrid = document.getElementById("snapToGrid") as HTMLInputElement | null;
+  snapToGrid?.addEventListener("change", () => {
+    const next = structuredClone(plan);
+    next.snapToGrid = snapToGrid.checked;
     applyPlan(next);
   });
 

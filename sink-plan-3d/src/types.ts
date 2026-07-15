@@ -47,11 +47,27 @@ export interface SinkPlan {
   showHandles: boolean;
   handleHeightPct: number;
   showToeKick: boolean;
+  /** Wall / upper cabinets (2층 상부장) */
+  showUpperCabinets: boolean;
+  upperCabinetHeight: number;
+  upperCabinetDepth: number;
+  /** Clearance from counter top to upper cabinet bottom (mm) */
+  upperGapFromCounter: number;
+  upperCabinetWidths: number[];
+  /** If true, upper module widths follow base cabinetWidths */
+  matchUpperToLower: boolean;
   counterMaterial: CounterMaterial;
   cabinetMaterial: CabinetMaterial;
   sinkMaterial: SinkMaterial;
   showBlueprint: boolean;
   blueprintOpacity: number;
+  /** Blueprint image scale relative to counter fit (1 = fit width) */
+  blueprintScale: number;
+  blueprintOffsetX: number;
+  blueprintOffsetZ: number;
+  blueprintInvert: boolean;
+  snapToGrid: boolean;
+  gridSizeMm: number;
 }
 
 /** Split total mm into `count` widths (10mm steps), last cell absorbs remainder. */
@@ -91,7 +107,23 @@ export function syncPlanFromCabinets(plan: SinkPlan): SinkPlan {
   } else {
     next.returnCabinetWidths = [];
   }
+
+  if (next.matchUpperToLower || next.upperCabinetWidths.length === 0) {
+    next.upperCabinetWidths = [...next.cabinetWidths];
+  } else {
+    next.upperCabinetWidths = next.upperCabinetWidths.map((w) =>
+      Math.max(300, Math.round(w / 10) * 10),
+    );
+  }
+
   for (const b of next.bowls) {
+    if (next.snapToGrid) {
+      const g = Math.max(10, next.gridSizeMm);
+      b.offsetX = Math.round(b.offsetX / g) * g;
+      b.offsetZ = Math.round(b.offsetZ / g) * g;
+      b.width = Math.round(b.width / g) * g;
+      b.depth = Math.round(b.depth / g) * g;
+    }
     b.offsetX = Math.min(b.offsetX, next.counterWidth - b.width - 20);
     b.offsetZ = Math.min(b.offsetZ, next.counterDepth - b.depth - 20);
     b.offsetX = Math.max(20, b.offsetX);
@@ -186,11 +218,23 @@ export function createDefaultPlan(template: TemplateId = "straight-single"): Sin
     showHandles: true,
     handleHeightPct: 55,
     showToeKick: true,
+    showUpperCabinets: true,
+    upperCabinetHeight: 700,
+    upperCabinetDepth: 350,
+    upperGapFromCounter: 550,
+    upperCabinetWidths: splitEvenWidths(1800, 4),
+    matchUpperToLower: true,
     counterMaterial: "white-quartz",
     cabinetMaterial: "walnut",
     sinkMaterial: "stainless",
     showBlueprint: true,
-    blueprintOpacity: 0.35,
+    blueprintOpacity: 0.4,
+    blueprintScale: 1,
+    blueprintOffsetX: 0,
+    blueprintOffsetZ: 0,
+    blueprintInvert: false,
+    snapToGrid: true,
+    gridSizeMm: 50,
     ...base,
   };
   return syncPlanFromCabinets(plan);

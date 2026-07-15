@@ -329,6 +329,76 @@ function createCabinets(plan: SinkPlan, material: THREE.Material): THREE.Group {
   return group;
 }
 
+function createUpperCabinets(plan: SinkPlan, material: THREE.Material): THREE.Group | null {
+  if (!plan.showUpperCabinets) return null;
+  const group = new THREE.Group();
+  const heights = plan.upperCabinetHeight * MM;
+  const depth = plan.upperCabinetDepth * MM;
+  const gap = plan.upperGapFromCounter * MM;
+  const y0 =
+    plan.cabinetHeight * MM + plan.counterThickness * MM + gap;
+  const widths =
+    plan.matchUpperToLower || plan.upperCabinetWidths.length === 0
+      ? plan.cabinetWidths
+      : plan.upperCabinetWidths;
+
+  const D = plan.counterDepth * MM;
+  // Hang against the back of the main run
+  let x = 0;
+  for (const wMm of widths) {
+    const w = wMm * MM;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w * 0.98, heights, depth), material);
+    body.position.set(x + w / 2, y0 + heights / 2, D - depth / 2);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    // Door face
+    const door = new THREE.Mesh(
+      new THREE.BoxGeometry(w * 0.95, heights * 0.92, 0.014),
+      material,
+    );
+    door.position.set(x + w / 2, y0 + heights / 2, D - depth - 0.006);
+    door.castShadow = true;
+    group.add(door);
+
+    if (plan.showHandles) {
+      const handleMat = new THREE.MeshStandardMaterial({
+        color: "#c5c9ce",
+        metalness: 0.85,
+        roughness: 0.22,
+      });
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.08, 0.012), handleMat);
+      handle.position.set(x + w * 0.75, y0 + heights * 0.45, D - depth - 0.018);
+      group.add(handle);
+    }
+    x += w;
+  }
+
+  // L return upper cabinets along left wall
+  if (plan.template === "l-shape" && plan.returnCabinetWidths.length > 0) {
+    let z = D;
+    for (const wMm of plan.returnCabinetWidths) {
+      const len = wMm * MM;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(depth, heights, len * 0.98), material);
+      body.position.set(depth / 2, y0 + heights / 2, z + len / 2);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      group.add(body);
+
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(0.014, heights * 0.92, len * 0.95),
+        material,
+      );
+      door.position.set(depth + 0.006, y0 + heights / 2, z + len / 2);
+      group.add(door);
+      z += len;
+    }
+  }
+
+  return group;
+}
+
 function createBacksplash(plan: SinkPlan, material: THREE.Material): THREE.Group | null {
   if (plan.backsplashHeight <= 0) return null;
   const group = new THREE.Group();
@@ -475,6 +545,9 @@ export function buildSinkModel(plan: SinkPlan): THREE.Group {
 
   const splash = createBacksplash(plan, counterMat);
   if (splash) furniture.add(splash);
+
+  const upper = createUpperCabinets(plan, cabinetMat);
+  if (upper) furniture.add(upper);
 
   root.add(furniture);
   root.add(createRoom(plan));

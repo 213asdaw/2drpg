@@ -148,6 +148,11 @@ export class PlanEditor {
     nz = Math.max(20, Math.min(this.plan.counterDepth - b.depth - 20, nz));
     b.offsetX = Math.round(nx);
     b.offsetZ = Math.round(nz);
+    if (this.plan.snapToGrid) {
+      const g = Math.max(10, this.plan.gridSizeMm);
+      b.offsetX = Math.round(b.offsetX / g) * g;
+      b.offsetZ = Math.round(b.offsetZ / g) * g;
+    }
     this.draw();
     this.emit("change", this.getPlan());
   };
@@ -206,46 +211,87 @@ export class PlanEditor {
     ctx.fillStyle = "#e8edf0";
     ctx.fillRect(0, 0, w, h);
 
-    // Grid
-    ctx.strokeStyle = "rgba(40, 70, 90, 0.08)";
+    // Grid — major every 500mm, minor every gridSize
+    const minor = Math.max(10, this.plan.gridSizeMm) * this.scale;
+    const major = 500 * this.scale;
+    ctx.strokeStyle = "rgba(40, 70, 90, 0.07)";
     ctx.lineWidth = 1;
-    const step = 100 * this.scale; // 100mm
-    const startX = this.offsetX % step;
-    const startY = this.offsetY % step;
-    for (let x = startX; x < w; x += step) {
+    const startX = ((this.offsetX % minor) + minor) % minor;
+    const startY = ((this.offsetY % minor) + minor) % minor;
+    for (let x = startX; x < w; x += minor) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, h);
       ctx.stroke();
     }
-    for (let y = startY; y < h; y += step) {
+    for (let y = startY; y < h; y += minor) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(40, 70, 90, 0.16)";
+    const startMajX = ((this.offsetX % major) + major) % major;
+    const startMajY = ((this.offsetY % major) + major) % major;
+    for (let x = startMajX; x < w; x += major) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = startMajY; y < h; y += major) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(w, y);
       ctx.stroke();
     }
 
-    // Blueprint underlay
+    // Blueprint underlay (scale + offset + optional invert)
     if (this.plan.showBlueprint && this.blueprintImg) {
       ctx.save();
-      ctx.globalAlpha = this.plan.blueprintOpacity;
       const img = this.blueprintImg;
-      const dest = this.mmToPx(0, 0);
-      const dw = this.plan.counterWidth * this.scale;
-      const dh =
-        (this.plan.template === "l-shape" ? this.plan.returnWidth : this.plan.counterDepth) *
-        this.scale;
-      ctx.drawImage(img, dest.x, dest.y, dw, Math.max(dh, this.plan.counterDepth * this.scale));
+      const base = this.mmToPx(this.plan.blueprintOffsetX, this.plan.blueprintOffsetZ);
+      const dw = this.plan.counterWidth * this.scale * this.plan.blueprintScale;
+      const planH =
+        this.plan.template === "l-shape" ? this.plan.returnWidth : this.plan.counterDepth;
+      const dh = Math.max(planH, this.plan.counterDepth) * this.scale * this.plan.blueprintScale;
+      ctx.globalAlpha = this.plan.blueprintOpacity;
+      if (this.plan.blueprintInvert) {
+        ctx.filter = "invert(1) contrast(1.15)";
+      }
+      ctx.drawImage(img, base.x, base.y, dw, dh);
+      ctx.restore();
+
+      // Fit frame so user sees how the drawing maps
+      ctx.save();
+      ctx.strokeStyle = "rgba(30, 120, 140, 0.7)";
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(base.x, base.y, dw, dh);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(30, 100, 120, 0.85)";
+      ctx.font = "600 11px Lexend, sans-serif";
+      ctx.fillText(
+        `도면 맞춤 ×${this.plan.blueprintScale.toFixed(2)}  이동(${this.plan.blueprintOffsetX},${this.plan.blueprintOffsetZ})mm`,
+        base.x + 4,
+        Math.max(14, base.y - 6),
+      );
       ctx.restore();
     }
 
     // Counter fill
     this.drawCounterPath(ctx);
-    ctx.fillStyle = "rgba(250, 248, 242, 0.92)";
+    ctx.fillStyle = "rgba(250, 248, 242, 0.72)";
     ctx.fill();
     ctx.strokeStyle = "#1f3a4a";
     ctx.lineWidth = 2.5;
     ctx.stroke();
+
+    // Lower cabinet module guides
+    this.drawCabinetModules(ctx);
+
+    // Upper cabinet footprint (2층)
+    this.drawUpperFootprint(ctx);
 
     // Dimension labels
     this.drawDims(ctx);
@@ -257,9 +303,68 @@ export class PlanEditor {
     this.plan.bowls.forEach((bowl, i) => this.drawBowl(ctx, bowl, i === this.selectedBowl));
 
     // Legend
-    ctx.fillStyle = "rgba(31, 58, 74, 0.7)";
-    ctx.font = "12px Lexend, sans-serif";
-    ctx.fillText("상단뷰 · mm · 볼을 드래그해 위치 조정 · 휠로 줌", 12, h - 12);
+    this.drawLegend(ctx, w, h);
+  }
+
+  private drawCabinetModules(ctx: CanvasRenderingContext2D) {
+    let x = 0;
+    ctx.save();
+    ctx.font = "600 11px Lexend, sans-serif";
+    this.plan.cabinetWidths.forEach((wMm, i) => {
+      const a = this.mmToPx(x, 0);
+      const b = this.mmToPx(x + wMm, this.plan.counterDepth);
+      ctx.strokeStyle = "rgba(90, 130, 90, 0.55)";
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(50, 100, 60, 0.9)";
+      ctx.fillText(`하부${i + 1} ${wMm}`, a.x + 6, a.y + 14);
+      x += wMm;
+    });
+    ctx.restore();
+  }
+
+  private drawUpperFootprint(ctx: CanvasRenderingContext2D) {
+    if (!this.plan.showUpperCabinets) return;
+    const depths = this.plan.upperCabinetDepth;
+    const widths =
+      this.plan.matchUpperToLower || this.plan.upperCabinetWidths.length === 0
+        ? this.plan.cabinetWidths
+        : this.plan.upperCabinetWidths;
+    let x = 0;
+    ctx.save();
+    ctx.font = "600 11px Lexend, sans-serif";
+    widths.forEach((wMm, i) => {
+      const z0 = this.plan.counterDepth - depths;
+      const a = this.mmToPx(x, z0);
+      const bw = wMm * this.scale;
+      const bh = depths * this.scale;
+      ctx.fillStyle = "rgba(70, 110, 180, 0.18)";
+      ctx.strokeStyle = "rgba(50, 90, 170, 0.75)";
+      ctx.setLineDash([5, 3]);
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(a.x, a.y, bw, bh);
+      ctx.strokeRect(a.x, a.y, bw, bh);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(40, 70, 150, 0.95)";
+      ctx.fillText(`상부${i + 1}`, a.x + 6, a.y + 14);
+      x += wMm;
+    });
+    ctx.restore();
+  }
+
+  private drawLegend(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const lines = [
+      "상단뷰 · mm",
+      "초록 점선=하부장 · 파란 영역=2층 상부장",
+      "볼 드래그 · 휠 줌 · 격자 스냅",
+    ];
+    ctx.fillStyle = "rgba(15, 35, 45, 0.78)";
+    ctx.fillRect(8, h - 52, Math.min(360, w - 16), 44);
+    ctx.fillStyle = "#dce8ec";
+    ctx.font = "11px Lexend, sans-serif";
+    lines.forEach((t, i) => ctx.fillText(t, 14, h - 36 + i * 13));
   }
 
   private drawWalls(ctx: CanvasRenderingContext2D) {
