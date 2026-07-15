@@ -22,17 +22,21 @@ export class SinkScene {
     const w = container.clientWidth || 800;
     const h = container.clientHeight || 600;
 
-    this.camera = new THREE.PerspectiveCamera(42, w / h, 0.05, 50);
-    this.camera.position.set(2.2, 1.8, 2.6);
+    this.camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 50);
+    this.camera.position.set(2.4, 2.0, 2.8);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: true,
+    });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(w, h);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.08;
     container.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -76,11 +80,17 @@ export class SinkScene {
   setPlan(plan: SinkPlan, frameCamera = false) {
     if (this.model) {
       this.scene.remove(this.model);
+      const disposed = new Set<THREE.Material>();
       this.model.traverse((obj) => {
         if (obj instanceof THREE.Mesh) {
           obj.geometry.dispose();
           const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach((m) => m.dispose());
+          for (const m of mats) {
+            if (!disposed.has(m)) {
+              disposed.add(m);
+              m.dispose();
+            }
+          }
         }
       });
       this.model = null;
@@ -90,14 +100,41 @@ export class SinkScene {
     this.scene.add(this.model);
 
     const center: THREE.Vector3 = this.model.userData.center ?? new THREE.Vector3();
+    const size: THREE.Vector3 =
+      this.model.userData.size ?? new THREE.Vector3(1.8, 0.9, 0.6);
+
+    // Always keep orbit target on furniture center; frame on demand.
     this.controls.target.copy(center);
     if (frameCamera) {
-      const box: THREE.Box3 = this.model.userData.bounds;
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const dist = maxDim * 1.7 + 0.8;
-      this.camera.position.set(center.x + dist * 0.7, center.y + dist * 0.55, center.z + dist * 0.85);
+      this.frame(center, size);
     }
+    this.controls.update();
+  }
+
+  /** High three-quarter shot that keeps the sink cutout readable. */
+  frame(center?: THREE.Vector3, size?: THREE.Vector3) {
+    if (!this.model) return;
+    const c = center ?? (this.model.userData.center as THREE.Vector3);
+    const s = size ?? (this.model.userData.size as THREE.Vector3);
+    const span = Math.max(s.x, s.z, 1.0);
+    // Steep overhead angle — bowls/faucets must be readable on first open
+    this.camera.position.set(
+      c.x + span * 0.25,
+      Math.max(2.8, span * 1.45),
+      c.z + span * 0.4,
+    );
+    this.controls.target.set(c.x, 0.55, c.z);
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+  }
+
+  topView() {
+    if (!this.model) return;
+    const c = this.model.userData.center as THREE.Vector3;
+    const s = this.model.userData.size as THREE.Vector3;
+    const span = Math.max(s.x, s.z, 1.0);
+    this.camera.position.set(c.x, Math.max(2.8, span * 1.6), c.z + 0.05);
+    this.controls.target.set(c.x, 0.4, c.z);
     this.controls.update();
   }
 

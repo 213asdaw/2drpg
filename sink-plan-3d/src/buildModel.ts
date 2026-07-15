@@ -6,61 +6,78 @@ import {
   makeSinkMaterial,
 } from "./materials";
 
-/** Convert mm to Three.js units (1 unit = 1 meter) */
+/** Convert mm → meters */
 export const MM = 0.001;
 
-function roundedRectShape(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): THREE.Shape {
+function makeShapeFromPoints(points: Array<[number, number]>, reverse = false): THREE.Shape {
+  const pts = reverse ? [...points].reverse() : points;
   const shape = new THREE.Shape();
-  const rr = Math.min(r, w / 2, h / 2);
-  shape.moveTo(x + rr, y);
-  shape.lineTo(x + w - rr, y);
-  shape.quadraticCurveTo(x + w, y, x + w, y + rr);
-  shape.lineTo(x + w, y + h - rr);
-  shape.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
-  shape.lineTo(x + rr, y + h);
-  shape.quadraticCurveTo(x, y + h, x, y + h - rr);
-  shape.lineTo(x, y + rr);
-  shape.quadraticCurveTo(x, y, x + rr, y);
+  shape.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+  shape.closePath();
   return shape;
 }
 
-function counterTopShape(plan: SinkPlan): THREE.Shape {
+function counterOuterPoints(plan: SinkPlan): Array<[number, number]> {
   const W = plan.counterWidth * MM;
   const D = plan.counterDepth * MM;
-
-  let shape: THREE.Shape;
   if (plan.template === "l-shape" && plan.returnWidth > 0 && plan.returnDepth > 0) {
     const RW = plan.returnWidth * MM;
     const RD = plan.returnDepth * MM;
-    // L: main run along +X, return leg along +Z from left
-    shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.lineTo(W, 0);
-    shape.lineTo(W, D);
-    shape.lineTo(RD, D);
-    shape.lineTo(RD, RW);
-    shape.lineTo(0, RW);
-    shape.closePath();
-  } else {
-    shape = roundedRectShape(0, 0, W, D, 0.01);
+    // CCW on XZ-plan mapped as XY for Shape
+    return [
+      [0, 0],
+      [W, 0],
+      [W, D],
+      [RD, D],
+      [RD, RW],
+      [0, RW],
+    ];
   }
+  return [
+    [0, 0],
+    [W, 0],
+    [W, D],
+    [0, D],
+  ];
+}
 
+function bowlHolePoints(bowl: SinkBowl): Array<[number, number]> {
+  const x = bowl.offsetX * MM;
+  const z = bowl.offsetZ * MM;
+  const w = bowl.width * MM;
+  const d = bowl.depth * MM;
+  // Same order as outer (CCW) — caller will reverse for hole winding
+  return [
+    [x, z],
+    [x + w, z],
+    [x + w, z + d],
+    [x, z + d],
+  ];
+}
+
+function createCountertop(plan: SinkPlan, material: THREE.Material): THREE.Mesh {
+  const shape = makeShapeFromPoints(counterOuterPoints(plan), false);
   for (const bowl of plan.bowls) {
-    const hx = bowl.offsetX * MM;
-    const hy = bowl.offsetZ * MM;
-    const hw = bowl.width * MM;
-    const hd = bowl.depth * MM;
-    const hole = roundedRectShape(hx, hy, hw, hd, 0.025);
+    // Holes must wind opposite to outer path
+    const hole = makeShapeFromPoints(bowlHolePoints(bowl), true);
     shape.holes.push(hole);
   }
 
-  return shape;
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: plan.counterThickness * MM,
+    bevelEnabled: false,
+    curveSegments: 8,
+  });
+  // Extrude +Z then rotate so plan XY → world XZ, thickness down −Y
+  geo.rotateX(Math.PI / 2);
+
+  const mesh = new THREE.Mesh(geo, material);
+  // Local top (y=0) becomes world counter top
+  mesh.position.y = plan.cabinetHeight * MM + plan.counterThickness * MM;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 function createSinkBasin(bowl: SinkBowl, material: THREE.Material): THREE.Group {
@@ -68,71 +85,34 @@ function createSinkBasin(bowl: SinkBowl, material: THREE.Material): THREE.Group 
   const w = bowl.width * MM;
   const d = bowl.depth * MM;
   const depth = bowl.bowlDepth * MM;
-  const wall = 0.012;
-  const lip = 0.008;
+  const wall = 0.01;
 
-  // Outer lip ring on counter underside visually as basin walls
-  const wallMat = material;
-
-  // Bottom
   const bottom = new THREE.Mesh(
-    new THREE.BoxGeometry(w - wall * 2, 0.008, d - wall * 2),
-    wallMat,
+    new THREE.BoxGeometry(Math.max(0.05, w - wall * 2), 0.008, Math.max(0.05, d - wall * 2)),
+    material,
   );
   bottom.position.set(w / 2, -depth, d / 2);
   bottom.castShadow = true;
-  bottom.receiveShadow = true;
   group.add(bottom);
 
-  // Four walls
-  const front = new THREE.Mesh(
-    new THREE.BoxGeometry(w, depth, wall),
-    wallMat,
-  );
-  front.position.set(w / 2, -depth / 2, wall / 2);
-  front.castShadow = true;
-  group.add(front);
+  const mkWall = (gw: number, gd: number, px: number, pz: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(gw, depth, gd), material);
+    m.position.set(px, -depth / 2, pz);
+    m.castShadow = true;
+    group.add(m);
+  };
+  mkWall(w, wall, w / 2, wall / 2);
+  mkWall(w, wall, w / 2, d - wall / 2);
+  mkWall(wall, d - wall * 2, wall / 2, d / 2);
+  mkWall(wall, d - wall * 2, w - wall / 2, d / 2);
 
-  const back = new THREE.Mesh(
-    new THREE.BoxGeometry(w, depth, wall),
-    wallMat,
-  );
-  back.position.set(w / 2, -depth / 2, d - wall / 2);
-  back.castShadow = true;
-  group.add(back);
-
-  const left = new THREE.Mesh(
-    new THREE.BoxGeometry(wall, depth, d - wall * 2),
-    wallMat,
-  );
-  left.position.set(wall / 2, -depth / 2, d / 2);
-  left.castShadow = true;
-  group.add(left);
-
-  const right = new THREE.Mesh(
-    new THREE.BoxGeometry(wall, depth, d - wall * 2),
-    wallMat,
-  );
-  right.position.set(w - wall / 2, -depth / 2, d / 2);
-  right.castShadow = true;
-  group.add(right);
-
-  // Outer rim flush with counter hole
-  const rim = new THREE.Mesh(
-    new THREE.BoxGeometry(w + lip * 2, 0.006, d + lip * 2),
-    wallMat,
-  );
-  rim.position.set(w / 2, 0.002, d / 2);
-  group.add(rim);
-
-  // Drain
   const drainMat = new THREE.MeshStandardMaterial({
-    color: "#555555",
-    metalness: 0.9,
-    roughness: 0.25,
+    color: "#4a4a4a",
+    metalness: 0.85,
+    roughness: 0.3,
   });
-  const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.01, 24), drainMat);
-  drain.position.set(w / 2, -depth + 0.006, d / 2);
+  const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 20), drainMat);
+  drain.position.set(w / 2, -depth + 0.008, d / 2);
   group.add(drain);
 
   group.position.set(bowl.offsetX * MM, 0, bowl.offsetZ * MM);
@@ -141,96 +121,94 @@ function createSinkBasin(bowl: SinkBowl, material: THREE.Material): THREE.Group 
 
 function createFaucet(bowl: SinkBowl, material: THREE.Material): THREE.Group {
   const group = new THREE.Group();
-  const baseY = 0.01;
-  const cx = bowl.offsetX * MM + bowl.width * MM * 0.5;
-  const cz = bowl.offsetZ * MM + bowl.depth * MM + 0.045;
+  const cx = bowl.offsetX * MM + (bowl.width * MM) / 2;
+  const cz = bowl.offsetZ * MM + bowl.depth * MM + 0.05;
 
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.02, 24), material);
-  base.position.set(cx, baseY + 0.01, cz);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.018, 20), material);
+  base.position.set(cx, 0.012, cz);
   group.add(base);
 
-  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.18, 20), material);
-  column.position.set(cx, baseY + 0.11, cz);
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.2, 16), material);
+  column.position.set(cx, 0.12, cz);
   group.add(column);
 
-  const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.14, 16), material);
-  spout.rotation.z = Math.PI / 2;
-  spout.position.set(cx, baseY + 0.2, cz - 0.05);
+  const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.15, 12), material);
+  spout.rotation.x = Math.PI / 2;
+  spout.position.set(cx, 0.21, cz - 0.06);
   group.add(spout);
 
-  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.01, 0.03, 16), material);
-  tip.position.set(cx, baseY + 0.185, cz - 0.12);
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.01, 0.028, 12), material);
+  tip.position.set(cx, 0.195, cz - 0.13);
   group.add(tip);
 
   return group;
 }
 
+function addCabinetBox(
+  group: THREE.Group,
+  x: number,
+  z: number,
+  w: number,
+  d: number,
+  h: number,
+  material: THREE.Material,
+) {
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w * 0.98, h, d * 0.94), material);
+  body.position.set(x + w / 2, h / 2, z + d / 2);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  const kick = new THREE.Mesh(
+    new THREE.BoxGeometry(w * 0.98, 0.08, 0.04),
+    new THREE.MeshStandardMaterial({ color: "#1a1a1a", roughness: 0.9 }),
+  );
+  kick.position.set(x + w / 2, 0.04, z + 0.03);
+  group.add(kick);
+
+  // Door handles
+  const handleMat = new THREE.MeshStandardMaterial({
+    color: "#c5c9ce",
+    metalness: 0.8,
+    roughness: 0.25,
+  });
+  const doors = Math.max(1, Math.round(w / 0.5));
+  for (let i = 0; i < doors; i++) {
+    const hx = x + ((i + 0.5) / doors) * w;
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.08, 0.012), handleMat);
+    handle.position.set(hx, h * 0.55, z + 0.02);
+    group.add(handle);
+  }
+}
+
 function createCabinets(plan: SinkPlan, material: THREE.Material): THREE.Group {
   const group = new THREE.Group();
   const H = plan.cabinetHeight * MM;
-  const T = plan.counterThickness * MM;
-  const inset = 0.04;
-
-  const addCabinetBox = (x: number, z: number, w: number, d: number) => {
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(w - inset * 0.5, H, d - inset),
-      material,
-    );
-    body.position.set(x + w / 2, H / 2, z + d / 2);
-    body.castShadow = true;
-    body.receiveShadow = true;
-    group.add(body);
-
-    // Toe kick notch visual
-    const kickMat = new THREE.MeshStandardMaterial({ color: "#1c1c1c", roughness: 0.9 });
-    const kick = new THREE.Mesh(new THREE.BoxGeometry(w - inset, 0.08, 0.04), kickMat);
-    kick.position.set(x + w / 2, 0.04, z + 0.02);
-    group.add(kick);
-
-    // Simple door seams
-    const seamMat = new THREE.MeshStandardMaterial({ color: "#000000", roughness: 1, opacity: 0.15, transparent: true });
-    const doors = Math.max(1, Math.round(w / 0.45));
-    for (let i = 1; i < doors; i++) {
-      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.004, H * 0.7, 0.01), seamMat);
-      seam.position.set(x + (w * i) / doors, H * 0.55, z + 0.02);
-      group.add(seam);
-    }
-
-    // Counter sits on top — handled separately; return for reference
-    void T;
-  };
 
   if (plan.template === "l-shape" && plan.returnWidth > 0) {
     const W = plan.counterWidth * MM;
     const D = plan.counterDepth * MM;
     const RW = plan.returnWidth * MM;
     const RD = plan.returnDepth * MM;
-    addCabinetBox(0, 0, W, D);
-    addCabinetBox(0, D, RD, RW - D);
+    addCabinetBox(group, 0, 0, W, D, H, material);
+    addCabinetBox(group, 0, D, RD, RW - D, H, material);
   } else {
-    addCabinetBox(0, 0, plan.counterWidth * MM, plan.counterDepth * MM);
+    addCabinetBox(group, 0, 0, plan.counterWidth * MM, plan.counterDepth * MM, H, material);
   }
-
   return group;
 }
 
 function createBacksplash(plan: SinkPlan, material: THREE.Material): THREE.Mesh | null {
   if (plan.backsplashHeight <= 0) return null;
   const H = plan.backsplashHeight * MM;
-  const T = 0.012;
-  const y = plan.cabinetHeight * MM + plan.counterThickness * MM + H / 2;
-
-  if (plan.template === "l-shape" && plan.returnWidth > 0) {
-    // Combined via group caller; single main run backsplash for simplicity
-  }
-
+  const T = 0.014;
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(plan.counterWidth * MM, H, T),
     material,
   );
   mesh.position.set(
     (plan.counterWidth * MM) / 2,
-    y,
+    plan.cabinetHeight * MM + plan.counterThickness * MM + H / 2,
     plan.counterDepth * MM - T / 2,
   );
   mesh.castShadow = true;
@@ -238,66 +216,35 @@ function createBacksplash(plan: SinkPlan, material: THREE.Material): THREE.Mesh 
   return mesh;
 }
 
-function createFloor(plan: SinkPlan): THREE.Mesh {
-  const size = Math.max(plan.counterWidth, plan.returnWidth || 0, plan.counterDepth) * MM * 2.5 + 1.5;
-  const geo = new THREE.PlaneGeometry(size, size);
-  const mat = new THREE.MeshStandardMaterial({
-    color: "#d8d2c8",
-    roughness: 0.9,
-    metalness: 0,
-  });
-  const floor = new THREE.Mesh(geo, mat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(
-    (plan.counterWidth * MM) / 2,
-    0,
-    (plan.counterDepth * MM) / 2,
-  );
-  floor.receiveShadow = true;
-  return floor;
-}
-
-function createWall(plan: SinkPlan): THREE.Group {
+function createRoom(plan: SinkPlan): THREE.Group {
   const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: "#ebe7df",
-    roughness: 0.95,
-  });
-  const wallH = 2.4;
-  const wallT = 0.08;
+  const span = Math.max(plan.counterWidth * MM, plan.counterDepth * MM, 1.2);
 
-  const back = new THREE.Mesh(
-    new THREE.BoxGeometry(plan.counterWidth * MM + 0.8, wallH, wallT),
-    mat,
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(span * 1.2, 48),
+    new THREE.MeshStandardMaterial({ color: "#c8c2b6", roughness: 0.95 }),
   );
-  back.position.set(
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(span * 0.4, -0.001, span * 0.35);
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: "#ebe6dc", roughness: 0.95 });
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(plan.counterWidth * MM + 0.6, 2.2, 0.06),
+    wallMat,
+  );
+  wall.position.set(
     (plan.counterWidth * MM) / 2,
-    wallH / 2,
-    plan.counterDepth * MM + wallT / 2 + 0.02,
+    1.1,
+    plan.counterDepth * MM + 0.05,
   );
-  back.receiveShadow = true;
-  group.add(back);
-
-  if (plan.template === "l-shape") {
-    const side = new THREE.Mesh(
-      new THREE.BoxGeometry(wallT, wallH, plan.returnWidth * MM + 0.4),
-      mat,
-    );
-    side.position.set(
-      -wallT / 2 - 0.02,
-      wallH / 2,
-      (plan.returnWidth * MM) / 2,
-    );
-    side.receiveShadow = true;
-    group.add(side);
-  }
+  wall.receiveShadow = true;
+  group.add(wall);
 
   return group;
 }
 
-/**
- * Build a complete sink-unit scene graph from the 2D plan (mm).
- */
 export function buildSinkModel(plan: SinkPlan): THREE.Group {
   const root = new THREE.Group();
   root.name = "SinkModel";
@@ -306,52 +253,40 @@ export function buildSinkModel(plan: SinkPlan): THREE.Group {
   const cabinetMat = makeCabinetMaterial(plan.cabinetMaterial);
   const sinkMat = makeSinkMaterial(plan.sinkMaterial);
   const faucetMat = new THREE.MeshStandardMaterial({
-    color: plan.sinkMaterial === "matte-black" ? "#222" : "#c9ced3",
-    metalness: 0.9,
-    roughness: 0.2,
+    color: plan.sinkMaterial === "matte-black" ? "#1c1c1c" : "#c5c9ce",
+    metalness: 0.88,
+    roughness: 0.22,
   });
 
-  const cabinets = createCabinets(plan, cabinetMat);
-  root.add(cabinets);
+  const furniture = new THREE.Group();
+  furniture.name = "Furniture";
 
-  const shape = counterTopShape(plan);
-  const extrude = new THREE.ExtrudeGeometry(shape, {
-    depth: plan.counterThickness * MM,
-    bevelEnabled: true,
-    bevelThickness: 0.002,
-    bevelSize: 0.002,
-    bevelSegments: 2,
-  });
-  // Extrude goes along +Z of shape's local; rotate so Y is up
-  extrude.rotateX(Math.PI / 2);
-  // After rotateX(90°): shape XY -> XZ, extrusion +Z becomes -Y. Shift to sit on cabinet.
-  const counter = new THREE.Mesh(extrude, counterMat);
-  counter.position.y = plan.cabinetHeight * MM + plan.counterThickness * MM;
-  counter.castShadow = true;
-  counter.receiveShadow = true;
-  root.add(counter);
+  furniture.add(createCabinets(plan, cabinetMat));
+  furniture.add(createCountertop(plan, counterMat));
 
+  const sinkY = plan.cabinetHeight * MM + plan.counterThickness * MM;
   const sinkLayer = new THREE.Group();
-  sinkLayer.position.y = plan.cabinetHeight * MM + plan.counterThickness * MM;
+  sinkLayer.position.y = sinkY;
   for (const bowl of plan.bowls) {
     sinkLayer.add(createSinkBasin(bowl, sinkMat));
-    if (plan.faucet) {
-      sinkLayer.add(createFaucet(bowl, faucetMat));
-    }
+    if (plan.faucet) sinkLayer.add(createFaucet(bowl, faucetMat));
   }
-  root.add(sinkLayer);
+  furniture.add(sinkLayer);
 
   const splash = createBacksplash(plan, counterMat);
-  if (splash) root.add(splash);
+  if (splash) furniture.add(splash);
 
-  root.add(createFloor(plan));
-  root.add(createWall(plan));
+  root.add(furniture);
+  root.add(createRoom(plan));
 
-  // Center pivot for nicer camera framing
-  const box = new THREE.Box3().setFromObject(root);
+  // Force matrix update before measuring
+  furniture.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(furniture);
   const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
   root.userData.bounds = box;
   root.userData.center = center;
+  root.userData.size = size;
 
   return root;
 }

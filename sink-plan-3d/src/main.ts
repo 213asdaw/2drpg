@@ -36,6 +36,11 @@ const controls = document.querySelector<HTMLElement>("#controls")!;
 const editor = new PlanEditor(planCanvas, plan);
 const scene = new SinkScene(viewHost);
 scene.setPlan(plan, true);
+// Layout can settle after first paint — reframe once.
+requestAnimationFrame(() => {
+  scene.frame();
+  window.dispatchEvent(new Event("resize"));
+});
 
 let syncing = false;
 
@@ -44,7 +49,8 @@ function applyPlan(next: SinkPlan, opts: { refitEditor?: boolean; frameCamera?: 
   if (!syncing) {
     syncing = true;
     editor.setPlan(plan, opts.refitEditor ?? false);
-    scene.setPlan(plan, opts.frameCamera ?? false);
+    // Reframe whenever a substantial plan rebuild happens
+    scene.setPlan(plan, opts.frameCamera ?? true);
     syncing = false;
   }
   renderControls();
@@ -52,6 +58,7 @@ function applyPlan(next: SinkPlan, opts: { refitEditor?: boolean; frameCamera?: 
 
 editor.on("change", (next) => {
   plan = next;
+  // Drag updates: keep camera
   scene.setPlan(plan, false);
 });
 
@@ -210,6 +217,7 @@ function renderControls() {
       <div class="actions">
         <button type="button" class="btn btn-primary" id="captureBtn">3D 화면 저장 (PNG)</button>
         <button type="button" class="btn btn-ghost" id="resetCamera">카메라 리셋</button>
+        <button type="button" class="btn btn-ghost" id="topViewBtn">위에서 보기</button>
       </div>
     </div>
   `;
@@ -327,7 +335,11 @@ function bindControls() {
   });
 
   document.getElementById("resetCamera")?.addEventListener("click", () => {
-    scene.setPlan(plan, true);
+    scene.frame();
+  });
+
+  document.getElementById("topViewBtn")?.addEventListener("click", () => {
+    scene.topView();
   });
 }
 
