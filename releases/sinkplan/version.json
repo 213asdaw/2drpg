@@ -1,0 +1,15 @@
+{
+  "name": "싱크플랜",
+  "version": "1.0.0",
+  "notes": "싱크대 도면을 3D로 보여주는 데스크톱 앱. Windows는 portable.exe 더블클릭으로 실행.",
+  "artifacts": {
+    "windowsPortable": "SinkPlan-1.0.0-portable.exe",
+    "windowsZip": "SinkPlan-1.0.0-win.zip",
+    "linuxAppImage": "SinkPlan-1.0.0-linux.AppImage",
+    "linuxZip": "SinkPlan-1.0.0-linux.zip"
+  },
+  "howToRun": {
+    "windows": "SinkPlan-1.0.0-portable.exe 더블클릭",
+    "linux": "chmod +x SinkPlan-1.0.0-linux.AppImage && ./SinkPlan-1.0.0-linux.AppImage"
+  }
+}

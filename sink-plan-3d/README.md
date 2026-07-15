@@ -1,42 +1,41 @@
 # 싱크플랜 (SinkPlan)
 
-싱크대 **2D 도면**을 입력·조정하면 실시간으로 **3D 구현 모습**을 보여주는 웹 앱입니다.
+싱크대 **2D 도면 → 3D 미리보기** 데스크톱 앱입니다.
 
-## 기능
+## Windows에서 그냥 열기 (권장)
 
-- 템플릿: 일자형 싱글 / 더블, ㄱ자형, 아일랜드
-- 치수(mm): 상판 폭·깊이, 장 높이, 볼 크기·깊이, 백스플래시
-- 2D 도면에서 싱크 볼 드래그로 위치 조정 → 즉시 3D 반영
-- 도면 이미지(스케치·CAD 캡처) 오버레이
-- 상판 / 수납장 / 싱크 재질 선택
-- Orbit 카메라, 3D PNG 저장
+1. `SinkPlan-1.0.0-portable.exe` 를 받습니다. (설치 불필요)
+2. **더블클릭**하면 바로 실행됩니다.
 
-## 실행
+또는 `SinkPlan-1.0.0-win.zip` 압축을 풀고 안의 `싱크플랜.exe` / `SinkPlan.exe` 를 실행하세요.
+
+## Linux
+
+- `SinkPlan-1.0.0-linux.AppImage` 에 실행 권한을 주고 실행  
+  `chmod +x SinkPlan-1.0.0-linux.AppImage && ./SinkPlan-1.0.0-linux.AppImage`
+- 또는 `SinkPlan-1.0.0-linux.zip` 압축 해제 후 `SinkPlan` / `sink-plan-3d` 실행
+
+## 개발자용 (소스에서 실행)
 
 ```bash
 cd sink-plan-3d
 npm install
-npm run dev
+npm run electron:dev   # 데스크톱 창으로 실행
+# 또는
+npm run dev            # 브라우저 http://localhost:5173
 ```
 
-브라우저에서 `http://localhost:5173` 을 엽니다.
-
-프로덕션 빌드:
+설치 파일 다시 만들기:
 
 ```bash
-npm run build
-npm run preview
+npm run dist:win    # Windows portable.exe + zip
+npm run dist        # Linux AppImage + zip
 ```
 
-## 사용 방법
+결과물은 `release-build/` 폴더에 생성됩니다.
 
-1. 왼쪽에서 템플릿을 고릅니다.
-2. 슬라이더로 치수를 맞춥니다.
-3. 가운데 도면에서 볼을 드래그해 위치를 잡습니다.
-4. (선택) **도면 이미지 불러오기**로 종이·CAD 도면을 깔고 맞춰 봅니다.
-5. 오른쪽 3D를 마우스로 돌려 확인합니다.
+## 기능
 
-## 기술
-
-- Vite + TypeScript
-- Three.js (WebGL 실시간 렌더)
+- 템플릿: 일자형 싱글 / 더블, ㄱ자형, 아일랜드
+- 치수(mm) · 2D에서 볼 드래그 · 도면 이미지 오버레이
+- 재질 선택 · Orbit 카메라 · 위에서 보기 · PNG 저장

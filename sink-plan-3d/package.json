@@ -1,19 +1,73 @@
 {
   "name": "sink-plan-3d",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "싱크대 도면을 3D로 보여주는 싱크플랜",
+  "author": "싱크플랜",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "@types/three": "^0.185.1",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "preview": "vite preview",
+    "electron:dev": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --linux AppImage deb zip",
+    "dist:win": "npm run build && electron-builder --win portable zip",
+    "dist:all": "npm run build && electron-builder --linux AppImage zip --win portable zip",
+    "pack:portable": "npm run build && electron-builder --linux zip --win zip"
   },
   "dependencies": {
     "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  },
+  "build": {
+    "appId": "com.sinkplan.app",
+    "productName": "싱크플랜",
+    "copyright": "Copyright © SinkPlan",
+    "directories": {
+      "output": "release-build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "zip"],
+      "category": "Graphics",
+      "executableName": "SinkPlan",
+      "artifactName": "SinkPlan-${version}-${os}.${ext}"
+    },
+    "win": {
+      "executableName": "SinkPlan",
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "SinkPlan-${version}-${os}.${ext}"
+    },
+    "portable": {
+      "artifactName": "SinkPlan-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "shortcutName": "싱크플랜"
+    }
   }
 }
