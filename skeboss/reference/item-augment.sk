@@ -1,0 +1,237 @@
+# ============================================================
+# 아이템 우클릭 증강 선택 (구버전 Skript 호환)
+# plugins/Skript/scripts/item-augment.sk
+#
+# - 증강석 우클릭 → 남은 증강 중 3개 제안
+# - 클릭 선택 / 창 닫으면 이번 제안 3개 중 랜덤
+# - 적용 시 증강석 1개 소모
+#
+# ※ inventory close 에서는 {_p} 가 없음 → 반드시 player 사용
+# ============================================================
+
+function clearAugmentSession(p: player):
+	delete {augment.open::%{_p}%}
+	delete {augment.chosen::%{_p}%}
+	delete {augment.done::%{_p}%}
+	delete {이번증강::%{_p}%::*}
+
+function consumeTriggerItem(p: player) :: boolean:
+	set {_tool} to tool of {_p}
+	if {_tool} is air:
+		return false
+	set {_name} to uncolored name of {_tool}
+	if {_name} is not "증강석":
+		return false
+	set {_amt} to amount of {_tool}
+	if {_amt} > 1:
+		set amount of tool of {_p} to {_amt} - 1
+	else:
+		set tool of {_p} to air
+	return true
+
+function augmentDisplayName(id: text) :: text:
+	if {_id} is "매드러너":
+		return "매드러너"
+	if {_id} is "마조히스트":
+		return "마조히스트"
+	if {_id} is "이중인격":
+		return "이중인격"
+	if {_id} is "재생의피부":
+		return "재생의피부"
+	if {_id} is "부기우기":
+		return "부기우기"
+	if {_id} is "기다란팔":
+		return "기다란팔"
+	if {_id} is "광전사":
+		return "광전사"
+	if {_id} is "적응형에너지":
+		return "적응형에너지"
+	return {_id}
+
+function augmentDescription(id: text) :: text:
+	if {_id} is "매드러너":
+		return "이동속도가 상승합니다.같은 위치에 계속있으면 데미지를 입습니다"
+	if {_id} is "마조히스트":
+		return "방어력이 소폭 증가합니다"
+	if {_id} is "이중인격":
+		return "쉬프트+F로 인격을 변경할수있습니다(쿨타임5초)"
+	if {_id} is "재생의피부":
+		return "재생력 0.2를 획득합니다(초당 회복)"
+	if {_id} is "부기우기":
+		return "쉬프트 좌클릭으로 대상을 지정할수 있습니다"
+	if {_id} is "기다란팔":
+		return "사거리가 4칸으로 늘어납니다"
+	if {_id} is "광전사":
+		return "죽음에 이르는 공격을 받을시 발악합니다"
+	if {_id} is "적응형에너지":
+		return "데미지를 입힐시 데미지의 20%%만큼 고정피해를 더 입힙니다"
+	return "&7효과 없음"
+
+function makeAugmentIcon(id: text) :: item:
+	set {_name} to augmentDisplayName({_id})
+	set {_item} to sugar
+	if {_id} is "매드러너":
+		set {_item} to redstone
+	if {_id} is "마조히스트":
+		set {_item} to iron chestplate
+	set name of {_item} to {_name}
+	# lore 줄바꿈은 %nl% 말고 and 로 나눠야 함
+	if {_id} is "이중인격":
+		set lore of {_item} to "쉬프트+F로 인격을 변경할수있습니다(쿨타임5초)" and "&c공격적 인격-공격력이 높아지고 체력이 낮아집니다" and "&2방어적 인격-방어력과 체력이 높아지고 공격력이 낮아집니다" and "&e클릭하여 선택"
+		return {_item}
+	if {_id} is "부기우기":
+		set lore of {_item} to "쉬프트 좌클릭으로 대상을 지정할수 있습니다." and "5초안에 두번째 대상을 선택하지 못하면 첫번째 대상이 초기화됩니다" and "첫번째 대상을 다시 지정하거나 빈곳을 지정하면 위치 교환" and "&e클릭하여 선택"
+		return {_item}
+	if {_id} is "광전사":
+		set lore of {_item} to "치명타 피격 시 체력 회복 + 50초간 5%% 공격력" and "50초 안 처치 시 완전 부활 / 실패 시 사망 (쿨 2분)" and "&e클릭하여 선택"
+		return {_item}
+	set {_desc} to augmentDescription({_id})
+	set lore of {_item} to {_desc} and "&e클릭하여 선택"
+	return {_item}
+
+function applyAugment(p: player, id: text, randomPick: boolean):
+	if {_id} is not set:
+		stop
+	if {_id} is "":
+		stop
+	if {augment.done::%{_p}%} is set:
+		stop
+	set {augment.done::%{_p}%} to true
+	set {augment.chosen::%{_p}%} to {_id}
+
+	if consumeTriggerItem({_p}) is false:
+		send "&c증강석을 소모할 수 없어 적용이 취소되었습니다." to {_p}
+		clearAugmentSession({_p})
+		stop
+
+	set {player.augment::%{_p}%} to {_id}
+	set {_label} to augmentDisplayName({_id})
+	set {_plain} to uncolored {_label}
+	set {player.augment.name::%{_p}%} to {_plain}
+
+	if {_id} is "매드러너":
+		execute console command "/증강 매드러너 %{_p}%"
+	if {_id} is "마조히스트":
+		execute console command "/증강 마조히스트 %{_p}%"
+	if {_id} is "이중인격":
+		execute console command "/증강 이중인격 %{_p}%"
+	if {_id} is "재생의피부":
+		execute console command "/증강 재생의피부 %{_p}%"
+	if {_id} is "부기우기":
+		execute console command "/증강 부기우기 %{_p}%"
+	if {_id} is "기다란팔":
+		execute console command "/증강 기다란팔 %{_p}%"
+	if {_id} is "광전사":
+		execute console command "/증강 광전사 %{_p}%"
+	if {_id} is "적응형에너지":
+		execute console command "/증강 적응형에너지 %{_p}%"
+
+	if {_randomPick} is true:
+		send "&d[증강] &7창을 닫아 &f%{_label}%&7 이(가) 무작위로 적용되었습니다." to {_p}
+	else:
+		send "&d[증강] &f%{_label}%&7 을(를) 선택했습니다." to {_p}
+	play sound "entity.player.levelup" with volume 0.7 and pitch 1.3 at {_p}
+	clearAugmentSession({_p})
+
+function openAugmentGui(p: player):
+	set {augment.open::%{_p}%} to true
+	delete {augment.chosen::%{_p}%}
+	delete {augment.done::%{_p}%}
+	delete {이번증강::%{_p}%::*}
+
+	if {남은증강::%{_p}%::*} is not set:
+		send "&c남은 증강이 없습니다." to {_p}
+		clearAugmentSession({_p})
+		stop
+	if size of {남은증강::%{_p}%::*} < 1:
+		send "&c남은 증강이 없습니다." to {_p}
+		clearAugmentSession({_p})
+		stop
+
+	set {_gui} to chest inventory with 1 rows named "&8증강선택"
+	set {_slot} to 2
+	set {_count} to 0
+	loop 3 times:
+		if size of {남은증강::%{_p}%::*} >= 1:
+			set {_gui_증강} to random element of {남은증강::%{_p}%::*}
+			if {_gui_증강} is set:
+				set slot {_slot} of {_gui} to makeAugmentIcon("%{_gui_증강}%")
+				remove {_gui_증강} from {남은증강::%{_p}%::*}
+				add {_gui_증강} to {이번증강::%{_p}%::*}
+				add 2 to {_slot}
+				add 1 to {_count}
+
+	if {_count} < 1:
+		send "&c제안할 증강이 없습니다." to {_p}
+		clearAugmentSession({_p})
+		stop
+
+	open {_gui} to {_p}
+
+on right click:
+	set {_name} to uncolored name of player's tool
+	if {_name} is not "증강석":
+		stop
+	cancel event
+	if {augment.open::%player%} is set:
+		stop
+	openAugmentGui(player)
+
+on inventory click:
+	if {augment.open::%player%} is not set:
+		stop
+	cancel event
+	if {augment.done::%player%} is set:
+		stop
+
+	set {_clicked} to event-slot
+	if {_clicked} is not set:
+		stop
+	if {_clicked} is air:
+		stop
+	set {_clickedName} to uncolored name of {_clicked}
+	if {_clickedName} is not set:
+		stop
+	if {_clickedName} is "":
+		stop
+
+	# 이번 제안에 있는 증강만 허용
+	if {이번증강::%player%::*} does not contain {_clickedName}:
+		stop
+
+	applyAugment(player, {_clickedName}, false)
+	close player's inventory
+
+# ---------- 닫기: 이번 제안 3개 중 랜덤 ----------
+on inventory close:
+	if {augment.open::%player%} is not set:
+		stop
+
+	if event-inventory is set:
+		set {_title} to uncolored name of event-inventory
+		if {_title} is not "증강선택":
+			stop
+
+	if {augment.done::%player%} is set:
+		clearAugmentSession(player)
+		stop
+
+	# ★ 여기가 오류 원인: close 이벤트에는 {_p} 가 없음 → player 사용
+	if {이번증강::%player%::*} is not set:
+		clearAugmentSession(player)
+		stop
+	set {_pick} to random element of {이번증강::%player%::*}
+	if {_pick} is not set:
+		clearAugmentSession(player)
+		stop
+
+	wait 1 tick
+	if player is not online:
+		stop
+	if {augment.done::%player%} is set:
+		stop
+
+	applyAugment(player, {_pick}, true)
+
+on quit:
+	clearAugmentSession(player)
