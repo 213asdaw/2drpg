@@ -171,7 +171,8 @@ on inventory click:
 	if {augment.done::%{_u}%} is set:
 		stop
 
-	set {_clicked} to clicked item
+	# 구버전 호환: clicked item 대신 event-slot 사용
+	set {_clicked} to event-slot
 	if {_clicked} is not set:
 		stop
 	if {_clicked} is air:
