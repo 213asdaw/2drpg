@@ -232,7 +232,7 @@ every 10 ticks:
 						if {_target} is not set:
 							set {_bestDist} to 9999
 							loop all monsters in radius 12 around {_t}:
-								set {_e} to loop-entity
+								set {_e} to loop-monster
 								set {_ehp} to health of {_e}
 								if {_ehp} is set:
 									if {_ehp} > 0:
