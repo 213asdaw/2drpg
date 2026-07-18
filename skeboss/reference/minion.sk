@@ -158,16 +158,14 @@ command /미니언소환 [<text>] [<number>]:
 					set name of {_m} to "&c&l레드 미니언"
 					set helmet of {_m} to red wool
 				set chestplate of {_m} to leather chestplate
-				clear drops of {_m}
 		send "&a%{_team}% 미니언 &f%{_amt}%&a마리를 소환했습니다." to player
 		play sound "entity.zombie.ambient" with volume 0.8 and pitch 1.2 at player
 
 # 바닐라 AI 타겟팅 막기 (스크립트가 직접 공격)
-on target:
-	if entity is set:
-		set {_k} to "%uuid of entity%"
-		if {minion.alive::%{_k}%} is set:
-			cancel event
+on entity target:
+	set {_k} to "%uuid of entity%"
+	if {minion.alive::%{_k}%} is set:
+		cancel event
 
 # 미니언끼리/아군 플레이어 어그로 방지용
 on damage:
