@@ -1,0 +1,313 @@
+# ============================================================
+# 롤 스타일 포탑 (구버전 Skript 호환)
+# plugins/Skript/scripts/lol-turret.sk
+#
+# - 고정 포탑이 사거리 안 적을 자동 공격
+# - 포탑/아군을 때린 적에게 어그로(우선 타겟)
+# - 체력 있음, 0 되면 파괴
+# - 파티클 레이저 + 피해
+#
+# 명령어:
+#   /포탑 소환 [blue|red]  - 발밑에 포탑 설치
+#   /포탑 제거             - 근처 포탑 제거
+#   /포탑 목록             - 내 포탑 개수
+#   /포탑 팀 <blue|red>    - 내 팀 설정
+# ============================================================
+
+options:
+	turret-range: 12
+	turret-damage: 7
+	attack-cooldown: 1
+	aggro-seconds: 6
+	max-health: 300
+	turret-name: 포탑
+
+function turretKey(t: entity) :: text:
+	return "%uuid of {_t}%"
+
+function playerTeam(p: player) :: text:
+	set {_u} to uuid of {_p}
+	if {turret.team.player::%{_u}%} is set:
+		return {turret.team.player::%{_u}%}
+	return "blue"
+
+function setPlayerTeam(p: player, team: text):
+	set {_u} to uuid of {_p}
+	set {turret.team.player::%{_u}%} to {_team}
+
+function isTurretEntity(e: entity) :: boolean:
+	if {_e} is not an armor stand:
+		return false
+	set {_k} to turretKey({_e})
+	if {turret.hp::%{_k}%} is set:
+		return true
+	return false
+
+function clearTurretData(t: entity):
+	set {_k} to turretKey({_t})
+	delete {turret.hp::%{_k}%}
+	delete {turret.maxhp::%{_k}%}
+	delete {turret.team::%{_k}%}
+	delete {turret.owner::%{_k}%}
+	delete {turret.target::%{_k}%}
+	delete {turret.aggro::%{_k}%}
+	delete {turret.aggro.until::%{_k}%}
+	delete {turret.nextshot::%{_k}%}
+	delete {turret.alive::%{_k}%}
+
+function updateTurretName(t: entity):
+	set {_k} to turretKey({_t})
+	set {_hp} to {turret.hp::%{_k}%}
+	set {_max} to {turret.maxhp::%{_k}%}
+	set {_team} to {turret.team::%{_k}%}
+	set {_color} to "&9"
+	if {_team} is "red":
+		set {_color} to "&c"
+	set name of {_t} to "%{_color}%&l{@turret-name} &7[%{_hp}%&7/&f%{_max}%&7]"
+
+function spawnTurret(p: player, team: text, loc: location) :: entity:
+	set {_stand} to spawn an armor stand at {_loc}
+	set name of {_stand} to "&l{@turret-name}"
+	set helmet of {_stand} to iron block
+	set chestplate of {_stand} to iron chestplate
+
+	set {_k} to turretKey({_stand})
+	set {turret.hp::%{_k}%} to {@max-health}
+	set {turret.maxhp::%{_k}%} to {@max-health}
+	set {turret.team::%{_k}%} to {_team}
+	set {turret.owner::%{_k}%} to uuid of {_p}
+	set {turret.alive::%{_k}%} to true
+	updateTurretName({_stand})
+	add {_stand} to {turret.list::*}
+	return {_stand}
+
+function removeTurret(t: entity):
+	set {_k} to turretKey({_t})
+	remove {_t} from {turret.list::*}
+	clearTurretData({_t})
+	kill {_t}
+
+function damageTurret(t: entity, amount: number, attacker: entity):
+	set {_k} to turretKey({_t})
+	if {turret.alive::%{_k}%} is not set:
+		stop
+	set {_hp} to {turret.hp::%{_k}%}
+	remove {_amount} from {_hp}
+	set {turret.hp::%{_k}%} to {_hp}
+	if {_attacker} is set:
+		set {_type} to "%type of {_attacker}%"
+		if {_type} contains "armor":
+			stop
+		set {turret.aggro::%{_k}%} to {_attacker}
+		set {turret.aggro.until::%{_k}%} to now
+	updateTurretName({_t})
+	if {turret.hp::%{_k}%} <= 0:
+		set {_loc} to location of {_t}
+		play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_loc}
+		loop 15 times:
+			play crit at {_loc}
+		send "&c포탑이 파괴되었습니다!" to all players in radius 20 around {_t}
+		removeTurret({_t})
+
+function isValidTurretTarget(t: entity, e: entity) :: boolean:
+	if {_e} is not set:
+		return false
+	if {_e} is {_t}:
+		return false
+	if {_e} is an armor stand:
+		return false
+	set {_hp} to health of {_e}
+	if {_hp} is not set:
+		return false
+	if {_hp} <= 0:
+		return false
+	set {_tk} to turretKey({_t})
+	set {_team} to {turret.team::%{_tk}%}
+	if {_e} is a player:
+		set {_eteam} to playerTeam({_e})
+		if {_eteam} is {_team}:
+			return false
+		return true
+	if isTurretEntity({_e}) is true:
+		set {_ek} to turretKey({_e})
+		if {turret.team::%{_ek}%} is {_team}:
+			return false
+	return true
+
+function distanceOk(t: entity, e: entity) :: boolean:
+	set {_d} to distance between {_t} and {_e}
+	if {_d} <= {@turret-range}:
+		return true
+	return false
+
+function findTurretTarget(t: entity) :: entity:
+	set {_k} to turretKey({_t})
+	# 1) 어그로 우선
+	if {turret.aggro::%{_k}%} is set:
+		set {_aggro} to {turret.aggro::%{_k}%}
+		if {_aggro} is set:
+			if isValidTurretTarget({_t}, {_aggro}) is true:
+				if distanceOk({_t}, {_aggro}) is true:
+					if {turret.aggro.until::%{_k}%} is set:
+						if difference between {turret.aggro.until::%{_k}%} and now < {@aggro-seconds} seconds:
+							return {_aggro}
+		delete {turret.aggro::%{_k}%}
+		delete {turret.aggro.until::%{_k}%}
+
+	# 2) 가장 가까운 적
+	delete {_best}
+	set {_bestDist} to 9999
+	loop all entities in radius {@turret-range} around {_t}:
+		if isValidTurretTarget({_t}, loop-entity) is true:
+			set {_d} to distance between {_t} and loop-entity
+			if {_d} < {_bestDist}:
+				set {_best} to loop-entity
+				set {_bestDist} to {_d}
+	if {_best} is set:
+		return {_best}
+
+function fireTurretLaser(t: entity, target: entity):
+	set {_from} to location of {_t}
+	add 1.6 to y-coordinate of {_from}
+	set {_to} to location of {_target}
+	add 1 to y-coordinate of {_to}
+	set {_i} to 0
+	loop 12 times:
+		add 1 to {_i}
+		set {_r} to {_i} / 12
+		set {_p} to {_from}
+		set x-coordinate of {_p} to (x-coordinate of {_from}) + ((x-coordinate of {_to} - x-coordinate of {_from}) * {_r})
+		set y-coordinate of {_p} to (y-coordinate of {_from}) + ((y-coordinate of {_to} - y-coordinate of {_from}) * {_r})
+		set z-coordinate of {_p} to (z-coordinate of {_from}) + ((z-coordinate of {_to} - z-coordinate of {_from}) * {_r})
+		play crit at {_p}
+	play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
+	damage {_target} by {@turret-damage}
+	set {_k} to turretKey({_t})
+	set {turret.aggro::%{_k}%} to {_target}
+	set {turret.aggro.until::%{_k}%} to now
+
+function turretAttackTick(t: entity):
+	set {_k} to turretKey({_t})
+	if {turret.alive::%{_k}%} is not set:
+		stop
+	set {_target} to findTurretTarget({_t})
+	if {_target} is not set:
+		delete {turret.target::%{_k}%}
+		stop
+	set {turret.target::%{_k}%} to {_target}
+	fireTurretLaser({_t}, {_target})
+
+command /포탑 [<text>] [<text>]:
+	trigger:
+		set {_sub} to arg-1
+		if {_sub} is not set:
+			send "&e/포탑 소환 [blue|red]" to player
+			send "&e/포탑 제거" to player
+			send "&e/포탑 목록" to player
+			send "&e/포탑 팀 <blue|red>" to player
+			stop
+
+		if {_sub} is "팀":
+			set {_team} to arg-2
+			if {_team} is not set:
+				send "&c사용법: /포탑 팀 <blue|red>" to player
+				stop
+			if {_team} is "blue":
+				setPlayerTeam(player, {_team})
+				send "&a팀을 &f%{_team}%&a 로 설정했습니다." to player
+				stop
+			if {_team} is "red":
+				setPlayerTeam(player, {_team})
+				send "&a팀을 &f%{_team}%&a 로 설정했습니다." to player
+				stop
+			send "&c팀은 blue 또는 red 만 가능합니다." to player
+			stop
+
+		if {_sub} is "목록":
+			set {_n} to 0
+			set {_u} to uuid of player
+			loop {turret.list::*}:
+				set {_k} to turretKey(loop-value)
+				if {turret.owner::%{_k}%} is {_u}:
+					add 1 to {_n}
+			send "&b내 포탑: &f%{_n}%&7개" to player
+			stop
+
+		if {_sub} is "제거":
+			delete {_near}
+			set {_best} to 999
+			loop {turret.list::*}:
+				if loop-value is set:
+					set {_d} to distance between player and loop-value
+					if {_d} <= 8:
+						if {_d} < {_best}:
+							set {_near} to loop-value
+							set {_best} to {_d}
+			if {_near} is not set:
+				send "&c근처 8칸 안에 포탑이 없습니다." to player
+				stop
+			removeTurret({_near})
+			send "&a근처 포탑을 제거했습니다." to player
+			stop
+
+		if {_sub} is "소환":
+			set {_team} to arg-2
+			if {_team} is not set:
+				set {_team} to playerTeam(player)
+			if {_team} is "blue":
+				setPlayerTeam(player, {_team})
+				set {_loc} to location of player
+				set {_turret} to spawnTurret(player, {_team}, {_loc})
+				send "&a%{_team}% 팀 포탑을 소환했습니다. &7(사거리 {@turret-range})" to player
+				play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at player
+				stop
+			if {_team} is "red":
+				setPlayerTeam(player, {_team})
+				set {_loc} to location of player
+				set {_turret} to spawnTurret(player, {_team}, {_loc})
+				send "&a%{_team}% 팀 포탑을 소환했습니다. &7(사거리 {@turret-range})" to player
+				play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at player
+				stop
+			send "&c팀은 blue 또는 red 만 가능합니다." to player
+			stop
+
+		send "&c알 수 없는 하위명령입니다. /포탑" to player
+
+# 0.5초마다 포탑 스캔, 쿨 지난 포탑만 발사
+every 10 ticks:
+	loop {turret.list::*}:
+		set {_t} to loop-value
+		if {_t} is set:
+			set {_k} to turretKey({_t})
+			if {turret.alive::%{_k}%} is set:
+				set {_canShoot} to true
+				if {turret.nextshot::%{_k}%} is set:
+					if difference between {turret.nextshot::%{_k}%} and now < {@attack-cooldown} seconds:
+						set {_canShoot} to false
+				if {_canShoot} is true:
+					turretAttackTick({_t})
+					set {turret.nextshot::%{_k}%} to now
+
+on damage:
+	if victim is not set:
+		stop
+
+	# 포탑 피격
+	if isTurretEntity(victim) is true:
+		cancel event
+		set {_atk} to attacker
+		damageTurret(victim, damage, {_atk})
+		stop
+
+	# 아군이 맞으면 근처 아군 포탑 어그로
+	if victim is a player:
+		if attacker is not set:
+			stop
+		set {_vteam} to playerTeam(victim)
+		loop all armor stands in radius {@turret-range} around victim:
+			if isTurretEntity(loop-armor stand) is true:
+				set {_k} to turretKey(loop-armor stand)
+				if {turret.team::%{_k}%} is {_vteam}:
+					if isValidTurretTarget(loop-armor stand, attacker) is true:
+						set {turret.aggro::%{_k}%} to attacker
+						set {turret.aggro.until::%{_k}%} to now
