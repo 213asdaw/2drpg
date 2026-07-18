@@ -156,8 +156,13 @@ command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
 every 10 ticks:
 	loop {turret.list::*}:
 		set {_t} to loop-value
+		# 죽은/없는 포탑 정리
+		if {_t} is not set:
+			remove {_t} from {turret.list::*}
 		if {_t} is set:
 			set {_k} to "%uuid of {_t}%"
+			if {turret.alive::%{_k}%} is not set:
+				remove {_t} from {turret.list::*}
 			if {turret.alive::%{_k}%} is set:
 				set {_team} to {turret.team::%{_k}%}
 				delete {_teamOk}
@@ -248,7 +253,7 @@ every 10 ticks:
 								set {_finalDist} to distance between {_t} and {_target}
 								if {_finalDist} > 0.5:
 									if {_finalDist} <= 12:
-										if world of {_target} is world of {_t}:
+										if "%world of {_target}%" is "%world of {_t}%":
 											play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
 											# 엔티티에 직접 draw (좌표 변조 없음 → 이상한 곳 발사 방지)
 											if {_team} is "blue":
