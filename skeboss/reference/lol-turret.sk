@@ -3,55 +3,42 @@
 # plugins/Skript/scripts/포탑.sk
 #
 # 명령어:
-#   /포탑 팀 <blue|red> [플레이어]
+#   /포탑 팀 <blue|red>
+#   /포탑유저팀 <닉네임> <blue|red>
 #   /포탑 소환 [blue|red]
-#   /포탑 소환 [blue|red] <x> <y> <z>
-#   /포탑 소환 <x> <y> <z>
+#   /포탑 소환 <blue|red> <x> <y> <z>
 #   /포탑 제거
 #   /포탑 목록
 # ============================================================
 
-command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
+# arg-3~5 는 number 타입 (좌표용). 다른 유저 팀은 /포탑유저팀 사용
+command /포탑 [<text>] [<text>] [<number>] [<number>] [<number>]:
 	trigger:
 		set {_sub} to arg-1
 		if {_sub} is not set:
-			send "&e/포탑 팀 <blue|red> [플레이어]" to player
+			send "&e/포탑 팀 <blue|red>" to player
+			send "&e/포탑유저팀 <닉네임> <blue|red>" to player
 			send "&e/포탑 소환 [blue|red] [x y z]" to player
 			send "&e/포탑 제거" to player
 			send "&e/포탑 목록" to player
 			stop
 
-		# ---- 팀: /포탑 팀 blue  또는  /포탑 팀 blue Steve ----
+		# ---- 팀: /포탑 팀 blue  (자신) ----
 		if {_sub} is "팀":
 			if arg-2 is not set:
-				send "&c사용법: /포탑 팀 <blue|red> [플레이어]" to player
+				send "&c사용법: /포탑 팀 <blue|red>" to player
+				send "&c다른 사람: /포탑유저팀 <닉네임> <blue|red>" to player
 				stop
 			set {_team} to arg-2
-			if {_team} is not "blue":
-				if {_team} is not "red":
-					send "&c팀은 blue 또는 red 만 가능합니다." to player
-					stop
-
-			set {_target} to player
-			if arg-3 is set:
-				set {_name} to arg-3
-				delete {_target}
-				loop all players:
-					if name of loop-player is {_name}:
-						set {_target} to loop-player
-				if {_target} is not set:
-					send "&c온라인 플레이어 &f%{_name}%&c 를 찾을 수 없습니다." to player
-					stop
-
-			set {turret.team.player::%uuid of {_target}%} to {_team}
 			if {_team} is "blue":
-				send "&9%name of {_target}%&7 님 팀을 &fBLUE&9 로 설정했습니다." to player
-				if {_target} is not player:
-					send "&9팀이 &fBLUE&9 로 설정되었습니다. &7(by %name of player%)" to {_target}
+				set {turret.team.player::%uuid of player%} to "blue"
+				send "&9팀을 &fBLUE&9 로 설정했습니다." to player
+				stop
 			if {_team} is "red":
-				send "&c%name of {_target}%&7 님 팀을 &fRED&c 로 설정했습니다." to player
-				if {_target} is not player:
-					send "&c팀이 &fRED&c 로 설정되었습니다. &7(by %name of player%)" to {_target}
+				set {turret.team.player::%uuid of player%} to "red"
+				send "&c팀을 &fRED&c 로 설정했습니다." to player
+				stop
+			send "&c팀은 blue 또는 red 만 가능합니다." to player
 			stop
 
 		if {_sub} is "목록":
@@ -93,7 +80,7 @@ command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
 			delete {turret.maxhp::%{_k}%}
 			delete {turret.team::%{_k}%}
 			delete {turret.owner::%{_k}%}
-			delete {turret.aggro::%{_k}%}
+			delete {turret.aggro.id::%{_k}%}
 			delete {turret.aggro.until::%{_k}%}
 			delete {turret.nextshot::%{_k}%}
 			delete {turret.alive::%{_k}%}
@@ -110,6 +97,7 @@ command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
 			set {_usedCoord} to false
 
 			# /포탑 소환 blue|red [x y z]
+			# /포탑 소환 blue 100 64 200  → arg2=text, arg3~5=number
 			set {_mode} to "feet"
 			if arg-2 is set:
 				if arg-2 is "blue":
@@ -127,18 +115,9 @@ command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
 								set z-coordinate of {_loc} to arg-5
 								set {_usedCoord} to true
 				if {_mode} is "feet":
-					# /포탑 소환 100 64 200  (내 팀으로 좌표 소환)
+					# 좌표 소환은 팀 필수: /포탑 소환 blue 100 64 200
 					if arg-3 is set:
-						if arg-4 is set:
-							set x-coordinate of {_loc} to arg-2
-							set y-coordinate of {_loc} to arg-3
-							set z-coordinate of {_loc} to arg-4
-							set {_usedCoord} to true
-						else:
-							send "&c사용법: /포탑 소환 [blue|red] <x> <y> <z>" to player
-							stop
-					else:
-						send "&c사용법: /포탑 소환 [blue|red] [x y z]" to player
+						send "&c좌표 소환: /포탑 소환 <blue|red> <x> <y> <z>" to player
 						stop
 
 			if {_team} is not "blue":
@@ -170,6 +149,30 @@ command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
 			stop
 
 		send "&c알 수 없는 하위명령입니다. /포탑" to player
+
+# 다른 플레이어 팀 변경: /포탑유저팀 Steve blue
+command /포탑유저팀 <text> <text>:
+	trigger:
+		set {_name} to arg-1
+		set {_team} to arg-2
+		if {_team} is not "blue":
+			if {_team} is not "red":
+				send "&c사용법: /포탑유저팀 <닉네임> <blue|red>" to player
+				stop
+		delete {_target}
+		loop all players:
+			if name of loop-player is {_name}:
+				set {_target} to loop-player
+		if {_target} is not set:
+			send "&c온라인 플레이어 &f%{_name}%&c 를 찾을 수 없습니다." to player
+			stop
+		set {turret.team.player::%uuid of {_target}%} to {_team}
+		if {_team} is "blue":
+			send "&9%name of {_target}%&7 님 팀을 &fBLUE&9 로 설정했습니다." to player
+			send "&9팀이 &fBLUE&9 로 설정되었습니다. &7(by %name of player%)" to {_target}
+		if {_team} is "red":
+			send "&c%name of {_target}%&7 님 팀을 &fRED&c 로 설정했습니다." to player
+			send "&c팀이 &fRED&c 로 설정되었습니다. &7(by %name of player%)" to {_target}
 
 # ---------- 0.5초마다 공격 ----------
 # 타겟: 적 팀 플레이어 > 적 팀 포탑 만 (몹/아이템 등 제외)
@@ -218,35 +221,41 @@ every 10 ticks:
 												set {_target} to {_e}
 												set {_bestDist} to {_d}
 
-					# 3) 어그로가 있고 더 가깝거나 유효하면 우선
-					if {turret.aggro::%{_k}%} is set:
-						set {_aggro} to {turret.aggro::%{_k}%}
-						if {_aggro} is set:
-							if {turret.aggro.until::%{_k}%} is set:
-								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
-									set {_ad} to distance between {_t} and {_aggro}
-									if {_ad} <= 12:
-										set {_ok} to false
-										if {_aggro} is a player:
-											set {_ateam} to "blue"
-											if {turret.team.player::%uuid of {_aggro}%} is set:
-												set {_ateam} to {turret.team.player::%uuid of {_aggro}%}
-											if {_ateam} is not {_team}:
-												set {_ahp} to health of {_aggro}
-												if {_ahp} is set:
-													if {_ahp} > 0:
-														set {_ok} to true
-										if {_aggro} is an armor stand:
-											set {_ak} to "%uuid of {_aggro}%"
-											if {turret.hp::%{_ak}%} is set:
-												if {turret.team::%{_ak}%} is not {_team}:
-													if {turret.hp::%{_ak}%} > 0:
-														set {_ok} to true
-										if {_ok} is true:
-											set {_target} to {_aggro}
-								else:
-									delete {turret.aggro::%{_k}%}
-									delete {turret.aggro.until::%{_k}%}
+					# 3) 어그로(uuid)가 유효하면 우선
+					if {turret.aggro.id::%{_k}%} is set:
+						if {turret.aggro.until::%{_k}%} is set:
+							if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
+								set {_aid} to {turret.aggro.id::%{_k}%}
+								delete {_aggro}
+								loop all players in radius 12 around {_t}:
+									if "%uuid of loop-player%" is {_aid}:
+										set {_aggro} to loop-player
+								if {_aggro} is not set:
+									loop all armor stands in radius 12 around {_t}:
+										if "%uuid of loop-armor stand%" is {_aid}:
+											set {_aggro} to loop-armor stand
+								if {_aggro} is set:
+									set {_ok} to false
+									if {_aggro} is a player:
+										set {_ateam} to "blue"
+										if {turret.team.player::%uuid of {_aggro}%} is set:
+											set {_ateam} to {turret.team.player::%uuid of {_aggro}%}
+										if {_ateam} is not {_team}:
+											set {_ahp} to health of {_aggro}
+											if {_ahp} is set:
+												if {_ahp} > 0:
+													set {_ok} to true
+									if {_aggro} is an armor stand:
+										set {_ak} to "%uuid of {_aggro}%"
+										if {turret.hp::%{_ak}%} is set:
+											if {turret.team::%{_ak}%} is not {_team}:
+												if {turret.hp::%{_ak}%} > 0:
+													set {_ok} to true
+									if {_ok} is true:
+										set {_target} to {_aggro}
+							else:
+								delete {turret.aggro.id::%{_k}%}
+								delete {turret.aggro.until::%{_k}%}
 
 					if {_target} is set:
 						# 발사 직전 거리 재확인
@@ -259,20 +268,9 @@ every 10 ticks:
 						add 1.6 to y-coordinate of {_from}
 						set {_to} to location of {_target}
 						add 1 to y-coordinate of {_to}
-						# 레이저: 매번 새 좌표로 (참조 꼬임 방지)
-						set {_i} to 0
-						loop 8 times:
-							add 1 to {_i}
-							set {_r} to {_i} / 8
-							set {_dot} to location of {_t}
-							set x-coordinate of {_dot} to (x-coordinate of {_from}) + ((x-coordinate of {_to} - x-coordinate of {_from}) * {_r})
-							set y-coordinate of {_dot} to (y-coordinate of {_from}) + ((y-coordinate of {_to} - y-coordinate of {_from}) * {_r})
-							set z-coordinate of {_dot} to (z-coordinate of {_from}) + ((z-coordinate of {_to} - z-coordinate of {_from}) * {_r})
-							if {_team} is "blue":
-								play happy villager at {_dot}
-							if {_team} is "red":
-								play flame at {_dot}
+						# 파티클 미지원 서버 대비: 사운드만
 						play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
+						play sound "entity.guardian.attack" with volume 0.35 and pitch 1.8 at {_to}
 
 						if {_target} is an armor stand:
 							set {_tk} to "%uuid of {_target}%"
@@ -282,7 +280,7 @@ every 10 ticks:
 								if {_thp} < 0:
 									set {_thp} to 0
 								set {turret.hp::%{_tk}%} to {_thp}
-								set {turret.aggro::%{_tk}%} to {_t}
+								set {turret.aggro.id::%{_tk}%} to "%uuid of {_t}%"
 								set {turret.aggro.until::%{_tk}%} to now
 								if {_thp} <= 0:
 									set {_tloc} to location of {_target}
@@ -293,7 +291,7 @@ every 10 ticks:
 									delete {turret.maxhp::%{_tk}%}
 									delete {turret.team::%{_tk}%}
 									delete {turret.owner::%{_tk}%}
-									delete {turret.aggro::%{_tk}%}
+									delete {turret.aggro.id::%{_tk}%}
 									delete {turret.aggro.until::%{_tk}%}
 									delete {turret.nextshot::%{_tk}%}
 									delete {turret.alive::%{_tk}%}
@@ -301,25 +299,12 @@ every 10 ticks:
 						else:
 							damage {_target} by 7
 
-						set {turret.aggro::%{_k}%} to {_target}
+						set {turret.aggro.id::%{_k}%} to "%uuid of {_target}%"
 						set {turret.aggro.until::%{_k}%} to now
 						set {turret.nextshot::%{_k}%} to now
 
-# ---------- 팀 표시 파티클 + 체력바 ----------
+# ---------- 체력바 ----------
 every 20 ticks:
-	# 팀 오라
-	loop {turret.list::*}:
-		set {_t} to loop-value
-		if {_t} is set:
-			set {_k} to "%uuid of {_t}%"
-			if {turret.alive::%{_k}%} is set:
-				set {_loc} to location of {_t}
-				add 2.2 to y-coordinate of {_loc}
-				if {turret.team::%{_k}%} is "blue":
-					play particle happy villager at {_loc}
-				if {turret.team::%{_k}%} is "red":
-					play particle flame at {_loc}
-
 	# 근처 플레이어 HUD (포탑 기준으로 루프 — 중첩 loop-value 꼬임 방지)
 	loop {turret.list::*}:
 		set {_near} to loop-value
@@ -388,7 +373,7 @@ on damage:
 				set {_hp} to 0
 			set {turret.hp::%{_k}%} to {_hp}
 			if attacker is set:
-				set {turret.aggro::%{_k}%} to attacker
+				set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
 				set {turret.aggro.until::%{_k}%} to now
 			set {_max} to {turret.maxhp::%{_k}%}
 			set {_color} to "&9"
@@ -421,18 +406,13 @@ on damage:
 			if {_hp} <= 0:
 				set {_loc} to location of victim
 				play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_loc}
-				loop 15 times:
-					if {_team} is "blue":
-						play particle happy villager at {_loc}
-					if {_team} is "red":
-						play particle flame at {_loc}
 				send "%{_color}%&l%{_label}%&r &7이(가) 파괴되었습니다!" to all players in radius 20 around victim
 				remove victim from {turret.list::*}
 				delete {turret.hp::%{_k}%}
 				delete {turret.maxhp::%{_k}%}
 				delete {turret.team::%{_k}%}
 				delete {turret.owner::%{_k}%}
-				delete {turret.aggro::%{_k}%}
+				delete {turret.aggro.id::%{_k}%}
 				delete {turret.aggro.until::%{_k}%}
 				delete {turret.nextshot::%{_k}%}
 				delete {turret.alive::%{_k}%}
@@ -457,5 +437,5 @@ on damage:
 					set {_k} to "%uuid of loop-armor stand%"
 					if {turret.hp::%{_k}%} is set:
 						if {turret.team::%{_k}%} is {_vteam}:
-							set {turret.aggro::%{_k}%} to attacker
+							set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
 							set {turret.aggro.until::%{_k}%} to now
