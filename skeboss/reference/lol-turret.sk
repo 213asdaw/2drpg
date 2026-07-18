@@ -266,6 +266,8 @@ every 10 ticks:
 								if {_thp} <= 0:
 									set {_tloc} to location of {_target}
 									play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_tloc}
+									loop 12 times:
+										draw 1 flame at {_tloc}
 									send "&e적 포탑이 파괴되었습니다!" to all players in radius 20 around {_target}
 									remove {_target} from {turret.list::*}
 									delete {turret.hp::%{_tk}%}
