@@ -142,6 +142,7 @@ command /포탑 [<text>] [<text>]:
 		send "&c알 수 없는 하위명령입니다. /포탑" to player
 
 # ---------- 0.5초마다 공격 ----------
+# 타겟: 적 팀 플레이어 > 적 팀 포탑 만 (몹/아이템 등 제외)
 every 10 ticks:
 	loop {turret.list::*}:
 		set {_t} to loop-value
@@ -155,104 +156,94 @@ every 10 ticks:
 				if {_canShoot} is true:
 					set {_team} to {turret.team::%{_k}%}
 					delete {_target}
+					set {_bestDist} to 9999
 
-					# 어그로 (같은 팀이면 무시)
+					# 1) 적 팀 플레이어 우선 (가장 가까움)
+					loop all players in radius 12 around {_t}:
+						set {_e} to loop-player
+						set {_eteam} to "blue"
+						if {turret.team.player::%uuid of {_e}%} is set:
+							set {_eteam} to {turret.team.player::%uuid of {_e}%}
+						if {_eteam} is not {_team}:
+							set {_ehp} to health of {_e}
+							if {_ehp} is set:
+								if {_ehp} > 0:
+									set {_d} to distance between {_t} and {_e}
+									if {_d} <= 12:
+										if {_d} < {_bestDist}:
+											set {_target} to {_e}
+											set {_bestDist} to {_d}
+
+					# 2) 플레이어 없으면 적 팀 포탑
+					if {_target} is not set:
+						loop all armor stands in radius 12 around {_t}:
+							set {_e} to loop-armor stand
+							if {_e} is not {_t}:
+								set {_ek} to "%uuid of {_e}%"
+								if {turret.hp::%{_ek}%} is set:
+									if {turret.team::%{_ek}%} is not {_team}:
+										if {turret.hp::%{_ek}%} > 0:
+											set {_d} to distance between {_t} and {_e}
+											if {_d} < {_bestDist}:
+												set {_target} to {_e}
+												set {_bestDist} to {_d}
+
+					# 3) 어그로가 있고 더 가깝거나 유효하면 우선
 					if {turret.aggro::%{_k}%} is set:
 						set {_aggro} to {turret.aggro::%{_k}%}
 						if {_aggro} is set:
-							set {_ok} to false
-							# 플레이어 어그로
-							if {_aggro} is a player:
-								set {_ateam} to "blue"
-								if {turret.team.player::%uuid of {_aggro}%} is set:
-									set {_ateam} to {turret.team.player::%uuid of {_aggro}%}
-								if {_ateam} is not {_team}:
-									set {_ahp} to health of {_aggro}
-									if {_ahp} is set:
-										if {_ahp} > 0:
-											set {_ad} to distance between {_t} and {_aggro}
-											if {_ad} <= 12:
-												set {_ok} to true
-							# 적 포탑 어그로
-							if {_aggro} is an armor stand:
-								set {_ak} to "%uuid of {_aggro}%"
-								if {turret.hp::%{_ak}%} is set:
-									if {turret.team::%{_ak}%} is not {_team}:
-										if {turret.hp::%{_ak}%} > 0:
-											set {_ad} to distance between {_t} and {_aggro}
-											if {_ad} <= 12:
-												set {_ok} to true
-							# 일반 몹
-							if {_aggro} is not a player:
-								if {_aggro} is not an armor stand:
-									set {_ahp} to health of {_aggro}
-									if {_ahp} is set:
-										if {_ahp} > 0:
-											set {_ad} to distance between {_t} and {_aggro}
-											if {_ad} <= 12:
-												set {_ok} to true
-							if {_ok} is true:
-								if {turret.aggro.until::%{_k}%} is set:
-									if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
-										set {_target} to {_aggro}
-						if {_target} is not set:
-							delete {turret.aggro::%{_k}%}
-							delete {turret.aggro.until::%{_k}%}
+							if {turret.aggro.until::%{_k}%} is set:
+								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
+									set {_ad} to distance between {_t} and {_aggro}
+									if {_ad} <= 12:
+										set {_ok} to false
+										if {_aggro} is a player:
+											set {_ateam} to "blue"
+											if {turret.team.player::%uuid of {_aggro}%} is set:
+												set {_ateam} to {turret.team.player::%uuid of {_aggro}%}
+											if {_ateam} is not {_team}:
+												set {_ahp} to health of {_aggro}
+												if {_ahp} is set:
+													if {_ahp} > 0:
+														set {_ok} to true
+										if {_aggro} is an armor stand:
+											set {_ak} to "%uuid of {_aggro}%"
+											if {turret.hp::%{_ak}%} is set:
+												if {turret.team::%{_ak}%} is not {_team}:
+													if {turret.hp::%{_ak}%} > 0:
+														set {_ok} to true
+										if {_ok} is true:
+											set {_target} to {_aggro}
+								else:
+									delete {turret.aggro::%{_k}%}
+									delete {turret.aggro.until::%{_k}%}
 
-					# 가장 가까운 적 (적 팀 포탑 포함)
-					if {_target} is not set:
-						set {_bestDist} to 9999
-						loop all entities in radius 12 around {_t}:
-							set {_e} to loop-entity
-							if {_e} is not {_t}:
-								set {_valid} to false
-								if {_e} is a player:
-									set {_eteam} to "blue"
-									if {turret.team.player::%uuid of {_e}%} is set:
-										set {_eteam} to {turret.team.player::%uuid of {_e}%}
-									if {_eteam} is not {_team}:
-										set {_ehp} to health of {_e}
-										if {_ehp} is set:
-											if {_ehp} > 0:
-												set {_valid} to true
-								if {_e} is an armor stand:
-									set {_ek} to "%uuid of {_e}%"
-									if {turret.hp::%{_ek}%} is set:
-										if {turret.team::%{_ek}%} is not {_team}:
-											if {turret.hp::%{_ek}%} > 0:
-												set {_valid} to true
-								if {_e} is not a player:
-									if {_e} is not an armor stand:
-										set {_ehp} to health of {_e}
-										if {_ehp} is set:
-											if {_ehp} > 0:
-												set {_valid} to true
-								if {_valid} is true:
-									set {_d} to distance between {_t} and {_e}
-									if {_d} < {_bestDist}:
-										set {_target} to {_e}
-										set {_bestDist} to {_d}
+					if {_target} is set:
+						# 발사 직전 거리 재확인
+						set {_finalDist} to distance between {_t} and {_target}
+						if {_finalDist} > 12:
+							delete {_target}
 
 					if {_target} is set:
 						set {_from} to location of {_t}
 						add 1.6 to y-coordinate of {_from}
 						set {_to} to location of {_target}
 						add 1 to y-coordinate of {_to}
+						# 레이저: 매번 새 좌표로 (참조 꼬임 방지)
 						set {_i} to 0
-						loop 12 times:
+						loop 8 times:
 							add 1 to {_i}
-							set {_r} to {_i} / 12
-							set {_p} to {_from}
-							set x-coordinate of {_p} to (x-coordinate of {_from}) + ((x-coordinate of {_to} - x-coordinate of {_from}) * {_r})
-							set y-coordinate of {_p} to (y-coordinate of {_from}) + ((y-coordinate of {_to} - y-coordinate of {_from}) * {_r})
-							set z-coordinate of {_p} to (z-coordinate of {_from}) + ((z-coordinate of {_to} - z-coordinate of {_from}) * {_r})
-							# 팀별 레이저 색
+							set {_r} to {_i} / 8
+							set {_dot} to location of {_t}
+							set x-coordinate of {_dot} to (x-coordinate of {_from}) + ((x-coordinate of {_to} - x-coordinate of {_from}) * {_r})
+							set y-coordinate of {_dot} to (y-coordinate of {_from}) + ((y-coordinate of {_to} - y-coordinate of {_from}) * {_r})
+							set z-coordinate of {_dot} to (z-coordinate of {_from}) + ((z-coordinate of {_to} - z-coordinate of {_from}) * {_r})
 							if {_team} is "blue":
-								play particle happy villager at {_p}
+								play happy villager at {_dot}
 							if {_team} is "red":
-								play particle flame at {_p}
+								play flame at {_dot}
 						play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
-						# 적 포탑이면 커스텀 체력으로
+
 						if {_target} is an armor stand:
 							set {_tk} to "%uuid of {_target}%"
 							if {turret.hp::%{_tk}%} is set:
@@ -277,10 +268,9 @@ every 10 ticks:
 									delete {turret.nextshot::%{_tk}%}
 									delete {turret.alive::%{_tk}%}
 									kill {_target}
-							else:
-								damage {_target} by 7
 						else:
 							damage {_target} by 7
+
 						set {turret.aggro::%{_k}%} to {_target}
 						set {turret.aggro.until::%{_k}%} to now
 						set {turret.nextshot::%{_k}%} to now
