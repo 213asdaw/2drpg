@@ -242,87 +242,64 @@ every 10 ticks:
 											set {_targetKind} to "mob"
 											set {_bestDist} to {_d}
 
-						# 대상 있을 때만 발사
+						# 대상 검증 후에만 발사 (location 좌표 수정 절대 안 함)
 						if {_target} is set:
-							set {_finalDist} to distance between {_t} and {_target}
-							if {_finalDist} <= 12:
-								# 좌표는 숫자로만 (location 수정 시 포탑이 실제로 이동하는 버그 방지)
-								set {_fx} to x-coordinate of {_t}
-								set {_fy} to y-coordinate of {_t}
-								add 1.5 to {_fy}
-								set {_fz} to z-coordinate of {_t}
-								set {_ex} to x-coordinate of {_target}
-								set {_ey} to y-coordinate of {_target}
-								add 1 to {_ey}
-								set {_ez} to z-coordinate of {_target}
+							if {_targetKind} is set:
+								set {_finalDist} to distance between {_t} and {_target}
+								if {_finalDist} > 0.5:
+									if {_finalDist} <= 12:
+										if world of {_target} is world of {_t}:
+											play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
+											# 엔티티에 직접 draw (좌표 변조 없음 → 이상한 곳 발사 방지)
+											if {_team} is "blue":
+												draw 2 happy villager at {_t}
+												draw 4 happy villager at {_target}
+											if {_team} is "red":
+												draw 2 flame at {_t}
+												draw 4 flame at {_target}
 
-								play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
-								set {_i} to 0
-								loop 10 times:
-									add 1 to {_i}
-									set {_r} to {_i} / 10
-									set {_dot} to location of {_t}
-									set {_ox} to x-coordinate of {_dot}
-									set {_oy} to y-coordinate of {_dot}
-									set {_oz} to z-coordinate of {_dot}
-									set x-coordinate of {_dot} to {_fx} + (({_ex} - {_fx}) * {_r})
-									set y-coordinate of {_dot} to {_fy} + (({_ey} - {_fy}) * {_r})
-									set z-coordinate of {_dot} to {_fz} + (({_ez} - {_fz}) * {_r})
-									if {_team} is "blue":
-										draw 1 happy villager at {_dot}
-									if {_team} is "red":
-										draw 1 flame at {_dot}
-									set x-coordinate of {_dot} to {_ox}
-									set y-coordinate of {_dot} to {_oy}
-									set z-coordinate of {_dot} to {_oz}
-
-								if {_targetKind} is "turret":
-									set {_tk} to "%uuid of {_target}%"
-									if {turret.hp::%{_tk}%} is set:
-										set {_thp} to {turret.hp::%{_tk}%}
-										remove 7 from {_thp}
-										if {_thp} < 0:
-											set {_thp} to 0
-										set {turret.hp::%{_tk}%} to {_thp}
-										set {turret.aggro.id::%{_tk}%} to {_k}
-										set {turret.aggro.until::%{_tk}%} to now
-										if {_thp} <= 0:
-											set {_tloc} to location of {_target}
-											play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_tloc}
-											loop 12 times:
-												draw 1 flame at {_tloc}
-											send "&e적 포탑이 파괴되었습니다!" to all players in radius 20 around {_target}
-											remove {_target} from {turret.list::*}
-											delete {turret.hp::%{_tk}%}
-											delete {turret.maxhp::%{_tk}%}
-											delete {turret.team::%{_tk}%}
-											delete {turret.owner::%{_tk}%}
-											delete {turret.aggro.id::%{_tk}%}
-											delete {turret.aggro.until::%{_tk}%}
-											delete {turret.nextshot::%{_tk}%}
-											delete {turret.alive::%{_tk}%}
-											kill {_target}
-								else:
-									damage {_target} by 7
-								set {turret.aggro.id::%{_k}%} to "%uuid of {_target}%"
-								set {turret.aggro.until::%{_k}%} to now
-								set {turret.nextshot::%{_k}%} to now
+											if {_targetKind} is "turret":
+												set {_tk} to "%uuid of {_target}%"
+												if {turret.hp::%{_tk}%} is set:
+													set {_thp} to {turret.hp::%{_tk}%}
+													remove 7 from {_thp}
+													if {_thp} < 0:
+														set {_thp} to 0
+													set {turret.hp::%{_tk}%} to {_thp}
+													set {turret.aggro.id::%{_tk}%} to {_k}
+													set {turret.aggro.until::%{_tk}%} to now
+													if {_thp} <= 0:
+														play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_target}
+														loop 12 times:
+															draw 1 flame at {_target}
+														send "&e적 포탑이 파괴되었습니다!" to all players in radius 20 around {_target}
+														remove {_target} from {turret.list::*}
+														delete {turret.hp::%{_tk}%}
+														delete {turret.maxhp::%{_tk}%}
+														delete {turret.team::%{_tk}%}
+														delete {turret.owner::%{_tk}%}
+														delete {turret.aggro.id::%{_tk}%}
+														delete {turret.aggro.until::%{_tk}%}
+														delete {turret.nextshot::%{_tk}%}
+														delete {turret.alive::%{_tk}%}
+														kill {_target}
+											else:
+												damage {_target} by 7
+											set {turret.aggro.id::%{_k}%} to "%uuid of {_target}%"
+											set {turret.aggro.until::%{_k}%} to now
+											set {turret.nextshot::%{_k}%} to now
 
 every 20 ticks:
-	# 팀 오라 (location y 올리면 포탑이 실제로 올라가는 버그 있어서 원복함)
+	# 팀 오라: 엔티티에 직접 (location y 수정 금지)
 	loop {turret.list::*}:
 		set {_t} to loop-value
 		if {_t} is set:
 			set {_k} to "%uuid of {_t}%"
 			if {turret.alive::%{_k}%} is set:
-				set {_aura} to location of {_t}
-				set {_oy} to y-coordinate of {_aura}
-				set y-coordinate of {_aura} to {_oy} + 2.2
 				if {turret.team::%{_k}%} is "blue":
-					draw 1 happy villager at {_aura}
+					draw 1 happy villager at {_t}
 				if {turret.team::%{_k}%} is "red":
-					draw 1 flame at {_aura}
-				set y-coordinate of {_aura} to {_oy}
+					draw 1 flame at {_t}
 
 	loop {turret.list::*}:
 		set {_near} to loop-value
