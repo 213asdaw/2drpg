@@ -25,7 +25,7 @@ command /포탑 [<text>] [<text>]:
 			if arg-2 is not set:
 				send "&c사용법: /포탑 팀 <blue|red>" to player
 				stop
-			set {_team} to "%arg-2%"
+			set {_team} to arg-2
 			if {_team} is "blue":
 				set {turret.team.player::%uuid of player%} to "blue"
 				send "&a팀을 &fblue&a 로 설정했습니다." to player
@@ -79,7 +79,7 @@ command /포탑 [<text>] [<text>]:
 			if {turret.team.player::%uuid of player%} is set:
 				set {_team} to {turret.team.player::%uuid of player%}
 			if arg-2 is set:
-				set {_team} to "%arg-2%"
+				set {_team} to arg-2
 			if {_team} is "blue":
 				set {turret.team.player::%uuid of player%} to {_team}
 				set {_loc} to location of player
