@@ -232,9 +232,27 @@ every 10 ticks:
 						if {_finalDist} > 12:
 							delete {_target}
 					if {_target} is set:
+						set {_from} to location of {_t}
+						add 1.5 to y-coordinate of {_from}
 						set {_to} to location of {_target}
+						add 1 to y-coordinate of {_to}
 						play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
 						play sound "entity.guardian.attack" with volume 0.35 and pitch 1.8 at {_to}
+
+						# 공격 레이저 (이 서버: draw N particle at loc)
+						set {_i} to 0
+						loop 10 times:
+							add 1 to {_i}
+							set {_r} to {_i} / 10
+							set {_dot} to location of {_t}
+							set x-coordinate of {_dot} to (x-coordinate of {_from}) + ((x-coordinate of {_to} - x-coordinate of {_from}) * {_r})
+							set y-coordinate of {_dot} to (y-coordinate of {_from}) + ((y-coordinate of {_to} - y-coordinate of {_from}) * {_r})
+							set z-coordinate of {_dot} to (z-coordinate of {_from}) + ((z-coordinate of {_to} - z-coordinate of {_from}) * {_r})
+							if {_team} is "blue":
+								draw 1 happy villager at {_dot}
+							if {_team} is "red":
+								draw 1 flame at {_dot}
+
 						if {_target} is an armor stand:
 							set {_tk} to "%uuid of {_target}%"
 							if {turret.hp::%{_tk}%} is set:
@@ -266,6 +284,19 @@ every 10 ticks:
 						set {turret.nextshot::%{_k}%} to now
 
 every 20 ticks:
+	# 팀 오라
+	loop {turret.list::*}:
+		set {_t} to loop-value
+		if {_t} is set:
+			set {_k} to "%uuid of {_t}%"
+			if {turret.alive::%{_k}%} is set:
+				set {_aura} to location of {_t}
+				add 2.2 to y-coordinate of {_aura}
+				if {turret.team::%{_k}%} is "blue":
+					draw 1 happy villager at {_aura}
+				if {turret.team::%{_k}%} is "red":
+					draw 1 flame at {_aura}
+
 	loop {turret.list::*}:
 		set {_near} to loop-value
 		if {_near} is set:
@@ -361,6 +392,11 @@ on damage:
 			if {_hp} <= 0:
 				set {_loc} to location of victim
 				play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_loc}
+				loop 12 times:
+					if {_team} is "blue":
+						draw 1 happy villager at {_loc}
+					if {_team} is "red":
+						draw 1 flame at {_loc}
 				send "%{_color}%&l%{_label}%&r &7이(가) 파괴되었습니다!" to all players in radius 20 around victim
 				remove victim from {turret.list::*}
 				delete {turret.hp::%{_k}%}
