@@ -233,19 +233,43 @@ every 10 ticks:
 													set {_targetKind} to "turret"
 													set {_bestDist} to {_d}
 
-						# 3) 몹 (몬스터만)
+						# 3) 적 미니언 (minion.sk 연동)
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all zombies in radius 12 around {_t}:
+								set {_e} to loop-zombie
+								set {_mk} to "%uuid of {_e}%"
+								if {minion.team::%{_mk}%} is set:
+									if {minion.team::%{_mk}%} is not {_team}:
+										set {_ehp} to health of {_e}
+										if {_ehp} is set:
+											if {_ehp} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} < {_bestDist}:
+													set {_target} to {_e}
+													set {_targetKind} to "minion"
+													set {_bestDist} to {_d}
+
+						# 4) 일반 몹 (아군 미니언 제외)
 						if {_target} is not set:
 							set {_bestDist} to 9999
 							loop all monsters in radius 12 around {_t}:
 								set {_e} to loop-monster
-								set {_ehp} to health of {_e}
-								if {_ehp} is set:
-									if {_ehp} > 0:
-										set {_d} to distance between {_t} and {_e}
-										if {_d} < {_bestDist}:
-											set {_target} to {_e}
-											set {_targetKind} to "mob"
-											set {_bestDist} to {_d}
+								set {_mk} to "%uuid of {_e}%"
+								# 아군 미니언은 스킵
+								delete {_skipMob}
+								if {minion.team::%{_mk}%} is set:
+									if {minion.team::%{_mk}%} is {_team}:
+										set {_skipMob} to true
+								if {_skipMob} is not set:
+									set {_ehp} to health of {_e}
+									if {_ehp} is set:
+										if {_ehp} > 0:
+											set {_d} to distance between {_t} and {_e}
+											if {_d} < {_bestDist}:
+												set {_target} to {_e}
+												set {_targetKind} to "mob"
+												set {_bestDist} to {_d}
 
 						# 대상 검증 후에만 발사 (location 좌표 수정 절대 안 함)
 						if {_target} is set:
