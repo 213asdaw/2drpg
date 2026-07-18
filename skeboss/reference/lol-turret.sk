@@ -3,41 +3,55 @@
 # plugins/Skript/scripts/포탑.sk
 #
 # 명령어:
+#   /포탑 팀 <blue|red> [플레이어]
 #   /포탑 소환 [blue|red]
+#   /포탑 소환 [blue|red] <x> <y> <z>
+#   /포탑 소환 <x> <y> <z>
 #   /포탑 제거
 #   /포탑 목록
-#   /포탑 팀 <blue|red>
-#
-# 팀 구분:
-#   blue = 파란 이름/양털 헬멧/물방울 레이저
-#   red  = 빨간 이름/빨간 양털 헬멧/불꽃 레이저
-#   같은 팀 플레이어·포탑은 공격 안 함 / 아군 포탑 피격 무시
 # ============================================================
 
-command /포탑 [<text>] [<text>]:
+command /포탑 [<text>] [<text>] [<text>] [<text>] [<text>]:
 	trigger:
 		set {_sub} to arg-1
 		if {_sub} is not set:
-			send "&e/포탑 소환 [blue|red]" to player
+			send "&e/포탑 팀 <blue|red> [플레이어]" to player
+			send "&e/포탑 소환 [blue|red] [x y z]" to player
 			send "&e/포탑 제거" to player
 			send "&e/포탑 목록" to player
-			send "&e/포탑 팀 <blue|red>" to player
 			stop
 
+		# ---- 팀: /포탑 팀 blue  또는  /포탑 팀 blue Steve ----
 		if {_sub} is "팀":
 			if arg-2 is not set:
-				send "&c사용법: /포탑 팀 <blue|red>" to player
+				send "&c사용법: /포탑 팀 <blue|red> [플레이어]" to player
 				stop
 			set {_team} to arg-2
+			if {_team} is not "blue":
+				if {_team} is not "red":
+					send "&c팀은 blue 또는 red 만 가능합니다." to player
+					stop
+
+			set {_target} to player
+			if arg-3 is set:
+				set {_name} to arg-3
+				delete {_target}
+				loop all players:
+					if name of loop-player is {_name}:
+						set {_target} to loop-player
+				if {_target} is not set:
+					send "&c온라인 플레이어 &f%{_name}%&c 를 찾을 수 없습니다." to player
+					stop
+
+			set {turret.team.player::%uuid of {_target}%} to {_team}
 			if {_team} is "blue":
-				set {turret.team.player::%uuid of player%} to "blue"
-				send "&9팀을 &fBLUE&9 로 설정했습니다." to player
-				stop
+				send "&9%name of {_target}%&7 님 팀을 &fBLUE&9 로 설정했습니다." to player
+				if {_target} is not player:
+					send "&9팀이 &fBLUE&9 로 설정되었습니다. &7(by %name of player%)" to {_target}
 			if {_team} is "red":
-				set {turret.team.player::%uuid of player%} to "red"
-				send "&c팀을 &fRED&c 로 설정했습니다." to player
-				stop
-			send "&c팀은 blue 또는 red 만 가능합니다." to player
+				send "&c%name of {_target}%&7 님 팀을 &fRED&c 로 설정했습니다." to player
+				if {_target} is not player:
+					send "&c팀이 &fRED&c 로 설정되었습니다. &7(by %name of player%)" to {_target}
 			stop
 
 		if {_sub} is "목록":
@@ -87,56 +101,72 @@ command /포탑 [<text>] [<text>]:
 			send "&a근처 포탑을 제거했습니다." to player
 			stop
 
+		# ---- 소환: /포탑 소환 [team] [x y z] ----
 		if {_sub} is "소환":
 			set {_team} to "blue"
 			if {turret.team.player::%uuid of player%} is set:
 				set {_team} to {turret.team.player::%uuid of player%}
+			set {_loc} to location of player
+			set {_usedCoord} to false
+
+			# /포탑 소환 blue|red [x y z]
+			set {_mode} to "feet"
 			if arg-2 is set:
-				set {_team} to arg-2
+				if arg-2 is "blue":
+					set {_team} to "blue"
+					set {_mode} to "team"
+				if arg-2 is "red":
+					set {_team} to "red"
+					set {_mode} to "team"
+				if {_mode} is "team":
+					if arg-3 is set:
+						if arg-4 is set:
+							if arg-5 is set:
+								set x-coordinate of {_loc} to arg-3
+								set y-coordinate of {_loc} to arg-4
+								set z-coordinate of {_loc} to arg-5
+								set {_usedCoord} to true
+				if {_mode} is "feet":
+					# /포탑 소환 100 64 200  (내 팀으로 좌표 소환)
+					if arg-3 is set:
+						if arg-4 is set:
+							set x-coordinate of {_loc} to arg-2
+							set y-coordinate of {_loc} to arg-3
+							set z-coordinate of {_loc} to arg-4
+							set {_usedCoord} to true
+						else:
+							send "&c사용법: /포탑 소환 [blue|red] <x> <y> <z>" to player
+							stop
+					else:
+						send "&c사용법: /포탑 소환 [blue|red] [x y z]" to player
+						stop
 
+			if {_team} is not "blue":
+				if {_team} is not "red":
+					send "&c팀은 blue 또는 red 만 가능합니다." to player
+					stop
+
+			spawn armor stand at {_loc}
+			set {_stand} to last spawned entity
+			set {_k} to "%uuid of {_stand}%"
+			set chestplate of {_stand} to iron chestplate
+			set leggings of {_stand} to iron leggings
+			set boots of {_stand} to iron boots
+			set {turret.hp::%{_k}%} to 300
+			set {turret.maxhp::%{_k}%} to 300
+			set {turret.team::%{_k}%} to {_team}
+			set {turret.owner::%{_k}%} to "%uuid of player%"
+			set {turret.alive::%{_k}%} to true
 			if {_team} is "blue":
-				set {turret.team.player::%uuid of player%} to "blue"
-				set {_loc} to location of player
-				spawn armor stand at {_loc}
-				set {_stand} to last spawned entity
-				set {_k} to "%uuid of {_stand}%"
-				set helmet of {_stand} to light blue wool
-				set chestplate of {_stand} to iron chestplate
-				set leggings of {_stand} to iron leggings
-				set boots of {_stand} to iron boots
-				set {turret.hp::%{_k}%} to 300
-				set {turret.maxhp::%{_k}%} to 300
-				set {turret.team::%{_k}%} to "blue"
-				set {turret.owner::%{_k}%} to "%uuid of player%"
-				set {turret.alive::%{_k}%} to true
+				set helmet of {_stand} to blue wool
 				set name of {_stand} to "&9&l블루 포탑 &8[&a||||||||||&8] &f300&7/&7300"
-				add {_stand} to {turret.list::*}
-				send "&9BLUE 포탑을 소환했습니다. &7(사거리 12)" to player
-				play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at player
-				stop
-
+				send "&9BLUE 포탑 소환 &7(%x-coordinate of {_loc}%, %y-coordinate of {_loc}%, %z-coordinate of {_loc}%)" to player
 			if {_team} is "red":
-				set {turret.team.player::%uuid of player%} to "red"
-				set {_loc} to location of player
-				spawn armor stand at {_loc}
-				set {_stand} to last spawned entity
-				set {_k} to "%uuid of {_stand}%"
 				set helmet of {_stand} to red wool
-				set chestplate of {_stand} to iron chestplate
-				set leggings of {_stand} to iron leggings
-				set boots of {_stand} to iron boots
-				set {turret.hp::%{_k}%} to 300
-				set {turret.maxhp::%{_k}%} to 300
-				set {turret.team::%{_k}%} to "red"
-				set {turret.owner::%{_k}%} to "%uuid of player%"
-				set {turret.alive::%{_k}%} to true
 				set name of {_stand} to "&c&l레드 포탑 &8[&a||||||||||&8] &f300&7/&7300"
-				add {_stand} to {turret.list::*}
-				send "&cRED 포탑을 소환했습니다. &7(사거리 12)" to player
-				play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at player
-				stop
-
-			send "&c팀은 blue 또는 red 만 가능합니다." to player
+				send "&cRED 포탑 소환 &7(%x-coordinate of {_loc}%, %y-coordinate of {_loc}%, %z-coordinate of {_loc}%)" to player
+			add {_stand} to {turret.list::*}
+			play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at {_loc}
 			stop
 
 		send "&c알 수 없는 하위명령입니다. /포탑" to player
@@ -290,19 +320,9 @@ every 20 ticks:
 				if {turret.team::%{_k}%} is "red":
 					play particle flame at {_loc}
 
-	# 근처 플레이어 HUD
-	loop all players:
-		set {_p} to loop-player
-		delete {_near}
-		set {_best} to 999
-		loop {turret.list::*}:
-			set {_t} to loop-value
-			if {_t} is set:
-				set {_d} to distance between {_p} and {_t}
-				if {_d} <= 16:
-					if {_d} < {_best}:
-						set {_near} to {_t}
-						set {_best} to {_d}
+	# 근처 플레이어 HUD (포탑 기준으로 루프 — 중첩 loop-value 꼬임 방지)
+	loop {turret.list::*}:
+		set {_near} to loop-value
 		if {_near} is set:
 			set {_k} to "%uuid of {_near}%"
 			if {turret.hp::%{_k}%} is set:
@@ -334,7 +354,8 @@ every 20 ticks:
 						set {_bar} to "%{_bar}%&7|"
 				set {_bar} to "%{_bar}%&8]"
 				set name of {_near} to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
-				send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to {_p}
+				loop all players in radius 16 around {_near}:
+					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
 # ---------- 포탑 피격 / 아군 보호 ----------
 on damage:
