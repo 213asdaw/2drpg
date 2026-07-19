@@ -19,6 +19,7 @@
 
 command /미니언:
 	trigger:
+		send "&e미니언 VER=20260719c (텔레포트 이동)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -358,14 +359,18 @@ every 5 ticks:
 						set {_my} to y-coordinate of {_m}
 						set {_mz} to z-coordinate of {_m}
 						set {_mw} to world of {_m}
-						set {_nx} to {_mx} + ((x-coordinate of {_target}) - {_mx}) / {_dist} * {_spd}
-						set {_ny} to {_my} + ((y-coordinate of {_target}) - {_my}) / {_dist} * {_spd}
-						set {_nz} to {_mz} + ((z-coordinate of {_target}) - {_mz}) / {_dist} * {_spd}
+						set {_dx} to (x-coordinate of {_target}) - {_mx}
+						set {_dy} to (y-coordinate of {_target}) - {_my}
+						set {_dz} to (z-coordinate of {_target}) - {_mz}
+						set {_nx} to {_mx} + {_dx} / {_dist} * {_spd}
+						set {_ny} to {_my} + {_dy} / {_dist} * {_spd}
+						set {_nz} to {_mz} + {_dz} / {_dist} * {_spd}
 						if {_ny} > {_my} + 0.6:
 							set {_ny} to {_my} + 0.6
 						if {_ny} < {_my} - 0.4:
 							set {_ny} to {_my} - 0.4
-						teleport {_m} to location({_nx}, {_ny}, {_nz}, {_mw})
+						set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
+						teleport {_m} to {_dest}
 				else:
 					if {_moveTo} is set:
 						set {_gd} to distance between {_m} and {_moveTo}
@@ -377,11 +382,15 @@ every 5 ticks:
 							set {_my} to y-coordinate of {_m}
 							set {_mz} to z-coordinate of {_m}
 							set {_mw} to world of {_m}
-							set {_nx} to {_mx} + ((x-coordinate of {_moveTo}) - {_mx}) / {_gd} * {_spd}
-							set {_ny} to {_my} + ((y-coordinate of {_moveTo}) - {_my}) / {_gd} * {_spd}
-							set {_nz} to {_mz} + ((z-coordinate of {_moveTo}) - {_mz}) / {_gd} * {_spd}
+							set {_dx} to (x-coordinate of {_moveTo}) - {_mx}
+							set {_dy} to (y-coordinate of {_moveTo}) - {_my}
+							set {_dz} to (z-coordinate of {_moveTo}) - {_mz}
+							set {_nx} to {_mx} + {_dx} / {_gd} * {_spd}
+							set {_ny} to {_my} + {_dy} / {_gd} * {_spd}
+							set {_nz} to {_mz} + {_dz} / {_gd} * {_spd}
 							if {_ny} > {_my} + 0.6:
 								set {_ny} to {_my} + 0.6
 							if {_ny} < {_my} - 0.3:
 								set {_ny} to {_my} - 0.3
-							teleport {_m} to location({_nx}, {_ny}, {_nz}, {_mw})
+							set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
+							teleport {_m} to {_dest}
