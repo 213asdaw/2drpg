@@ -1,5 +1,8 @@
 # 롤 스타일 미니언 (구버전 Skript)
-# plugins/Skript/scripts/minion.sk
+# plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
+#
+# 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
+#       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -313,7 +316,7 @@ every 5 ticks:
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
 					if {_d} <= 2.3:
-						set velocity of {_m} to 0, 0, 0
+						set velocity of {_m} to vector(0, 0, 0)
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
 							if difference between {minion.next::%{_k}%} and now < 1 second:
@@ -361,7 +364,7 @@ every 5 ticks:
 						if {_vy} < -0.15:
 							set {_vy} to -0.15
 						set {_vz} to {_dz} / {_dist} * {_spd}
-						set velocity of {_m} to {_vx}, {_vy}, {_vz}
+						set velocity of {_m} to vector({_vx}, {_vy}, {_vz})
 				else:
 					if {_moveTo} is set:
 						set {_gd} to distance between {_m} and {_moveTo}
@@ -379,8 +382,8 @@ every 5 ticks:
 							if {_vy} < -0.1:
 								set {_vy} to -0.1
 							set {_vz} to {_dz} / {_gd} * {_spd}
-							set velocity of {_m} to {_vx}, {_vy}, {_vz}
+							set velocity of {_m} to vector({_vx}, {_vy}, {_vz})
 						else:
-							set velocity of {_m} to 0, 0, 0
+							set velocity of {_m} to vector(0, 0, 0)
 					else:
-						set velocity of {_m} to 0, 0, 0
+						set velocity of {_m} to vector(0, 0, 0)
