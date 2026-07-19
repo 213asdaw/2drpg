@@ -1,4 +1,4 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719o
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719p
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
@@ -28,7 +28,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719o (아군무피해/지상고정)" to player
+		send "&e미니언 VER=20260719p (이름표)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
