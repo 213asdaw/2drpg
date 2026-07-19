@@ -1,10 +1,10 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719f
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719g
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
-#       이름표에 체력바 표시
+#       이름표에 체력바 표시 / 체력15 / 데미지2.5 / 겹침 방지
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -22,7 +22,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719f (지면 이동/체력바)" to player
+		send "&e미니언 VER=20260719g (HP15/DMG2.5)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -166,10 +166,13 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 			set {_amt} to 1
 		if {_amt} > 20:
 			set {_amt} to 20
-		set {_loc} to location({_wx}, {_wy}, {_wz}, {_ww})
 		if {minion.goal::%{_team}%} is not set:
 			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
+		set {_off} to 0
 		loop {_amt} times:
+			set {_sx} to {_wx} + {_off}
+			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
+			add 1.2 to {_off}
 			spawn zombie at {_loc}
 			set {_m} to last spawned entity
 			if {_m} is set:
@@ -177,9 +180,9 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				set {minion.team::%{_k}%} to {_team}
 				set {minion.alive::%{_k}%} to true
 				add {_m} to {minion.list::*}
-				set max health of {_m} to 40
-				set health of {_m} to 40
-				set {minion.maxhp::%{_k}%} to 40
+				set max health of {_m} to 15
+				set health of {_m} to 15
+				set {minion.maxhp::%{_k}%} to 15
 				set AI of {_m} to false
 				set {_color} to "&9"
 				set {_label} to "블루 미니언"
@@ -189,7 +192,7 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 					set {_color} to "&c"
 					set {_label} to "레드 미니언"
 					set helmet of {_m} to red wool
-				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f40&7/&740"
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f15&7/&715"
 				set chestplate of {_m} to leather chestplate
 		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
@@ -266,7 +269,7 @@ every 10 ticks:
 				set {_hp} to health of {_m}
 				if {_hp} is set:
 					set {_hp} to round({_hp})
-					set {_max} to 40
+					set {_max} to 15
 					if {minion.maxhp::%{_k}%} is set:
 						set {_max} to {minion.maxhp::%{_k}%}
 					set {_team} to {minion.team::%{_k}%}
@@ -400,7 +403,7 @@ every 5 ticks:
 							set {_ek} to "%uuid of {_target}%"
 							if {turret.hp::%{_ek}%} is set:
 								set {_thp} to {turret.hp::%{_ek}%}
-								remove 5 from {_thp}
+								remove 2.5 from {_thp}
 								if {_thp} < 0:
 									set {_thp} to 0
 								set {turret.hp::%{_ek}%} to {_thp}
@@ -416,13 +419,40 @@ every 5 ticks:
 									delete {turret.alive::%{_ek}%}
 									kill {_target}
 							else:
-								damage {_target} by 5
+								damage {_target} by 2.5
 							if {_team} is "blue":
 								draw 2 happy villager at {_target}
 							if {_team} is "red":
 								draw 2 flame at {_target}
 							play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
 							set {minion.next::%{_k}%} to now
+						# 공격 중에도 아군과 겹치면 살짝 밀어냄
+						set {_mx} to x-coordinate of {_m}
+						set {_my} to y-coordinate of {_m}
+						set {_mz} to z-coordinate of {_m}
+						set {_mw} to world of {_m}
+						set {_nx} to {_mx}
+						set {_nz} to {_mz}
+						set {_sep} to false
+						loop all zombies in radius 1.3 around {_m}:
+							set {_o} to loop-zombie
+							if {_o} is not {_m}:
+								set {_ok} to "%uuid of {_o}%"
+								if {minion.team::%{_ok}%} is {_team}:
+									set {_ox} to x-coordinate of {_o}
+									set {_oz} to z-coordinate of {_o}
+									set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+									set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+									set {_od} to distance between {_flatA} and {_flatB}
+									if {_od} < 1.05:
+										if {_od} < 0.15:
+											set {_od} to 0.15
+										set {_nx} to {_nx} + ({_mx} - {_ox}) / {_od} * 0.45
+										set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
+										set {_sep} to true
+						if {_sep} is true:
+							set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+							teleport {_m} to {_dest}
 					else:
 						# XZ만 추적 (Y 따라가면 공중 비행함)
 						set {_mx} to x-coordinate of {_m}
@@ -443,14 +473,28 @@ every 5 ticks:
 						set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
 						set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
 						set {_ny} to {_my}
-						# 계단/낮은 턱만 (1칸), 공중 플레이어는 무시
 						if {_ty} > {_my}:
 							if {_ty} - {_my} <= 1.2:
 								set {_ny} to {_my} + 0.35
 						else:
-							# 아래쪽이면 낙하 (이미 떠 있는 미니언 내리기)
 							if {_my} - {_ty} > 0.2:
 								set {_ny} to {_my} - 0.45
+						# 아군 미니언 겹침 방지
+						loop all zombies in radius 1.3 around {_m}:
+							set {_o} to loop-zombie
+							if {_o} is not {_m}:
+								set {_ok} to "%uuid of {_o}%"
+								if {minion.team::%{_ok}%} is {_team}:
+									set {_ox} to x-coordinate of {_o}
+									set {_oz} to z-coordinate of {_o}
+									set {_flatA} to location({_nx}, {_ny}, {_nz}, {_mw})
+									set {_flatB} to location({_ox}, {_ny}, {_oz}, {_mw})
+									set {_od} to distance between {_flatA} and {_flatB}
+									if {_od} < 1.05:
+										if {_od} < 0.15:
+											set {_od} to 0.15
+										set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
+										set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
 						set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 						teleport {_m} to {_dest}
 				else:
@@ -480,5 +524,44 @@ every 5 ticks:
 							else:
 								if {_my} - {_ty} > 0.2:
 									set {_ny} to {_my} - 0.45
+							loop all zombies in radius 1.3 around {_m}:
+								set {_o} to loop-zombie
+								if {_o} is not {_m}:
+									set {_ok} to "%uuid of {_o}%"
+									if {minion.team::%{_ok}%} is {_team}:
+										set {_ox} to x-coordinate of {_o}
+										set {_oz} to z-coordinate of {_o}
+										set {_flatA} to location({_nx}, {_ny}, {_nz}, {_mw})
+										set {_flatB} to location({_ox}, {_ny}, {_oz}, {_mw})
+										set {_od} to distance between {_flatA} and {_flatB}
+										if {_od} < 1.05:
+											if {_od} < 0.15:
+												set {_od} to 0.15
+											set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
+											set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
 							set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 							teleport {_m} to {_dest}
+						else:
+							# 목표 근처에서도 겹침 방지
+							set {_nx} to {_mx}
+							set {_nz} to {_mz}
+							set {_sep} to false
+							loop all zombies in radius 1.3 around {_m}:
+								set {_o} to loop-zombie
+								if {_o} is not {_m}:
+									set {_ok} to "%uuid of {_o}%"
+									if {minion.team::%{_ok}%} is {_team}:
+										set {_ox} to x-coordinate of {_o}
+										set {_oz} to z-coordinate of {_o}
+										set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+										set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+										set {_od} to distance between {_flatA} and {_flatB}
+										if {_od} < 1.05:
+											if {_od} < 0.15:
+												set {_od} to 0.15
+											set {_nx} to {_nx} + ({_mx} - {_ox}) / {_od} * 0.45
+											set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
+											set {_sep} to true
+							if {_sep} is true:
+								set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+								teleport {_m} to {_dest}
