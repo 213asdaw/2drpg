@@ -1,6 +1,7 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719b
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719c
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
+# 플레이어 근접 공격은 무기 데미지 반영
 #
 # /넥서스
 # /넥서스소환 [blue|red]
@@ -17,7 +18,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260719b" to player
+		send "&e넥서스 VER=20260719c" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7/ &e/넥서스목록" to player
@@ -302,6 +303,7 @@ on damage:
 	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {nexus.hp::%{_k}%} is set:
+			set {_dmg} to damage
 			cancel event
 			set {_team} to {nexus.team::%{_k}%}
 			if attacker is a player:
@@ -311,6 +313,36 @@ on damage:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
 					stop
+				if {_dmg} <= 1.5:
+					set {_tool} to tool of attacker
+					set {_wd} to 1
+					if {_tool} is a wooden sword:
+						set {_wd} to 4
+					if {_tool} is a golden sword:
+						set {_wd} to 4
+					if {_tool} is a stone sword:
+						set {_wd} to 5
+					if {_tool} is an iron sword:
+						set {_wd} to 6
+					if {_tool} is a diamond sword:
+						set {_wd} to 7
+					if {_tool} is a netherite sword:
+						set {_wd} to 8
+					if {_tool} is a wooden axe:
+						set {_wd} to 7
+					if {_tool} is a golden axe:
+						set {_wd} to 7
+					if {_tool} is a stone axe:
+						set {_wd} to 9
+					if {_tool} is an iron axe:
+						set {_wd} to 9
+					if {_tool} is a diamond axe:
+						set {_wd} to 9
+					if {_tool} is a netherite axe:
+						set {_wd} to 10
+					if {_tool} is a trident:
+						set {_wd} to 9
+					set {_dmg} to {_wd}
 			if attacker is an armor stand:
 				set {_ak} to "%uuid of attacker%"
 				if {nexus.team::%{_ak}%} is set:
@@ -320,7 +352,7 @@ on damage:
 					if {turret.team::%{_ak}%} is {_team}:
 						stop
 			set {_hp} to {nexus.hp::%{_k}%}
-			remove damage from {_hp}
+			remove {_dmg} from {_hp}
 			if {_hp} < 0:
 				set {_hp} to 0
 			set {nexus.hp::%{_k}%} to {_hp}
