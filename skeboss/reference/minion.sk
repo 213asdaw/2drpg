@@ -423,9 +423,6 @@ every 5 ticks:
 				if {_teamOk} is true:
 					delete {_target}
 					delete {_moveTo}
-					delete {_ny}
-					delete {_ok}
-					delete {_blk}
 					delete {_sep}
 					delete {_look}
 
