@@ -1,19 +1,22 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719j
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719k
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
-#       이름표에 체력바 표시 / 체력15 / 데미지2.5 / 겹침 방지
+#       이름표에 체력바 표시 / 근접HP15 DMG2.5 / 원거리HP12 DMG2.0
 #       적 넥서스 공격 (넥서스.sk 필요)
 #       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
 #
 # /미니언
 # /미니언팀 <blue|red>
 # /미니언목표 [blue|red]
-# /미니언소환 [blue|red] [수]
+# /미니언소환 [blue|red] [수]          ← 근접
 # /미니언소환 <blue|red> <x> <y> <z>
 # /미니언소환 <blue|red> <수> <x> <y> <z>
+# /미니언원거리소환 [blue|red] [수]   ← 원거리
+# /미니언원거리소환 <blue|red> <x> <y> <z>
+# /미니언원거리소환 <blue|red> <수> <x> <y> <z>
 # /미니언제거
 # /미니언전체제거
 # /미니언목록
@@ -24,12 +27,13 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719j (HP15/넥서스)" to player
+		send "&e미니언 VER=20260719k (근접+원거리)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
-		send "&e/미니언소환 [blue|red] [수]" to player
+		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
 		send "&e/미니언소환 <blue|red> <x> <y> <z>" to player
-		send "&e/미니언소환 <blue|red> <수> <x> <y> <z>" to player
+		send "&e/미니언원거리소환 [blue|red] [수] &7← 원거리" to player
+		send "&e/미니언원거리소환 <blue|red> <x> <y> <z>" to player
 		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
 		send "&7포탑.sk + 넥서스.sk 같이 넣으면 서로 싸움" to player
@@ -101,6 +105,7 @@ command /미니언제거:
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
 		delete {minion.maxhp::%{_k}%}
+		delete {minion.kind::%{_k}%}
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
@@ -117,6 +122,7 @@ command /미니언전체제거:
 				delete {minion.team::%{_k}%}
 				delete {minion.alive::%{_k}%}
 				delete {minion.maxhp::%{_k}%}
+				delete {minion.kind::%{_k}%}
 				delete {minion.next::%{_k}%}
 				delete {minion.aggro.id::%{_k}%}
 				delete {minion.aggro.until::%{_k}%}
@@ -181,22 +187,98 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				set {_k} to "%uuid of {_m}%"
 				set {minion.team::%{_k}%} to {_team}
 				set {minion.alive::%{_k}%} to true
+				set {minion.kind::%{_k}%} to "melee"
 				add {_m} to {minion.list::*}
 				set max health of {_m} to 15
 				set health of {_m} to 15
 				set {minion.maxhp::%{_k}%} to 15
 				set AI of {_m} to false
 				set {_color} to "&9"
-				set {_label} to "블루 미니언"
+				set {_label} to "블루 근접"
 				if {_team} is "blue":
 					set helmet of {_m} to blue wool
 				if {_team} is "red":
 					set {_color} to "&c"
-					set {_label} to "레드 미니언"
+					set {_label} to "레드 근접"
 					set helmet of {_m} to red wool
 				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f15&7/&715"
 				set chestplate of {_m} to leather chestplate
-		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
+				set tool of {_m} to iron sword
+		send "&a%{_team}% 근접 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
+
+command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		set {_amt} to 1
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
+		if arg-1 is set:
+			if arg-1 is "blue":
+				set {_team} to "blue"
+			if arg-1 is "red":
+				set {_team} to "red"
+			if arg-1 is not "blue":
+				if arg-1 is not "red":
+					send "&c/미니언원거리소환 [blue|red] [수]" to player
+					send "&c/미니언원거리소환 <blue|red> <x> <y> <z>" to player
+					send "&c/미니언원거리소환 <blue|red> <수> <x> <y> <z>" to player
+					stop
+		if arg-2 is set:
+			if arg-3 is set:
+				if arg-4 is set:
+					if arg-5 is set:
+						set {_amt} to arg-2
+						set {_wx} to arg-3
+						set {_wy} to arg-4
+						set {_wz} to arg-5
+					else:
+						set {_wx} to arg-2
+						set {_wy} to arg-3
+						set {_wz} to arg-4
+				else:
+					send "&c사용법: /미니언원거리소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				set {_amt} to arg-2
+		if {_amt} < 1:
+			set {_amt} to 1
+		if {_amt} > 20:
+			set {_amt} to 20
+		if {minion.goal::%{_team}%} is not set:
+			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
+		set {_off} to 0
+		loop {_amt} times:
+			set {_sx} to {_wx} + {_off}
+			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
+			add 1.2 to {_off}
+			spawn zombie at {_loc}
+			set {_m} to last spawned entity
+			if {_m} is set:
+				set {_k} to "%uuid of {_m}%"
+				set {minion.team::%{_k}%} to {_team}
+				set {minion.alive::%{_k}%} to true
+				set {minion.kind::%{_k}%} to "ranged"
+				add {_m} to {minion.list::*}
+				set max health of {_m} to 12
+				set health of {_m} to 12
+				set {minion.maxhp::%{_k}%} to 12
+				set AI of {_m} to false
+				set {_color} to "&9"
+				set {_label} to "블루 원거리"
+				if {_team} is "blue":
+					set helmet of {_m} to lapis block
+				if {_team} is "red":
+					set {_color} to "&c"
+					set {_label} to "레드 원거리"
+					set helmet of {_m} to redstone lamp
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f12&7/&712"
+				set chestplate of {_m} to chainmail chestplate
+				set tool of {_m} to bow
+		send "&a%{_team}% 원거리 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
 # 바닐라 타겟팅 차단
 on entity target:
@@ -255,6 +337,7 @@ on death:
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
 		delete {minion.maxhp::%{_k}%}
+		delete {minion.kind::%{_k}%}
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
@@ -276,10 +359,14 @@ every 10 ticks:
 						set {_max} to {minion.maxhp::%{_k}%}
 					set {_team} to {minion.team::%{_k}%}
 					set {_color} to "&9"
-					set {_label} to "블루 미니언"
+					set {_label} to "블루 근접"
+					if {minion.kind::%{_k}%} is "ranged":
+						set {_label} to "블루 원거리"
 					if {_team} is "red":
 						set {_color} to "&c"
-						set {_label} to "레드 미니언"
+						set {_label} to "레드 근접"
+						if {minion.kind::%{_k}%} is "ranged":
+							set {_label} to "레드 원거리"
 					set {_filled} to round(({_hp} / {_max}) * 10)
 					if {_filled} > 10:
 						set {_filled} to 10
@@ -418,16 +505,27 @@ every 5 ticks:
 
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
-					if {_d} <= 2.3:
+					set {_atkRange} to 2.3
+					set {_atk} to 2.5
+					set {_hold} to 0
+					if {minion.kind::%{_k}%} is "ranged":
+						set {_atkRange} to 7.5
+						set {_atk} to 2
+						set {_hold} to 4.8
+					if {_d} <= {_atkRange}:
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
-							if difference between {minion.next::%{_k}%} and now < 1 second:
+							if difference between {minion.next::%{_k}%} and now < 1.2 seconds:
 								set {_canHit} to false
+						if {minion.kind::%{_k}%} is "ranged":
+							if {minion.next::%{_k}%} is set:
+								if difference between {minion.next::%{_k}%} and now < 1.4 seconds:
+									set {_canHit} to false
 						if {_canHit} is true:
 							set {_ek} to "%uuid of {_target}%"
 							if {turret.hp::%{_ek}%} is set:
 								set {_thp} to {turret.hp::%{_ek}%}
-								remove 2.5 from {_thp}
+								remove {_atk} from {_thp}
 								if {_thp} < 0:
 									set {_thp} to 0
 								set {turret.hp::%{_ek}%} to {_thp}
@@ -445,7 +543,7 @@ every 5 ticks:
 							else:
 								if {nexus.hp::%{_ek}%} is set:
 									set {_nhp} to {nexus.hp::%{_ek}%}
-									remove 2.5 from {_nhp}
+									remove {_atk} from {_nhp}
 									if {_nhp} < 0:
 										set {_nhp} to 0
 									set {nexus.hp::%{_ek}%} to {_nhp}
@@ -467,14 +565,19 @@ every 5 ticks:
 											delete {nexus.stand::%{_nteam}%}
 										kill {_target}
 								else:
-									damage {_target} by 2.5
-							if {_team} is "blue":
-								draw 2 happy villager at {_target}
-							if {_team} is "red":
-								draw 2 flame at {_target}
-							play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
+									damage {_target} by {_atk}
+							if {minion.kind::%{_k}%} is "ranged":
+								draw 1 flame at {_m}
+								draw 3 flame at {_target}
+								play sound "entity.arrow.shoot" with volume 0.55 and pitch 1.2 at {_m}
+							else:
+								if {_team} is "blue":
+									draw 2 happy villager at {_target}
+								if {_team} is "red":
+									draw 2 flame at {_target}
+								play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
 							set {minion.next::%{_k}%} to now
-						# 공격 중에도 아군과 겹치면 살짝 밀어냄
+						# 원거리는 너무 가까우면 뒤로, 근접은 겹침만
 						set {_mx} to x-coordinate of {_m}
 						set {_my} to y-coordinate of {_m}
 						set {_mz} to z-coordinate of {_m}
@@ -482,6 +585,18 @@ every 5 ticks:
 						set {_nx} to {_mx}
 						set {_nz} to {_mz}
 						set {_sep} to false
+						if {minion.kind::%{_k}%} is "ranged":
+							if {_d} < {_hold}:
+								set {_tx} to x-coordinate of {_target}
+								set {_tz} to z-coordinate of {_target}
+								set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+								set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+								set {_hd} to distance between {_flatA} and {_flatB}
+								if {_hd} < 0.3:
+									set {_hd} to 0.3
+								set {_nx} to {_mx} + ({_mx} - {_tx}) / {_hd} * 0.55
+								set {_nz} to {_mz} + ({_mz} - {_tz}) / {_hd} * 0.55
+								set {_sep} to true
 						loop all zombies in radius 1.3 around {_m}:
 							set {_o} to loop-value-2
 							if {_o} is not {_m}:
