@@ -81,30 +81,25 @@ command /포탑목록:
 
 command /포탑제거:
 	trigger:
-		delete {_near}
-		set {_best} to 999
+		set {_n} to 0
 		loop {turret.list::*}:
-			if loop-value is set:
-				set {_d} to distance between player and loop-value
-				if {_d} <= 8:
-					if {_d} < {_best}:
-						set {_near} to loop-value
-						set {_best} to {_d}
-		if {_near} is not set:
-			send "&c근처 8칸 안에 포탑이 없습니다." to player
-			stop
-		set {_k} to "%uuid of {_near}%"
-		remove {_near} from {turret.list::*}
-		delete {turret.hp::%{_k}%}
-		delete {turret.maxhp::%{_k}%}
-		delete {turret.team::%{_k}%}
-		delete {turret.owner::%{_k}%}
-		delete {turret.aggro.id::%{_k}%}
-		delete {turret.aggro.until::%{_k}%}
-		delete {turret.nextshot::%{_k}%}
-		delete {turret.alive::%{_k}%}
-		kill {_near}
-		send "&a근처 포탑을 제거했습니다." to player
+			set {_t} to loop-value
+			if {_t} is set:
+				set {_k} to "%uuid of {_t}%"
+				delete {turret.hp::%{_k}%}
+				delete {turret.maxhp::%{_k}%}
+				delete {turret.team::%{_k}%}
+				delete {turret.owner::%{_k}%}
+				delete {turret.aggro.id::%{_k}%}
+				delete {turret.aggro.until::%{_k}%}
+				delete {turret.nextshot::%{_k}%}
+				delete {turret.alive::%{_k}%}
+				kill {_t}
+				add 1 to {_n}
+		delete {turret.list::*}
+		set {turret.count::blue} to 0
+		set {turret.count::red} to 0
+		send "&a포탑 전체 제거 &f%{_n}%&a개" to player
 
 # /포탑소환
 # /포탑소환 blue
