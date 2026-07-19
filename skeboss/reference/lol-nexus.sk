@@ -1,5 +1,6 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719a
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719b
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
+# {nexus.stand::blue/red} 로 미니언 목표 연동
 #
 # /넥서스
 # /넥서스소환 [blue|red]
@@ -16,7 +17,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260719a" to player
+		send "&e넥서스 VER=20260719b" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7/ &e/넥서스목록" to player
@@ -62,11 +63,14 @@ command /넥서스제거:
 			send "&c근처 넥서스 없음" to player
 			stop
 		set {_k} to "%uuid of {_near}%"
+		set {_t} to {nexus.team::%{_k}%}
 		remove {_near} from {nexus.list::*}
 		delete {nexus.hp::%{_k}%}
 		delete {nexus.maxhp::%{_k}%}
 		delete {nexus.team::%{_k}%}
 		delete {nexus.alive::%{_k}%}
+		if {_t} is set:
+			delete {nexus.stand::%{_t}%}
 		kill {_near}
 		send "&a근처 넥서스 제거" to player
 
@@ -115,6 +119,7 @@ command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 		set {nexus.maxhp::%{_k}%} to 800
 		set {nexus.team::%{_k}%} to {_team}
 		set {nexus.alive::%{_k}%} to true
+		set {nexus.stand::%{_team}%} to {_stand}
 		set chestplate of {_stand} to diamond chestplate
 		set leggings of {_stand} to diamond leggings
 		set boots of {_stand} to diamond boots
@@ -361,5 +366,6 @@ on damage:
 				delete {nexus.maxhp::%{_k}%}
 				delete {nexus.team::%{_k}%}
 				delete {nexus.alive::%{_k}%}
+				delete {nexus.stand::%{_team}%}
 				kill victim
 			stop

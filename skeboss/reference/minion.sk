@@ -457,11 +457,14 @@ every 5 ticks:
 											send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
 										if {nexus.team::%{_ek}%} is "red":
 											send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
+										set {_nteam} to {nexus.team::%{_ek}%}
 										remove {_target} from {nexus.list::*}
 										delete {nexus.hp::%{_ek}%}
 										delete {nexus.maxhp::%{_ek}%}
 										delete {nexus.team::%{_ek}%}
 										delete {nexus.alive::%{_ek}%}
+										if {_nteam} is set:
+											delete {nexus.stand::%{_nteam}%}
 										kill {_target}
 								else:
 									damage {_target} by 2.5
