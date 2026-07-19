@@ -20,7 +20,7 @@ command /포탑:
 		send "&e/포탑유저팀 <닉네임> <blue|red>" to player
 		send "&e/포탑소환 [blue|red]" to player
 		send "&e/포탑소환 <blue|red> <x> <y> <z>" to player
-		send "&e/포탑제거" to player
+		send "&e/포탑제거 &7← 모든 포탑 제거" to player
 		send "&e/포탑목록" to player
 
 command /포탑팀 <text>:

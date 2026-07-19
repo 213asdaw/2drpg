@@ -22,7 +22,7 @@ command /넥서스:
 		send "&e넥서스 VER=20260719d (포탑 보호)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
-		send "&e/넥서스제거 &7/ &e/넥서스목록" to player
+		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
 		send "&e/시작구역설정 [blue|red] [반경]" to player
 		send "&e/시작구역제거 [blue|red]" to player
 		send "&e/시작귀환" to player
@@ -52,29 +52,24 @@ command /넥서스목록:
 
 command /넥서스제거:
 	trigger:
-		delete {_near}
-		set {_best} to 999
+		set {_n} to 0
 		loop {nexus.list::*}:
-			if loop-value is set:
-				set {_d} to distance between player and loop-value
-				if {_d} <= 10:
-					if {_d} < {_best}:
-						set {_near} to loop-value
-						set {_best} to {_d}
-		if {_near} is not set:
-			send "&c근처 넥서스 없음" to player
-			stop
-		set {_k} to "%uuid of {_near}%"
-		set {_t} to {nexus.team::%{_k}%}
-		remove {_near} from {nexus.list::*}
-		delete {nexus.hp::%{_k}%}
-		delete {nexus.maxhp::%{_k}%}
-		delete {nexus.team::%{_k}%}
-		delete {nexus.alive::%{_k}%}
-		if {_t} is set:
-			delete {nexus.stand::%{_t}%}
-		kill {_near}
-		send "&a근처 넥서스 제거" to player
+			set {_x} to loop-value
+			if {_x} is set:
+				set {_k} to "%uuid of {_x}%"
+				set {_t} to {nexus.team::%{_k}%}
+				delete {nexus.hp::%{_k}%}
+				delete {nexus.maxhp::%{_k}%}
+				delete {nexus.team::%{_k}%}
+				delete {nexus.alive::%{_k}%}
+				if {_t} is set:
+					delete {nexus.stand::%{_t}%}
+				kill {_x}
+				add 1 to {_n}
+		delete {nexus.list::*}
+		delete {nexus.stand::blue}
+		delete {nexus.stand::red}
+		send "&a넥서스 전체 제거 &f%{_n}%&a개" to player
 
 command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 	trigger:
