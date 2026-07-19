@@ -195,12 +195,12 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				set {minion.maxhp::%{_k}%} to 30
 				set AI of {_m} to false
 				set {_color} to "&9"
-				set {_label} to "블루 근접"
+				set {_label} to "블루 근접미니언"
 				if {_team} is "blue":
 					set helmet of {_m} to blue wool
 				if {_team} is "red":
 					set {_color} to "&c"
-					set {_label} to "레드 근접"
+					set {_label} to "레드 근접미니언"
 					set helmet of {_m} to red wool
 				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f30&7/&730"
 				set chestplate of {_m} to leather chestplate
@@ -269,12 +269,12 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 				set {minion.maxhp::%{_k}%} to 20
 				set AI of {_m} to false
 				set {_color} to "&9"
-				set {_label} to "블루 원거리"
+				set {_label} to "블루 원거리미니언"
 				if {_team} is "blue":
 					set helmet of {_m} to lapis block
 				if {_team} is "red":
 					set {_color} to "&c"
-					set {_label} to "레드 원거리"
+					set {_label} to "레드 원거리미니언"
 					set helmet of {_m} to redstone block
 				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f20&7/&720"
 				set chestplate of {_m} to chainmail chestplate
@@ -371,14 +371,14 @@ every 10 ticks:
 						set {_max} to {minion.maxhp::%{_k}%}
 					set {_team} to {minion.team::%{_k}%}
 					set {_color} to "&9"
-					set {_label} to "블루 근접"
+					set {_label} to "블루 근접미니언"
 					if {minion.kind::%{_k}%} is "ranged":
-						set {_label} to "블루 원거리"
+						set {_label} to "블루 원거리미니언"
 					if {_team} is "red":
 						set {_color} to "&c"
-						set {_label} to "레드 근접"
+						set {_label} to "레드 근접미니언"
 						if {minion.kind::%{_k}%} is "ranged":
-							set {_label} to "레드 원거리"
+							set {_label} to "레드 원거리미니언"
 					set {_filled} to round(({_hp} / {_max}) * 10)
 					if {_filled} > 10:
 						set {_filled} to 10
