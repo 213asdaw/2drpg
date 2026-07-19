@@ -5,7 +5,7 @@
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
 #       이름표에 체력바 표시 / 근접HP15 DMG2.5 / 원거리HP12 DMG2.0
-#       적 넥서스 공격 (넥서스.sk 필요)
+#       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
 #       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
 #
 # /미니언
@@ -547,29 +547,28 @@ every 5 ticks:
 									set {_shield} to 0
 									if {turret.count::%{_nteam}%} is set:
 										set {_shield} to {turret.count::%{_nteam}%}
-									if {_shield} > 0:
-										stop
-									set {_nhp} to {nexus.hp::%{_ek}%}
-									remove {_atk} from {_nhp}
-									if {_nhp} < 0:
-										set {_nhp} to 0
-									set {nexus.hp::%{_ek}%} to {_nhp}
-									if {_nhp} <= 0:
-										play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at {_target}
-										loop 12 times:
-											draw 1 flame at {_target}
-										if {_nteam} is "blue":
-											send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
-										if {_nteam} is "red":
-											send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
-										remove {_target} from {nexus.list::*}
-										delete {nexus.hp::%{_ek}%}
-										delete {nexus.maxhp::%{_ek}%}
-										delete {nexus.team::%{_ek}%}
-										delete {nexus.alive::%{_ek}%}
-										if {_nteam} is set:
-											delete {nexus.stand::%{_nteam}%}
-										kill {_target}
+									if {_shield} <= 0:
+										set {_nhp} to {nexus.hp::%{_ek}%}
+										remove {_atk} from {_nhp}
+										if {_nhp} < 0:
+											set {_nhp} to 0
+										set {nexus.hp::%{_ek}%} to {_nhp}
+										if {_nhp} <= 0:
+											play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at {_target}
+											loop 12 times:
+												draw 1 flame at {_target}
+											if {_nteam} is "blue":
+												send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
+											if {_nteam} is "red":
+												send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
+											remove {_target} from {nexus.list::*}
+											delete {nexus.hp::%{_ek}%}
+											delete {nexus.maxhp::%{_ek}%}
+											delete {nexus.team::%{_ek}%}
+											delete {nexus.alive::%{_ek}%}
+											if {_nteam} is set:
+												delete {nexus.stand::%{_nteam}%}
+											kill {_target}
 								else:
 									damage {_target} by {_atk}
 							if {minion.kind::%{_k}%} is "ranged":
