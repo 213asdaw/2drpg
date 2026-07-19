@@ -1,4 +1,4 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719h
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719i
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
@@ -23,7 +23,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719h (HP15/넥서스)" to player
+		send "&e미니언 VER=20260719i (HP15/넥서스)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -407,14 +407,15 @@ every 5 ticks:
 						if "%world of {_goal}%" is "%world of {_m}%":
 							set {_moveTo} to {_goal}
 					else:
-						# 목표 없으면 적 넥서스로
+						# 목표 없으면 적 넥서스로 (중첩루프 → loop-value-2)
 						loop {nexus.list::*}:
-							if loop-value is set:
-								set {_nk} to "%uuid of loop-value%"
+							set {_nxe} to loop-value-2
+							if {_nxe} is set:
+								set {_nk} to "%uuid of {_nxe}%"
 								if {nexus.team::%{_nk}%} is set:
 									if {nexus.team::%{_nk}%} is not {_team}:
 										if {nexus.hp::%{_nk}%} > 0:
-											set {_moveTo} to loop-value
+											set {_moveTo} to {_nxe}
 
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
