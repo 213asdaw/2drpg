@@ -3,24 +3,24 @@
 #
 # /미니언
 # /미니언팀 <blue|red>
-# /미니언목표 [blue|red]     - 현재 위치를 해당 팀 미니언 목표지점으로
+# /미니언목표 [blue|red]
 # /미니언소환 [blue|red] [수]
-# /미니언제거                 - 근처 미니언 제거
+# /미니언제거
 # /미니언전체제거
 # /미니언목록
 #
-# 우선순위: 적 플레이어 > 적 미니언 > 적 포탑
-# 대상 없으면 팀 목표지점으로 이동
-# 포탑 팀 변수 {turret.team.player::%uuid%} 와 공유
+# 기본 우선순위: 적 미니언 > 적 포탑 > 적 플레이어
+# 단, 플레이어가 이 미니언을 때리면 그 플레이어가 최우선(어그로)
+# 포탑 스크립트(포탑.sk)도 같이 최신으로 넣어야 서로 싸움
 
 command /미니언:
 	trigger:
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
-		send "&e/미니언제거" to player
-		send "&e/미니언전체제거" to player
+		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
+		send "&7포탑과 싸우려면 포탑.sk 도 최신으로 넣으세요" to player
 
 command /미니언팀 <text>:
 	trigger:
@@ -47,7 +47,7 @@ command /미니언목표 [<text>]:
 				send "&c사용법: /미니언목표 [blue|red]" to player
 				stop
 		set {minion.goal::%{_team}%} to location of player
-		send "&a%{_team}% 팀 미니언 목표를 현재 위치로 설정했습니다." to player
+		send "&a%{_team}% 팀 목표 설정 &7(%x-coordinate of player%, %y-coordinate of player%, %z-coordinate of player%)" to player
 		if {_team} is "blue":
 			draw 8 happy villager at player
 		if {_team} is "red":
@@ -67,16 +67,7 @@ command /미니언목록:
 		set {_my} to "blue"
 		if {turret.team.player::%uuid of player%} is set:
 			set {_my} to {turret.team.player::%uuid of player%}
-		send "&b내 팀: &f%{_my}%" to player
-		send "&b미니언 &9블루 %{_nb}%&7 / &c레드 %{_nr}%" to player
-		if {minion.goal::blue} is set:
-			send "&9블루 목표 설정됨" to player
-		else:
-			send "&9블루 목표 &c미설정" to player
-		if {minion.goal::red} is set:
-			send "&c레드 목표 설정됨" to player
-		else:
-			send "&c레드 목표 &c미설정" to player
+		send "&b내 팀: &f%{_my}% &7| 미니언 &9B%{_nb}% &cR%{_nr}%" to player
 
 command /미니언제거:
 	trigger:
@@ -90,15 +81,17 @@ command /미니언제거:
 						set {_near} to loop-value
 						set {_best} to {_d}
 		if {_near} is not set:
-			send "&c근처 10칸 안에 미니언이 없습니다." to player
+			send "&c근처 미니언 없음" to player
 			stop
 		set {_k} to "%uuid of {_near}%"
 		remove {_near} from {minion.list::*}
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
 		delete {minion.next::%{_k}%}
+		delete {minion.aggro.id::%{_k}%}
+		delete {minion.aggro.until::%{_k}%}
 		kill {_near}
-		send "&a근처 미니언을 제거했습니다." to player
+		send "&a근처 미니언 제거" to player
 
 command /미니언전체제거:
 	trigger:
@@ -110,10 +103,12 @@ command /미니언전체제거:
 				delete {minion.team::%{_k}%}
 				delete {minion.alive::%{_k}%}
 				delete {minion.next::%{_k}%}
+				delete {minion.aggro.id::%{_k}%}
+				delete {minion.aggro.until::%{_k}%}
 				kill {_m}
 				add 1 to {_n}
 		delete {minion.list::*}
-		send "&a미니언 %{_n}%마리를 모두 제거했습니다." to player
+		send "&a미니언 %{_n}%마리 제거" to player
 
 command /미니언소환 [<text>] [<number>]:
 	trigger:
@@ -128,7 +123,7 @@ command /미니언소환 [<text>] [<number>]:
 				set {_team} to "red"
 			if arg-1 is not "blue":
 				if arg-1 is not "red":
-					send "&c사용법: /미니언소환 [blue|red] [수]" to player
+					send "&c/미니언소환 [blue|red] [수]" to player
 					stop
 		if arg-2 is set:
 			set {_amt} to arg-2
@@ -137,10 +132,8 @@ command /미니언소환 [<text>] [<number>]:
 			if {_amt} > 20:
 				set {_amt} to 20
 		if {minion.goal::%{_team}%} is not set:
-			send "&e경고: %{_team}% 팀 목표가 없습니다. &7/미니언목표 %{_team}%" to player
-		set {_i} to 0
+			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
 		loop {_amt} times:
-			add 1 to {_i}
 			set {_loc} to location of player
 			spawn zombie at {_loc}
 			set {_m} to last spawned entity
@@ -151,6 +144,8 @@ command /미니언소환 [<text>] [<number>]:
 				add {_m} to {minion.list::*}
 				set max health of {_m} to 40
 				set health of {_m} to 40
+				# 바닐라 AI 끄기 (이상한 곳 배회 방지)
+				set AI of {_m} to false
 				if {_team} is "blue":
 					set name of {_m} to "&9&l블루 미니언"
 					set helmet of {_m} to blue wool
@@ -158,16 +153,14 @@ command /미니언소환 [<text>] [<number>]:
 					set name of {_m} to "&c&l레드 미니언"
 					set helmet of {_m} to red wool
 				set chestplate of {_m} to leather chestplate
-		send "&a%{_team}% 미니언 &f%{_amt}%&a마리를 소환했습니다." to player
-		play sound "entity.zombie.ambient" with volume 0.8 and pitch 1.2 at player
+		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환" to player
 
-# 바닐라 AI 타겟팅 막기 (스크립트가 직접 공격)
+# 바닐라 타겟팅 차단
 on entity target:
 	set {_k} to "%uuid of entity%"
 	if {minion.alive::%{_k}%} is set:
 		cancel event
 
-# 미니언끼리/아군 플레이어 어그로 방지용
 on damage:
 	if attacker is not set:
 		stop
@@ -175,7 +168,27 @@ on damage:
 		stop
 	set {_ak} to "%uuid of attacker%"
 	set {_vk} to "%uuid of victim%"
-	# 미니언이 같은 팀 미니언/플레이어 때리면 취소
+
+	# 미니언이 피격당함 → 어그로
+	if {minion.alive::%{_vk}%} is set:
+		set {_mteam} to {minion.team::%{_vk}%}
+		if attacker is a player:
+			set {_ateam} to "blue"
+			if {turret.team.player::%uuid of attacker%} is set:
+				set {_ateam} to {turret.team.player::%uuid of attacker%}
+			if {_ateam} is {_mteam}:
+				cancel event
+				send action bar "&7아군 미니언은 공격할 수 없습니다." to attacker
+				stop
+			# 적 플레이어가 때림 → 최우선 어그로
+			set {minion.aggro.id::%{_vk}%} to "%uuid of attacker%"
+			set {minion.aggro.until::%{_vk}%} to now
+		if {minion.team::%{_ak}%} is set:
+			if {minion.team::%{_ak}%} is {_mteam}:
+				cancel event
+				stop
+
+	# 미니언이 가해자
 	if {minion.team::%{_ak}%} is set:
 		set {_ateam} to {minion.team::%{_ak}%}
 		if {minion.team::%{_vk}%} is set:
@@ -189,17 +202,6 @@ on damage:
 			if {_vteam} is {_ateam}:
 				cancel event
 				stop
-	# 플레이어가 아군 미니언 때리면 취소 (원하면 주석)
-	if attacker is a player:
-		if {minion.team::%{_vk}%} is set:
-			set {_mteam} to {minion.team::%{_vk}%}
-			set {_ateam} to "blue"
-			if {turret.team.player::%uuid of attacker%} is set:
-				set {_ateam} to {turret.team.player::%uuid of attacker%}
-			if {_ateam} is {_mteam}:
-				cancel event
-				send action bar "&7아군 미니언은 공격할 수 없습니다." to attacker
-				stop
 
 on death:
 	if victim is not set:
@@ -210,10 +212,11 @@ on death:
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
 		delete {minion.next::%{_k}%}
+		delete {minion.aggro.id::%{_k}%}
+		delete {minion.aggro.until::%{_k}%}
 		clear drops
 		draw 6 cloud at victim
 
-# 낮에 불타는 것 방지 + AI 루프
 every 5 ticks:
 	loop {minion.list::*}:
 		set {_m} to loop-value
@@ -225,26 +228,32 @@ every 5 ticks:
 				remove {_m} from {minion.list::*}
 			if {minion.alive::%{_k}%} is set:
 				extinguish {_m}
+				# AI 계속 꺼두기
+				set AI of {_m} to false
 				set {_team} to {minion.team::%{_k}%}
 				delete {_target}
-				set {_best} to 9999
+				delete {_moveTo}
 
-				# 1) 적 플레이어
-				loop all players in radius 10 around {_m}:
-					set {_e} to loop-player
-					set {_eteam} to "blue"
-					if {turret.team.player::%uuid of {_e}%} is set:
-						set {_eteam} to {turret.team.player::%uuid of {_e}%}
-					if {_eteam} is not {_team}:
-						set {_hp} to health of {_e}
-						if {_hp} is set:
-							if {_hp} > 0:
-								set {_d} to distance between {_m} and {_e}
-								if {_d} < {_best}:
-									set {_target} to {_e}
-									set {_best} to {_d}
+				# 0) 어그로 플레이어 (맞으면 최우선)
+				if {minion.aggro.id::%{_k}%} is set:
+					if {minion.aggro.until::%{_k}%} is set:
+						if difference between {minion.aggro.until::%{_k}%} and now < 8 seconds:
+							set {_aid} to {minion.aggro.id::%{_k}%}
+							loop all players in radius 12 around {_m}:
+								if "%uuid of loop-player%" is {_aid}:
+									set {_ateam} to "blue"
+									if {turret.team.player::%uuid of loop-player%} is set:
+										set {_ateam} to {turret.team.player::%uuid of loop-player%}
+									if {_ateam} is not {_team}:
+										set {_hp} to health of loop-player
+										if {_hp} is set:
+											if {_hp} > 0:
+												set {_target} to loop-player
+						else:
+							delete {minion.aggro.id::%{_k}%}
+							delete {minion.aggro.until::%{_k}%}
 
-				# 2) 적 미니언
+				# 1) 적 미니언
 				if {_target} is not set:
 					set {_best} to 9999
 					loop all zombies in radius 10 around {_m}:
@@ -261,7 +270,7 @@ every 5 ticks:
 												set {_target} to {_e}
 												set {_best} to {_d}
 
-				# 3) 적 포탑
+				# 2) 적 포탑
 				if {_target} is not set:
 					set {_best} to 9999
 					loop all armor stands in radius 10 around {_m}:
@@ -275,11 +284,36 @@ every 5 ticks:
 										set {_target} to {_e}
 										set {_best} to {_d}
 
-				# 공격 or 이동
+				# 3) 적 플레이어
+				if {_target} is not set:
+					set {_best} to 9999
+					loop all players in radius 10 around {_m}:
+						set {_e} to loop-player
+						set {_eteam} to "blue"
+						if {turret.team.player::%uuid of {_e}%} is set:
+							set {_eteam} to {turret.team.player::%uuid of {_e}%}
+						if {_eteam} is not {_team}:
+							set {_hp} to health of {_e}
+							if {_hp} is set:
+								if {_hp} > 0:
+									set {_d} to distance between {_m} and {_e}
+									if {_d} < {_best}:
+										set {_target} to {_e}
+										set {_best} to {_d}
+
+				# 이동/공격 (velocity 로만 이동 — push/바닐라AI 배회 방지)
+				if {_target} is set:
+					set {_moveTo} to {_target}
+				else:
+					if {minion.goal::%{_team}%} is set:
+						set {_goal} to {minion.goal::%{_team}%}
+						if "%world of {_goal}%" is "%world of {_m}%":
+							set {_moveTo} to {_goal}
+
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
-					if {_d} <= 2.2:
-						# 공격 쿨
+					if {_d} <= 2.3:
+						set velocity of {_m} to 0, 0, 0
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
 							if difference between {minion.next::%{_k}%} and now < 1 second:
@@ -309,16 +343,44 @@ every 5 ticks:
 								draw 2 happy villager at {_target}
 							if {_team} is "red":
 								draw 2 flame at {_target}
-							play sound "entity.zombie.attack_wooden_door" with volume 0.5 and pitch 1.3 at {_m}
+							play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
 							set {minion.next::%{_k}%} to now
 					else:
-						# 대상에게 접근
-						push {_m} towards {_target} at speed 0.28
+						# 대상 방향으로만 속도 설정
+						set {_dx} to (x-coordinate of {_target}) - (x-coordinate of {_m})
+						set {_dy} to (y-coordinate of {_target}) - (y-coordinate of {_m})
+						set {_dz} to (z-coordinate of {_target}) - (z-coordinate of {_m})
+						set {_dist} to distance between {_m} and {_target}
+						if {_dist} < 0.3:
+							set {_dist} to 0.3
+						set {_spd} to 0.32
+						set {_vx} to {_dx} / {_dist} * {_spd}
+						set {_vy} to {_dy} / {_dist} * {_spd}
+						if {_vy} > 0.25:
+							set {_vy} to 0.25
+						if {_vy} < -0.15:
+							set {_vy} to -0.15
+						set {_vz} to {_dz} / {_dist} * {_spd}
+						set velocity of {_m} to {_vx}, {_vy}, {_vz}
 				else:
-					# 목표지점으로 이동
-					if {minion.goal::%{_team}%} is set:
-						set {_goal} to {minion.goal::%{_team}%}
-						if "%world of {_goal}%" is "%world of {_m}%":
-							set {_gd} to distance between {_m} and {_goal}
-							if {_gd} > 1.5:
-								push {_m} towards {_goal} at speed 0.22
+					if {_moveTo} is set:
+						set {_gd} to distance between {_m} and {_moveTo}
+						if {_gd} > 1.8:
+							set {_dx} to (x-coordinate of {_moveTo}) - (x-coordinate of {_m})
+							set {_dy} to (y-coordinate of {_moveTo}) - (y-coordinate of {_m})
+							set {_dz} to (z-coordinate of {_moveTo}) - (z-coordinate of {_m})
+							if {_gd} < 0.3:
+								set {_gd} to 0.3
+							set {_spd} to 0.26
+							set {_vx} to {_dx} / {_gd} * {_spd}
+							set {_vy} to {_dy} / {_gd} * {_spd}
+							if {_vy} > 0.25:
+								set {_vy} to 0.25
+							if {_vy} < -0.1:
+								set {_vy} to -0.1
+							set {_vz} to {_dz} / {_gd} * {_spd}
+							set velocity of {_m} to {_vx}, {_vy}, {_vz}
+						else:
+							set velocity of {_m} to 0, 0, 0
+					else:
+						set velocity of {_m} to 0, 0, 0

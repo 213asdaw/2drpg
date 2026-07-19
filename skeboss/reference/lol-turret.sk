@@ -180,24 +180,7 @@ every 10 ticks:
 						delete {_targetKind}
 						set {_bestDist} to 9999
 
-						# 1) 적 팀 플레이어 (최우선)
-						loop all players in radius 12 around {_t}:
-							set {_e} to loop-player
-							set {_eteam} to "blue"
-							if {turret.team.player::%uuid of {_e}%} is set:
-								set {_eteam} to {turret.team.player::%uuid of {_e}%}
-							if {_eteam} is not {_team}:
-								set {_ehp} to health of {_e}
-								if {_ehp} is set:
-									if {_ehp} > 0:
-										set {_d} to distance between {_t} and {_e}
-										if {_d} <= 12:
-											if {_d} < {_bestDist}:
-												set {_target} to {_e}
-												set {_targetKind} to "player"
-												set {_bestDist} to {_d}
-
-						# 어그로가 적 플레이어면 플레이어 타겟 우선
+						# 0) 플레이어 어그로 (포탑을 때린 적 플레이어가 최우선)
 						if {turret.aggro.id::%{_k}%} is set:
 							if {turret.aggro.until::%{_k}%} is set:
 								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
@@ -217,23 +200,7 @@ every 10 ticks:
 									delete {turret.aggro.id::%{_k}%}
 									delete {turret.aggro.until::%{_k}%}
 
-						# 2) 적 팀 포탑
-						if {_target} is not set:
-							set {_bestDist} to 9999
-							loop all armor stands in radius 12 around {_t}:
-								set {_e} to loop-armor stand
-								if {_e} is not {_t}:
-									set {_ek} to "%uuid of {_e}%"
-									if {turret.hp::%{_ek}%} is set:
-										if {turret.team::%{_ek}%} is not {_team}:
-											if {turret.hp::%{_ek}%} > 0:
-												set {_d} to distance between {_t} and {_e}
-												if {_d} < {_bestDist}:
-													set {_target} to {_e}
-													set {_targetKind} to "turret"
-													set {_bestDist} to {_d}
-
-						# 3) 적 미니언 (minion.sk 연동)
+						# 1) 적 미니언
 						if {_target} is not set:
 							set {_bestDist} to 9999
 							loop all zombies in radius 12 around {_t}:
@@ -250,13 +217,47 @@ every 10 ticks:
 													set {_targetKind} to "minion"
 													set {_bestDist} to {_d}
 
+						# 2) 적 포탑
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all armor stands in radius 12 around {_t}:
+								set {_e} to loop-armor stand
+								if {_e} is not {_t}:
+									set {_ek} to "%uuid of {_e}%"
+									if {turret.hp::%{_ek}%} is set:
+										if {turret.team::%{_ek}%} is not {_team}:
+											if {turret.hp::%{_ek}%} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} < {_bestDist}:
+													set {_target} to {_e}
+													set {_targetKind} to "turret"
+													set {_bestDist} to {_d}
+
+						# 3) 적 플레이어
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all players in radius 12 around {_t}:
+								set {_e} to loop-player
+								set {_eteam} to "blue"
+								if {turret.team.player::%uuid of {_e}%} is set:
+									set {_eteam} to {turret.team.player::%uuid of {_e}%}
+								if {_eteam} is not {_team}:
+									set {_ehp} to health of {_e}
+									if {_ehp} is set:
+										if {_ehp} > 0:
+											set {_d} to distance between {_t} and {_e}
+											if {_d} <= 12:
+												if {_d} < {_bestDist}:
+													set {_target} to {_e}
+													set {_targetKind} to "player"
+													set {_bestDist} to {_d}
+
 						# 4) 일반 몹 (아군 미니언 제외)
 						if {_target} is not set:
 							set {_bestDist} to 9999
 							loop all monsters in radius 12 around {_t}:
 								set {_e} to loop-monster
 								set {_mk} to "%uuid of {_e}%"
-								# 아군 미니언은 스킵
 								delete {_skipMob}
 								if {minion.team::%{_mk}%} is set:
 									if {minion.team::%{_mk}%} is {_team}:
