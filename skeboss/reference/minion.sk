@@ -1,9 +1,9 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719c
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719d
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
-#       이동은 velocity 안 씀 (텔레포트) — 구버전 호환
+#       이동은 텔레포트(XZ만) — 공중 추적 안 함
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -19,7 +19,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719c (텔레포트 이동)" to player
+		send "&e미니언 VER=20260719d (지면 이동)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -351,46 +351,61 @@ every 5 ticks:
 							play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
 							set {minion.next::%{_k}%} to now
 					else:
-						set {_dist} to {_d}
-						if {_dist} < 0.3:
-							set {_dist} to 0.3
-						set {_spd} to 0.75
+						# XZ만 추적 (Y 따라가면 공중 비행함)
 						set {_mx} to x-coordinate of {_m}
 						set {_my} to y-coordinate of {_m}
 						set {_mz} to z-coordinate of {_m}
 						set {_mw} to world of {_m}
-						set {_dx} to (x-coordinate of {_target}) - {_mx}
-						set {_dy} to (y-coordinate of {_target}) - {_my}
-						set {_dz} to (z-coordinate of {_target}) - {_mz}
-						set {_nx} to {_mx} + {_dx} / {_dist} * {_spd}
-						set {_ny} to {_my} + {_dy} / {_dist} * {_spd}
-						set {_nz} to {_mz} + {_dz} / {_dist} * {_spd}
-						if {_ny} > {_my} + 0.6:
-							set {_ny} to {_my} + 0.6
-						if {_ny} < {_my} - 0.4:
-							set {_ny} to {_my} - 0.4
+						set {_tx} to x-coordinate of {_target}
+						set {_ty} to y-coordinate of {_target}
+						set {_tz} to z-coordinate of {_target}
+						set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+						set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+						set {_hdist} to distance between {_flatA} and {_flatB}
+						if {_hdist} < 0.3:
+							set {_hdist} to 0.3
+						set {_spd} to 0.75
+						set {_dx} to {_tx} - {_mx}
+						set {_dz} to {_tz} - {_mz}
+						set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
+						set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
+						set {_ny} to {_my}
+						# 계단/낮은 턱만 (1칸), 공중 플레이어는 무시
+						if {_ty} > {_my}:
+							if {_ty} - {_my} <= 1.2:
+								set {_ny} to {_my} + 0.35
+						else:
+							# 아래쪽이면 낙하 (이미 떠 있는 미니언 내리기)
+							if {_my} - {_ty} > 0.2:
+								set {_ny} to {_my} - 0.45
 						set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 						teleport {_m} to {_dest}
 				else:
 					if {_moveTo} is set:
-						set {_gd} to distance between {_m} and {_moveTo}
-						if {_gd} > 1.8:
-							if {_gd} < 0.3:
-								set {_gd} to 0.3
+						set {_mx} to x-coordinate of {_m}
+						set {_my} to y-coordinate of {_m}
+						set {_mz} to z-coordinate of {_m}
+						set {_mw} to world of {_m}
+						set {_tx} to x-coordinate of {_moveTo}
+						set {_ty} to y-coordinate of {_moveTo}
+						set {_tz} to z-coordinate of {_moveTo}
+						set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+						set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+						set {_hdist} to distance between {_flatA} and {_flatB}
+						if {_hdist} > 1.8:
+							if {_hdist} < 0.3:
+								set {_hdist} to 0.3
 							set {_spd} to 0.6
-							set {_mx} to x-coordinate of {_m}
-							set {_my} to y-coordinate of {_m}
-							set {_mz} to z-coordinate of {_m}
-							set {_mw} to world of {_m}
-							set {_dx} to (x-coordinate of {_moveTo}) - {_mx}
-							set {_dy} to (y-coordinate of {_moveTo}) - {_my}
-							set {_dz} to (z-coordinate of {_moveTo}) - {_mz}
-							set {_nx} to {_mx} + {_dx} / {_gd} * {_spd}
-							set {_ny} to {_my} + {_dy} / {_gd} * {_spd}
-							set {_nz} to {_mz} + {_dz} / {_gd} * {_spd}
-							if {_ny} > {_my} + 0.6:
-								set {_ny} to {_my} + 0.6
-							if {_ny} < {_my} - 0.3:
-								set {_ny} to {_my} - 0.3
+							set {_dx} to {_tx} - {_mx}
+							set {_dz} to {_tz} - {_mz}
+							set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
+							set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
+							set {_ny} to {_my}
+							if {_ty} > {_my}:
+								if {_ty} - {_my} <= 1.2:
+									set {_ny} to {_my} + 0.35
+							else:
+								if {_my} - {_ty} > 0.2:
+									set {_ny} to {_my} - 0.45
 							set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 							teleport {_m} to {_dest}
