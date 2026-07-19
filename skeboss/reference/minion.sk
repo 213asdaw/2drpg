@@ -1,4 +1,4 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719i
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719j
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
@@ -6,6 +6,7 @@
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
 #       이름표에 체력바 표시 / 체력15 / 데미지2.5 / 겹침 방지
 #       적 넥서스 공격 (넥서스.sk 필요)
+#       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -23,7 +24,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719i (HP15/넥서스)" to player
+		send "&e미니언 VER=20260719j (HP15/넥서스)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -336,11 +337,11 @@ every 5 ticks:
 							delete {minion.aggro.id::%{_k}%}
 							delete {minion.aggro.until::%{_k}%}
 
-				# 1) 적 미니언
+				# 1) 적 미니언 (중첩 → loop-value-2)
 				if {_target} is not set:
 					set {_best} to 9999
 					loop all zombies in radius 10 around {_m}:
-						set {_e} to loop-zombie
+						set {_e} to loop-value-2
 						if {_e} is not {_m}:
 							set {_ek} to "%uuid of {_e}%"
 							if {minion.team::%{_ek}%} is set:
@@ -407,15 +408,13 @@ every 5 ticks:
 						if "%world of {_goal}%" is "%world of {_m}%":
 							set {_moveTo} to {_goal}
 					else:
-						# 목표 없으면 적 넥서스로 (중첩루프 → loop-value-2)
-						loop {nexus.list::*}:
-							set {_nxe} to loop-value-2
-							if {_nxe} is set:
-								set {_nk} to "%uuid of {_nxe}%"
-								if {nexus.team::%{_nk}%} is set:
-									if {nexus.team::%{_nk}%} is not {_team}:
-										if {nexus.hp::%{_nk}%} > 0:
-											set {_moveTo} to {_nxe}
+						# 목표 없으면 적 넥서스 (중첩루프 없이 변수 사용)
+						if {_team} is "blue":
+							if {nexus.stand::red} is set:
+								set {_moveTo} to {nexus.stand::red}
+						if {_team} is "red":
+							if {nexus.stand::blue} is set:
+								set {_moveTo} to {nexus.stand::blue}
 
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
@@ -481,7 +480,7 @@ every 5 ticks:
 						set {_nz} to {_mz}
 						set {_sep} to false
 						loop all zombies in radius 1.3 around {_m}:
-							set {_o} to loop-zombie
+							set {_o} to loop-value-2
 							if {_o} is not {_m}:
 								set {_ok} to "%uuid of {_o}%"
 								if {minion.team::%{_ok}%} is {_team}:
@@ -527,7 +526,7 @@ every 5 ticks:
 								set {_ny} to {_my} - 0.45
 						# 아군 미니언 겹침 방지
 						loop all zombies in radius 1.3 around {_m}:
-							set {_o} to loop-zombie
+							set {_o} to loop-value-2
 							if {_o} is not {_m}:
 								set {_ok} to "%uuid of {_o}%"
 								if {minion.team::%{_ok}%} is {_team}:
@@ -571,7 +570,7 @@ every 5 ticks:
 								if {_my} - {_ty} > 0.2:
 									set {_ny} to {_my} - 0.45
 							loop all zombies in radius 1.3 around {_m}:
-								set {_o} to loop-zombie
+								set {_o} to loop-value-2
 								if {_o} is not {_m}:
 									set {_ok} to "%uuid of {_o}%"
 									if {minion.team::%{_ok}%} is {_team}:
@@ -593,7 +592,7 @@ every 5 ticks:
 							set {_nz} to {_mz}
 							set {_sep} to false
 							loop all zombies in radius 1.3 around {_m}:
-								set {_o} to loop-zombie
+								set {_o} to loop-value-2
 								if {_o} is not {_m}:
 									set {_ok} to "%uuid of {_o}%"
 									if {minion.team::%{_ok}%} is {_team}:
