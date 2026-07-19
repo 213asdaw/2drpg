@@ -37,7 +37,14 @@ command /넥서스목록:
 				if {nexus.team::%{_k}%} is "red":
 					add 1 to {_nr}
 					send "&c레드 넥서스 &fHP %{nexus.hp::%{_k}%}%/%{nexus.maxhp::%{_k}%}%" to player
-		send "&7시작구역 블루: %{base.loc::blue}% &c레드: %{base.loc::red}%" to player
+		if {base.loc::blue} is set:
+			send "&9블루 시작구역 설정됨 &7반경 %{base.radius::blue}%" to player
+		else:
+			send "&7블루 시작구역 없음" to player
+		if {base.loc::red} is set:
+			send "&c레드 시작구역 설정됨 &7반경 %{base.radius::red}%" to player
+		else:
+			send "&7레드 시작구역 없음" to player
 		send "&b넥서스 수 &9B%{_nb}% &cR%{_nr}%" to player
 
 command /넥서스제거:
