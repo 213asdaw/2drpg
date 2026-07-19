@@ -1,9 +1,10 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719e
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719f
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
+#       이름표에 체력바 표시
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -21,7 +22,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719e (지면 이동)" to player
+		send "&e미니언 VER=20260719f (지면 이동/체력바)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -97,6 +98,7 @@ command /미니언제거:
 		remove {_near} from {minion.list::*}
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
+		delete {minion.maxhp::%{_k}%}
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
@@ -112,6 +114,7 @@ command /미니언전체제거:
 				set {_k} to "%uuid of {_m}%"
 				delete {minion.team::%{_k}%}
 				delete {minion.alive::%{_k}%}
+				delete {minion.maxhp::%{_k}%}
 				delete {minion.next::%{_k}%}
 				delete {minion.aggro.id::%{_k}%}
 				delete {minion.aggro.until::%{_k}%}
@@ -176,13 +179,17 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				add {_m} to {minion.list::*}
 				set max health of {_m} to 40
 				set health of {_m} to 40
+				set {minion.maxhp::%{_k}%} to 40
 				set AI of {_m} to false
+				set {_color} to "&9"
+				set {_label} to "블루 미니언"
 				if {_team} is "blue":
-					set name of {_m} to "&9&l블루 미니언"
 					set helmet of {_m} to blue wool
 				if {_team} is "red":
-					set name of {_m} to "&c&l레드 미니언"
+					set {_color} to "&c"
+					set {_label} to "레드 미니언"
 					set helmet of {_m} to red wool
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f40&7/&740"
 				set chestplate of {_m} to leather chestplate
 		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
@@ -242,11 +249,52 @@ on death:
 		remove victim from {minion.list::*}
 		delete {minion.team::%{_k}%}
 		delete {minion.alive::%{_k}%}
+		delete {minion.maxhp::%{_k}%}
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
 		clear drops
 		draw 6 cloud at victim
+
+every 10 ticks:
+	# 미니언 이름표 체력바
+	loop {minion.list::*}:
+		set {_m} to loop-value
+		if {_m} is set:
+			set {_k} to "%uuid of {_m}%"
+			if {minion.alive::%{_k}%} is set:
+				set {_hp} to health of {_m}
+				if {_hp} is set:
+					set {_hp} to round({_hp})
+					set {_max} to 40
+					if {minion.maxhp::%{_k}%} is set:
+						set {_max} to {minion.maxhp::%{_k}%}
+					set {_team} to {minion.team::%{_k}%}
+					set {_color} to "&9"
+					set {_label} to "블루 미니언"
+					if {_team} is "red":
+						set {_color} to "&c"
+						set {_label} to "레드 미니언"
+					set {_filled} to round(({_hp} / {_max}) * 10)
+					if {_filled} > 10:
+						set {_filled} to 10
+					if {_filled} < 0:
+						set {_filled} to 0
+					set {_barColor} to "&a"
+					if {_filled} <= 6:
+						set {_barColor} to "&e"
+					if {_filled} <= 3:
+						set {_barColor} to "&c"
+					set {_bar} to "&8["
+					set {_n} to 0
+					loop 10 times:
+						add 1 to {_n}
+						if {_n} <= {_filled}:
+							set {_bar} to "%{_bar}%%{_barColor}%|"
+						else:
+							set {_bar} to "%{_bar}%&7|"
+					set {_bar} to "%{_bar}%&8]"
+					set name of {_m} to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
 
 every 5 ticks:
 	loop {minion.list::*}:
