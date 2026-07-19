@@ -1,8 +1,9 @@
-# 롤 스타일 미니언 (구버전 Skript)
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719c
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
+#       이동은 velocity 안 씀 (텔레포트) — 구버전 호환
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -305,7 +306,7 @@ every 5 ticks:
 										set {_target} to {_e}
 										set {_best} to {_d}
 
-				# 이동/공격 (velocity 로만 이동 — push/바닐라AI 배회 방지)
+				# 이동/공격 (텔레포트 스텝 — velocity/vector 미사용)
 				if {_target} is set:
 					set {_moveTo} to {_target}
 				else:
@@ -317,7 +318,6 @@ every 5 ticks:
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
 					if {_d} <= 2.3:
-						set velocity of {_m} to vector(0, 0, 0)
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
 							if difference between {minion.next::%{_k}%} and now < 1 second:
@@ -350,41 +350,38 @@ every 5 ticks:
 							play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
 							set {minion.next::%{_k}%} to now
 					else:
-						# 대상 방향으로만 속도 설정
-						set {_dx} to (x-coordinate of {_target}) - (x-coordinate of {_m})
-						set {_dy} to (y-coordinate of {_target}) - (y-coordinate of {_m})
-						set {_dz} to (z-coordinate of {_target}) - (z-coordinate of {_m})
-						set {_dist} to distance between {_m} and {_target}
+						set {_dist} to {_d}
 						if {_dist} < 0.3:
 							set {_dist} to 0.3
-						set {_spd} to 0.32
-						set {_vx} to {_dx} / {_dist} * {_spd}
-						set {_vy} to {_dy} / {_dist} * {_spd}
-						if {_vy} > 0.25:
-							set {_vy} to 0.25
-						if {_vy} < -0.15:
-							set {_vy} to -0.15
-						set {_vz} to {_dz} / {_dist} * {_spd}
-						set velocity of {_m} to vector({_vx}, {_vy}, {_vz})
+						set {_spd} to 0.75
+						set {_mx} to x-coordinate of {_m}
+						set {_my} to y-coordinate of {_m}
+						set {_mz} to z-coordinate of {_m}
+						set {_mw} to world of {_m}
+						set {_nx} to {_mx} + ((x-coordinate of {_target}) - {_mx}) / {_dist} * {_spd}
+						set {_ny} to {_my} + ((y-coordinate of {_target}) - {_my}) / {_dist} * {_spd}
+						set {_nz} to {_mz} + ((z-coordinate of {_target}) - {_mz}) / {_dist} * {_spd}
+						if {_ny} > {_my} + 0.6:
+							set {_ny} to {_my} + 0.6
+						if {_ny} < {_my} - 0.4:
+							set {_ny} to {_my} - 0.4
+						teleport {_m} to location({_nx}, {_ny}, {_nz}, {_mw})
 				else:
 					if {_moveTo} is set:
 						set {_gd} to distance between {_m} and {_moveTo}
 						if {_gd} > 1.8:
-							set {_dx} to (x-coordinate of {_moveTo}) - (x-coordinate of {_m})
-							set {_dy} to (y-coordinate of {_moveTo}) - (y-coordinate of {_m})
-							set {_dz} to (z-coordinate of {_moveTo}) - (z-coordinate of {_m})
 							if {_gd} < 0.3:
 								set {_gd} to 0.3
-							set {_spd} to 0.26
-							set {_vx} to {_dx} / {_gd} * {_spd}
-							set {_vy} to {_dy} / {_gd} * {_spd}
-							if {_vy} > 0.25:
-								set {_vy} to 0.25
-							if {_vy} < -0.1:
-								set {_vy} to -0.1
-							set {_vz} to {_dz} / {_gd} * {_spd}
-							set velocity of {_m} to vector({_vx}, {_vy}, {_vz})
-						else:
-							set velocity of {_m} to vector(0, 0, 0)
-					else:
-						set velocity of {_m} to vector(0, 0, 0)
+							set {_spd} to 0.6
+							set {_mx} to x-coordinate of {_m}
+							set {_my} to y-coordinate of {_m}
+							set {_mz} to z-coordinate of {_m}
+							set {_mw} to world of {_m}
+							set {_nx} to {_mx} + ((x-coordinate of {_moveTo}) - {_mx}) / {_gd} * {_spd}
+							set {_ny} to {_my} + ((y-coordinate of {_moveTo}) - {_my}) / {_gd} * {_spd}
+							set {_nz} to {_mz} + ((z-coordinate of {_moveTo}) - {_mz}) / {_gd} * {_spd}
+							if {_ny} > {_my} + 0.6:
+								set {_ny} to {_my} + 0.6
+							if {_ny} < {_my} - 0.3:
+								set {_ny} to {_my} - 0.3
+							teleport {_m} to location({_nx}, {_ny}, {_nz}, {_mw})
