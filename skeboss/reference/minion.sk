@@ -1,9 +1,9 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719m
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719n
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
-#       이동은 텔레포트(XZ만) — 공중 추적 안 함 / 타겟·목표 바라보기(vector yaw)
+#       이동은 텔레포트(XZ) + 벽/지형 충돌 체크 / 바라보기(vector yaw)
 #       이름표에 체력바 표시 / 근접HP15 DMG2.5 / 원거리HP12 DMG2.0
 #       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
 #       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
@@ -28,7 +28,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719m (바라보기)" to player
+		send "&e미니언 VER=20260719n (지형충돌)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
@@ -626,13 +626,75 @@ every 5 ticks:
 										set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
 										set {_sep} to true
 						if {_sep} is true:
-							set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+							set {_ny} to {_my}
 							set {_ldx} to (x-coordinate of {_target}) - {_nx}
 							set {_ldz} to (z-coordinate of {_target}) - {_nz}
 							set {_look} to vector({_ldx}, 0, {_ldz})
+						set {_cx} to {_nx}
+						set {_cy} to {_ny}
+						set {_cz} to {_nz}
+						delete {_ok}
+						delete {_blk}
+						set {_bf} to location({_cx}, {_cy}, {_cz}, {_mw})
+						set {_hy} to {_cy} + 1
+						set {_bh} to location({_cx}, {_hy}, {_cz}, {_mw})
+						if block at {_bf} is solid:
+							set {_blk} to true
+						if block at {_bh} is solid:
+							set {_blk} to true
+						if {_blk} is not set:
+							set {_ok} to true
+						else:
+							delete {_blk}
+							set {_hy} to {_cy} + 1
+							set {_h2} to {_cy} + 2
+							set {_bf} to location({_cx}, {_hy}, {_cz}, {_mw})
+							set {_bh} to location({_cx}, {_h2}, {_cz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cy} to {_hy}
+								set {_ok} to true
+						if {_ok} is not set:
+							delete {_blk}
+							set {_hy} to {_ny} + 1
+							set {_bf} to location({_nx}, {_ny}, {_mz}, {_mw})
+							set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cx} to {_nx}
+								set {_cy} to {_ny}
+								set {_cz} to {_mz}
+								set {_ok} to true
+						if {_ok} is not set:
+							delete {_blk}
+							set {_hy} to {_ny} + 1
+							set {_bf} to location({_mx}, {_ny}, {_nz}, {_mw})
+							set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cx} to {_mx}
+								set {_cy} to {_ny}
+								set {_cz} to {_nz}
+								set {_ok} to true
+						if {_ok} is set:
+							set {_uy} to {_cy} - 1
+							set {_bu} to location({_cx}, {_uy}, {_cz}, {_mw})
+							if block at {_bu} is air:
+								set {_cy} to {_cy} - 0.4
+							set {_dest} to location({_cx}, {_cy}, {_cz}, {_mw})
 							set yaw of {_dest} to yaw of {_look}
 							set pitch of {_dest} to 0
 							teleport {_m} to {_dest}
+
 					else:
 						# XZ만 추적 (Y 따라가면 공중 비행함)
 						set {_mx} to x-coordinate of {_m}
@@ -675,11 +737,72 @@ every 5 ticks:
 											set {_od} to 0.15
 										set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
 										set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
-						set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 						set {_look} to vector({_dx}, 0, {_dz})
-						set yaw of {_dest} to yaw of {_look}
-						set pitch of {_dest} to 0
-						teleport {_m} to {_dest}
+						set {_cx} to {_nx}
+						set {_cy} to {_ny}
+						set {_cz} to {_nz}
+						delete {_ok}
+						delete {_blk}
+						set {_bf} to location({_cx}, {_cy}, {_cz}, {_mw})
+						set {_hy} to {_cy} + 1
+						set {_bh} to location({_cx}, {_hy}, {_cz}, {_mw})
+						if block at {_bf} is solid:
+							set {_blk} to true
+						if block at {_bh} is solid:
+							set {_blk} to true
+						if {_blk} is not set:
+							set {_ok} to true
+						else:
+							delete {_blk}
+							set {_hy} to {_cy} + 1
+							set {_h2} to {_cy} + 2
+							set {_bf} to location({_cx}, {_hy}, {_cz}, {_mw})
+							set {_bh} to location({_cx}, {_h2}, {_cz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cy} to {_hy}
+								set {_ok} to true
+						if {_ok} is not set:
+							delete {_blk}
+							set {_hy} to {_ny} + 1
+							set {_bf} to location({_nx}, {_ny}, {_mz}, {_mw})
+							set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cx} to {_nx}
+								set {_cy} to {_ny}
+								set {_cz} to {_mz}
+								set {_ok} to true
+						if {_ok} is not set:
+							delete {_blk}
+							set {_hy} to {_ny} + 1
+							set {_bf} to location({_mx}, {_ny}, {_nz}, {_mw})
+							set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_cx} to {_mx}
+								set {_cy} to {_ny}
+								set {_cz} to {_nz}
+								set {_ok} to true
+						if {_ok} is set:
+							set {_uy} to {_cy} - 1
+							set {_bu} to location({_cx}, {_uy}, {_cz}, {_mw})
+							if block at {_bu} is air:
+								set {_cy} to {_cy} - 0.4
+							set {_dest} to location({_cx}, {_cy}, {_cz}, {_mw})
+							set yaw of {_dest} to yaw of {_look}
+							set pitch of {_dest} to 0
+							teleport {_m} to {_dest}
+
 				else:
 					if {_moveTo} is set:
 						set {_mx} to x-coordinate of {_m}
@@ -722,11 +845,71 @@ every 5 ticks:
 												set {_od} to 0.15
 											set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
 											set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
-							set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
 							set {_look} to vector({_dx}, 0, {_dz})
-							set yaw of {_dest} to yaw of {_look}
-							set pitch of {_dest} to 0
-							teleport {_m} to {_dest}
+							set {_cx} to {_nx}
+							set {_cy} to {_ny}
+							set {_cz} to {_nz}
+							delete {_ok}
+							delete {_blk}
+							set {_bf} to location({_cx}, {_cy}, {_cz}, {_mw})
+							set {_hy} to {_cy} + 1
+							set {_bh} to location({_cx}, {_hy}, {_cz}, {_mw})
+							if block at {_bf} is solid:
+								set {_blk} to true
+							if block at {_bh} is solid:
+								set {_blk} to true
+							if {_blk} is not set:
+								set {_ok} to true
+							else:
+								delete {_blk}
+								set {_hy} to {_cy} + 1
+								set {_h2} to {_cy} + 2
+								set {_bf} to location({_cx}, {_hy}, {_cz}, {_mw})
+								set {_bh} to location({_cx}, {_h2}, {_cz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blk} to true
+								if block at {_bh} is solid:
+									set {_blk} to true
+								if {_blk} is not set:
+									set {_cy} to {_hy}
+									set {_ok} to true
+							if {_ok} is not set:
+								delete {_blk}
+								set {_hy} to {_ny} + 1
+								set {_bf} to location({_nx}, {_ny}, {_mz}, {_mw})
+								set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blk} to true
+								if block at {_bh} is solid:
+									set {_blk} to true
+								if {_blk} is not set:
+									set {_cx} to {_nx}
+									set {_cy} to {_ny}
+									set {_cz} to {_mz}
+									set {_ok} to true
+							if {_ok} is not set:
+								delete {_blk}
+								set {_hy} to {_ny} + 1
+								set {_bf} to location({_mx}, {_ny}, {_nz}, {_mw})
+								set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blk} to true
+								if block at {_bh} is solid:
+									set {_blk} to true
+								if {_blk} is not set:
+									set {_cx} to {_mx}
+									set {_cy} to {_ny}
+									set {_cz} to {_nz}
+									set {_ok} to true
+							if {_ok} is set:
+								set {_uy} to {_cy} - 1
+								set {_bu} to location({_cx}, {_uy}, {_cz}, {_mw})
+								if block at {_bu} is air:
+									set {_cy} to {_cy} - 0.4
+								set {_dest} to location({_cx}, {_cy}, {_cz}, {_mw})
+								set yaw of {_dest} to yaw of {_look}
+								set pitch of {_dest} to 0
+								teleport {_m} to {_dest}
 						else:
 							# 목표 근처: 목표는 바라보고, 겹치면 밀어냄
 							set {_ldx} to {_tx} - {_mx}
@@ -754,8 +937,69 @@ every 5 ticks:
 											set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
 											set {_sep} to true
 							if {_sep} is true:
-								set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+								set {_ny} to {_my}
 								set {_look} to vector({_ldx}, 0, {_ldz})
-								set yaw of {_dest} to yaw of {_look}
-								set pitch of {_dest} to 0
-								teleport {_m} to {_dest}
+								set {_cx} to {_nx}
+								set {_cy} to {_ny}
+								set {_cz} to {_nz}
+								delete {_ok}
+								delete {_blk}
+								set {_bf} to location({_cx}, {_cy}, {_cz}, {_mw})
+								set {_hy} to {_cy} + 1
+								set {_bh} to location({_cx}, {_hy}, {_cz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blk} to true
+								if block at {_bh} is solid:
+									set {_blk} to true
+								if {_blk} is not set:
+									set {_ok} to true
+								else:
+									delete {_blk}
+									set {_hy} to {_cy} + 1
+									set {_h2} to {_cy} + 2
+									set {_bf} to location({_cx}, {_hy}, {_cz}, {_mw})
+									set {_bh} to location({_cx}, {_h2}, {_cz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blk} to true
+									if block at {_bh} is solid:
+										set {_blk} to true
+									if {_blk} is not set:
+										set {_cy} to {_hy}
+										set {_ok} to true
+								if {_ok} is not set:
+									delete {_blk}
+									set {_hy} to {_ny} + 1
+									set {_bf} to location({_nx}, {_ny}, {_mz}, {_mw})
+									set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blk} to true
+									if block at {_bh} is solid:
+										set {_blk} to true
+									if {_blk} is not set:
+										set {_cx} to {_nx}
+										set {_cy} to {_ny}
+										set {_cz} to {_mz}
+										set {_ok} to true
+								if {_ok} is not set:
+									delete {_blk}
+									set {_hy} to {_ny} + 1
+									set {_bf} to location({_mx}, {_ny}, {_nz}, {_mw})
+									set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blk} to true
+									if block at {_bh} is solid:
+										set {_blk} to true
+									if {_blk} is not set:
+										set {_cx} to {_mx}
+										set {_cy} to {_ny}
+										set {_cz} to {_nz}
+										set {_ok} to true
+								if {_ok} is set:
+									set {_uy} to {_cy} - 1
+									set {_bu} to location({_cx}, {_uy}, {_cz}, {_mw})
+									if block at {_bu} is air:
+										set {_cy} to {_cy} - 0.4
+									set {_dest} to location({_cx}, {_cy}, {_cz}, {_mw})
+									set yaw of {_dest} to yaw of {_look}
+									set pitch of {_dest} to 0
+									teleport {_m} to {_dest}
