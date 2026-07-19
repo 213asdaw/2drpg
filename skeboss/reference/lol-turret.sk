@@ -385,16 +385,18 @@ every 20 ticks:
 				loop all players in radius 16 around {_near}:
 					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
-on damage:
+on damage with priority lowest:
 	if victim is not set:
 		stop
 	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {turret.hp::%{_k}%} is set:
-			# 아머스탠드는 이벤트 damage 가 거의 항상 1 → 무기 데미지로 재계산
-			set {_dmg} to damage
+			# 아머스탠드 기본 이벤트딜≈1. 증강이 damage 를 올린 뒤(lowest)에
+			# 무기 기본딜 + (이벤트딜-1) 보너스를 합산
+			set {_raw} to damage
 			cancel event
 			set {_team} to {turret.team::%{_k}%}
+			set {_dmg} to {_raw}
 			if attacker is a player:
 				set {_ateam} to "blue"
 				if {turret.team.player::%uuid of attacker%} is set:
@@ -402,67 +404,73 @@ on damage:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 포탑은 공격할 수 없습니다." to attacker
 					stop
-				# 근접: 무기 공격력 사용 (활 등은 이벤트 데미지 유지)
-				if {_dmg} <= 1.5:
-					set {_tool} to tool of attacker
+				set {_tool} to tool of attacker
+				set {_wd} to 1
+				if {_tool} is a wooden sword:
+					set {_wd} to 4
+				if {_tool} is a golden sword:
+					set {_wd} to 4
+				if {_tool} is a stone sword:
+					set {_wd} to 5
+				if {_tool} is an iron sword:
+					set {_wd} to 6
+				if {_tool} is a diamond sword:
+					set {_wd} to 7
+				if {_tool} is a netherite sword:
+					set {_wd} to 8
+				if {_tool} is a wooden axe:
+					set {_wd} to 7
+				if {_tool} is a golden axe:
+					set {_wd} to 7
+				if {_tool} is a stone axe:
+					set {_wd} to 9
+				if {_tool} is an iron axe:
+					set {_wd} to 9
+				if {_tool} is a diamond axe:
+					set {_wd} to 9
+				if {_tool} is a netherite axe:
+					set {_wd} to 10
+				if {_tool} is a wooden pickaxe:
+					set {_wd} to 2
+				if {_tool} is a stone pickaxe:
+					set {_wd} to 3
+				if {_tool} is an iron pickaxe:
+					set {_wd} to 4
+				if {_tool} is a diamond pickaxe:
+					set {_wd} to 5
+				if {_tool} is a netherite pickaxe:
+					set {_wd} to 6
+				if {_tool} is a wooden shovel:
+					set {_wd} to 2
+				if {_tool} is a stone shovel:
+					set {_wd} to 3
+				if {_tool} is an iron shovel:
+					set {_wd} to 4
+				if {_tool} is a diamond shovel:
+					set {_wd} to 5
+				if {_tool} is a netherite shovel:
+					set {_wd} to 6
+				if {_tool} is a wooden hoe:
 					set {_wd} to 1
-					if {_tool} is a wooden sword:
-						set {_wd} to 4
-					if {_tool} is a golden sword:
-						set {_wd} to 4
-					if {_tool} is a stone sword:
-						set {_wd} to 5
-					if {_tool} is an iron sword:
-						set {_wd} to 6
-					if {_tool} is a diamond sword:
-						set {_wd} to 7
-					if {_tool} is a netherite sword:
-						set {_wd} to 8
-					if {_tool} is a wooden axe:
-						set {_wd} to 7
-					if {_tool} is a golden axe:
-						set {_wd} to 7
-					if {_tool} is a stone axe:
-						set {_wd} to 9
-					if {_tool} is an iron axe:
-						set {_wd} to 9
-					if {_tool} is a diamond axe:
-						set {_wd} to 9
-					if {_tool} is a netherite axe:
-						set {_wd} to 10
-					if {_tool} is a wooden pickaxe:
-						set {_wd} to 2
-					if {_tool} is a stone pickaxe:
-						set {_wd} to 3
-					if {_tool} is an iron pickaxe:
-						set {_wd} to 4
-					if {_tool} is a diamond pickaxe:
-						set {_wd} to 5
-					if {_tool} is a netherite pickaxe:
-						set {_wd} to 6
-					if {_tool} is a wooden shovel:
-						set {_wd} to 2
-					if {_tool} is a stone shovel:
-						set {_wd} to 3
-					if {_tool} is an iron shovel:
-						set {_wd} to 4
-					if {_tool} is a diamond shovel:
-						set {_wd} to 5
-					if {_tool} is a netherite shovel:
-						set {_wd} to 6
-					if {_tool} is a wooden hoe:
-						set {_wd} to 1
-					if {_tool} is a stone hoe:
-						set {_wd} to 1
-					if {_tool} is an iron hoe:
-						set {_wd} to 1
-					if {_tool} is a diamond hoe:
-						set {_wd} to 1
-					if {_tool} is a netherite hoe:
-						set {_wd} to 1
-					if {_tool} is a trident:
-						set {_wd} to 9
-					set {_dmg} to {_wd}
+				if {_tool} is a stone hoe:
+					set {_wd} to 1
+				if {_tool} is an iron hoe:
+					set {_wd} to 1
+				if {_tool} is a diamond hoe:
+					set {_wd} to 1
+				if {_tool} is a netherite hoe:
+					set {_wd} to 1
+				if {_tool} is a trident:
+					set {_wd} to 9
+				# 이벤트딜이 무기딜보다 크면 증강이 통째로 넣음 → 그대로
+				# 아니면 무기딜 + (이벤트-1) = 바닐라AS 1 위에 붙은 증강분
+				if {_raw} > {_wd}:
+					set {_dmg} to {_raw}
+				else:
+					set {_bonus} to {_raw} - 1
+					if {_bonus} < 0:
+						set {_bonus} to 0
+					set {_dmg} to {_wd} + {_bonus}
 			if attacker is an armor stand:
 				set {_ak} to "%uuid of attacker%"
 				if {turret.team::%{_ak}%} is set:
