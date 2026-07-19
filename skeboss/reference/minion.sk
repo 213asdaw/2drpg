@@ -110,6 +110,7 @@ command /미니언제거:
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
+		delete {minion.side::%{_k}%}
 		kill {_near}
 		send "&a근처 미니언 제거" to player
 
@@ -127,6 +128,7 @@ command /미니언전체제거:
 				delete {minion.next::%{_k}%}
 				delete {minion.aggro.id::%{_k}%}
 				delete {minion.aggro.until::%{_k}%}
+				delete {minion.side::%{_k}%}
 				kill {_m}
 				add 1 to {_n}
 		delete {minion.list::*}
@@ -353,6 +355,7 @@ on death:
 		delete {minion.next::%{_k}%}
 		delete {minion.aggro.id::%{_k}%}
 		delete {minion.aggro.until::%{_k}%}
+		delete {minion.side::%{_k}%}
 		clear drops
 		draw 6 cloud at victim
 
