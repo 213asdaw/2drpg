@@ -325,6 +325,19 @@ every 10 ticks:
 											set {turret.nextshot::%{_k}%} to now
 
 every 20 ticks:
+	# 팀별 생존 포탑 수 (넥서스 보호용)
+	set {turret.count::blue} to 0
+	set {turret.count::red} to 0
+	loop {turret.list::*}:
+		set {_ct} to loop-value
+		if {_ct} is set:
+			set {_ck} to "%uuid of {_ct}%"
+			if {turret.hp::%{_ck}%} is set:
+				if {turret.hp::%{_ck}%} > 0:
+					if {turret.team::%{_ck}%} is "blue":
+						add 1 to {turret.count::blue}
+					if {turret.team::%{_ck}%} is "red":
+						add 1 to {turret.count::red}
 	# 팀 오라: 엔티티에 직접 (location y 수정 금지)
 	loop {turret.list::*}:
 		set {_t} to loop-value

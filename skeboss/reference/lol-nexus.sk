@@ -1,7 +1,8 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719c
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719d
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
 # 플레이어 근접 공격은 무기 데미지 반영
+# 같은 팀 포탑이 남아 있으면 넥서스 공격 불가
 #
 # /넥서스
 # /넥서스소환 [blue|red]
@@ -18,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260719c" to player
+		send "&e넥서스 VER=20260719d (포탑 보호)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7/ &e/넥서스목록" to player
@@ -274,6 +275,11 @@ every 10 ticks:
 				if {_team} is "red":
 					set {_color} to "&c"
 					set {_label} to "레드 넥서스"
+				set {_shield} to 0
+				if {turret.count::%{_team}%} is set:
+					set {_shield} to {turret.count::%{_team}%}
+				if {_shield} > 0:
+					set {_label} to "%{_label}% &7(보호)"
 				set {_filled} to round(({_hp} / {_max}) * 10)
 				if {_filled} > 10:
 					set {_filled} to 10
@@ -306,6 +312,19 @@ on damage:
 			set {_dmg} to damage
 			cancel event
 			set {_team} to {nexus.team::%{_k}%}
+			# 같은 팀 포탑이 남아 있으면 공격 불가
+			set {_shield} to 0
+			loop {turret.list::*}:
+				if loop-value is set:
+					set {_tk} to "%uuid of loop-value%"
+					if {turret.team::%{_tk}%} is {_team}:
+						if {turret.hp::%{_tk}%} is set:
+							if {turret.hp::%{_tk}%} > 0:
+								add 1 to {_shield}
+			if {_shield} > 0:
+				if attacker is a player:
+					send action bar "&e포탑이 %{_shield}%개 남아 있어 넥서스를 공격할 수 없습니다!" to attacker
+				stop
 			if attacker is a player:
 				set {_ateam} to "blue"
 				if {turret.team.player::%uuid of attacker%} is set:

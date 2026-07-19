@@ -455,7 +455,7 @@ every 5 ticks:
 										set {_target} to {_e}
 										set {_best} to {_d}
 
-				# 3) 적 넥서스
+				# 3) 적 넥서스 (그 팀 포탑이 남아있으면 공격 불가)
 				if {_target} is not set:
 					set {_best} to 9999
 					loop all armor stands in radius 12 around {_m}:
@@ -464,10 +464,15 @@ every 5 ticks:
 						if {nexus.hp::%{_ek}%} is set:
 							if {nexus.team::%{_ek}%} is not {_team}:
 								if {nexus.hp::%{_ek}%} > 0:
-									set {_d} to distance between {_m} and {_e}
-									if {_d} < {_best}:
-										set {_target} to {_e}
-										set {_best} to {_d}
+									set {_nteam} to {nexus.team::%{_ek}%}
+									set {_shield} to 0
+									if {turret.count::%{_nteam}%} is set:
+										set {_shield} to {turret.count::%{_nteam}%}
+									if {_shield} <= 0:
+										set {_d} to distance between {_m} and {_e}
+										if {_d} < {_best}:
+											set {_target} to {_e}
+											set {_best} to {_d}
 
 				# 4) 적 플레이어
 				if {_target} is not set:
@@ -538,6 +543,12 @@ every 5 ticks:
 									kill {_target}
 							else:
 								if {nexus.hp::%{_ek}%} is set:
+									set {_nteam} to {nexus.team::%{_ek}%}
+									set {_shield} to 0
+									if {turret.count::%{_nteam}%} is set:
+										set {_shield} to {turret.count::%{_nteam}%}
+									if {_shield} > 0:
+										stop
 									set {_nhp} to {nexus.hp::%{_ek}%}
 									remove {_atk} from {_nhp}
 									if {_nhp} < 0:
@@ -547,11 +558,10 @@ every 5 ticks:
 										play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at {_target}
 										loop 12 times:
 											draw 1 flame at {_target}
-										if {nexus.team::%{_ek}%} is "blue":
+										if {_nteam} is "blue":
 											send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
-										if {nexus.team::%{_ek}%} is "red":
+										if {_nteam} is "red":
 											send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
-										set {_nteam} to {nexus.team::%{_ek}%}
 										remove {_target} from {nexus.list::*}
 										delete {nexus.hp::%{_ek}%}
 										delete {nexus.maxhp::%{_ek}%}
