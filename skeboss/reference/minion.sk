@@ -24,6 +24,7 @@ command /미니언:
 		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
 		send "&7포탑과 싸우려면 포탑.sk 도 최신으로 넣으세요" to player
+		send "&cminion.sk 와 미니언.sk 둘 다 있으면 삭제하세요 (하나만)" to player
 
 command /미니언팀 <text>:
 	trigger:
