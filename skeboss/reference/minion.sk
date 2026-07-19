@@ -1,4 +1,4 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719d
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719e
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
@@ -9,6 +9,8 @@
 # /미니언팀 <blue|red>
 # /미니언목표 [blue|red]
 # /미니언소환 [blue|red] [수]
+# /미니언소환 <blue|red> <x> <y> <z>
+# /미니언소환 <blue|red> <수> <x> <y> <z>
 # /미니언제거
 # /미니언전체제거
 # /미니언목록
@@ -19,10 +21,12 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719d (지면 이동)" to player
+		send "&e미니언 VER=20260719e (지면 이동)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
+		send "&e/미니언소환 <blue|red> <x> <y> <z>" to player
+		send "&e/미니언소환 <blue|red> <수> <x> <y> <z>" to player
 		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
 		send "&7포탑과 싸우려면 포탑.sk 도 최신으로 넣으세요" to player
@@ -116,12 +120,16 @@ command /미니언전체제거:
 		delete {minion.list::*}
 		send "&a미니언 %{_n}%마리 제거" to player
 
-command /미니언소환 [<text>] [<number>]:
+command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 	trigger:
 		set {_team} to "blue"
 		if {turret.team.player::%uuid of player%} is set:
 			set {_team} to {turret.team.player::%uuid of player%}
 		set {_amt} to 1
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
 		if arg-1 is set:
 			if arg-1 is "blue":
 				set {_team} to "blue"
@@ -130,17 +138,35 @@ command /미니언소환 [<text>] [<number>]:
 			if arg-1 is not "blue":
 				if arg-1 is not "red":
 					send "&c/미니언소환 [blue|red] [수]" to player
+					send "&c/미니언소환 <blue|red> <x> <y> <z>" to player
+					send "&c/미니언소환 <blue|red> <수> <x> <y> <z>" to player
 					stop
+		# 좌표: team x y z  또는  team 수 x y z
 		if arg-2 is set:
-			set {_amt} to arg-2
-			if {_amt} < 1:
-				set {_amt} to 1
-			if {_amt} > 20:
-				set {_amt} to 20
+			if arg-3 is set:
+				if arg-4 is set:
+					if arg-5 is set:
+						set {_amt} to arg-2
+						set {_wx} to arg-3
+						set {_wy} to arg-4
+						set {_wz} to arg-5
+					else:
+						set {_wx} to arg-2
+						set {_wy} to arg-3
+						set {_wz} to arg-4
+				else:
+					send "&c사용법: /미니언소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				set {_amt} to arg-2
+		if {_amt} < 1:
+			set {_amt} to 1
+		if {_amt} > 20:
+			set {_amt} to 20
+		set {_loc} to location({_wx}, {_wy}, {_wz}, {_ww})
 		if {minion.goal::%{_team}%} is not set:
 			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
 		loop {_amt} times:
-			set {_loc} to location of player
 			spawn zombie at {_loc}
 			set {_m} to last spawned entity
 			if {_m} is set:
@@ -150,7 +176,6 @@ command /미니언소환 [<text>] [<number>]:
 				add {_m} to {minion.list::*}
 				set max health of {_m} to 40
 				set health of {_m} to 40
-				# 바닐라 AI 끄기 (이상한 곳 배회 방지)
 				set AI of {_m} to false
 				if {_team} is "blue":
 					set name of {_m} to "&9&l블루 미니언"
@@ -159,7 +184,7 @@ command /미니언소환 [<text>] [<number>]:
 					set name of {_m} to "&c&l레드 미니언"
 					set helmet of {_m} to red wool
 				set chestplate of {_m} to leather chestplate
-		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환" to player
+		send "&a%{_team}% 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
 # 바닐라 타겟팅 차단
 on entity target:
