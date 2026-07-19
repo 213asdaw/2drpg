@@ -274,7 +274,7 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 				if {_team} is "red":
 					set {_color} to "&c"
 					set {_label} to "레드 원거리"
-					set helmet of {_m} to redstone lamp
+					set helmet of {_m} to redstone block
 				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f12&7/&712"
 				set chestplate of {_m} to chainmail chestplate
 				set tool of {_m} to bow
@@ -515,12 +515,8 @@ every 5 ticks:
 					if {_d} <= {_atkRange}:
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
-							if difference between {minion.next::%{_k}%} and now < 1.2 seconds:
+							if difference between {minion.next::%{_k}%} and now < 1 second:
 								set {_canHit} to false
-						if {minion.kind::%{_k}%} is "ranged":
-							if {minion.next::%{_k}%} is set:
-								if difference between {minion.next::%{_k}%} and now < 1.4 seconds:
-									set {_canHit} to false
 						if {_canHit} is true:
 							set {_ek} to "%uuid of {_target}%"
 							if {turret.hp::%{_ek}%} is set:
