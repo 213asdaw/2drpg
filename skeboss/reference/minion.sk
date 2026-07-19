@@ -1,10 +1,11 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719g
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719h
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동은 텔레포트(XZ만) — 공중 추적 안 함
 #       이름표에 체력바 표시 / 체력15 / 데미지2.5 / 겹침 방지
+#       적 넥서스 공격 (넥서스.sk 필요)
 #
 # /미니언
 # /미니언팀 <blue|red>
@@ -22,7 +23,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719g (HP15/DMG2.5)" to player
+		send "&e미니언 VER=20260719h (HP15/넥서스)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수]" to player
@@ -30,7 +31,7 @@ command /미니언:
 		send "&e/미니언소환 <blue|red> <수> <x> <y> <z>" to player
 		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
-		send "&7포탑과 싸우려면 포탑.sk 도 최신으로 넣으세요" to player
+		send "&7포탑.sk + 넥서스.sk 같이 넣으면 서로 싸움" to player
 		send "&cminion.sk 와 미니언.sk 둘 다 있으면 삭제하세요 (하나만)" to player
 
 command /미니언팀 <text>:
@@ -366,7 +367,21 @@ every 5 ticks:
 										set {_target} to {_e}
 										set {_best} to {_d}
 
-				# 3) 적 플레이어
+				# 3) 적 넥서스
+				if {_target} is not set:
+					set {_best} to 9999
+					loop all armor stands in radius 12 around {_m}:
+						set {_e} to loop-armor stand
+						set {_ek} to "%uuid of {_e}%"
+						if {nexus.hp::%{_ek}%} is set:
+							if {nexus.team::%{_ek}%} is not {_team}:
+								if {nexus.hp::%{_ek}%} > 0:
+									set {_d} to distance between {_m} and {_e}
+									if {_d} < {_best}:
+										set {_target} to {_e}
+										set {_best} to {_d}
+
+				# 4) 적 플레이어
 				if {_target} is not set:
 					set {_best} to 9999
 					loop all players in radius 10 around {_m}:
@@ -391,6 +406,15 @@ every 5 ticks:
 						set {_goal} to {minion.goal::%{_team}%}
 						if "%world of {_goal}%" is "%world of {_m}%":
 							set {_moveTo} to {_goal}
+					else:
+						# 목표 없으면 적 넥서스로
+						loop {nexus.list::*}:
+							if loop-value is set:
+								set {_nk} to "%uuid of loop-value%"
+								if {nexus.team::%{_nk}%} is set:
+									if {nexus.team::%{_nk}%} is not {_team}:
+										if {nexus.hp::%{_nk}%} > 0:
+											set {_moveTo} to loop-value
 
 				if {_target} is set:
 					set {_d} to distance between {_m} and {_target}
@@ -419,7 +443,28 @@ every 5 ticks:
 									delete {turret.alive::%{_ek}%}
 									kill {_target}
 							else:
-								damage {_target} by 2.5
+								if {nexus.hp::%{_ek}%} is set:
+									set {_nhp} to {nexus.hp::%{_ek}%}
+									remove 2.5 from {_nhp}
+									if {_nhp} < 0:
+										set {_nhp} to 0
+									set {nexus.hp::%{_ek}%} to {_nhp}
+									if {_nhp} <= 0:
+										play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at {_target}
+										loop 12 times:
+											draw 1 flame at {_target}
+										if {nexus.team::%{_ek}%} is "blue":
+											send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
+										if {nexus.team::%{_ek}%} is "red":
+											send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
+										remove {_target} from {nexus.list::*}
+										delete {nexus.hp::%{_ek}%}
+										delete {nexus.maxhp::%{_ek}%}
+										delete {nexus.team::%{_ek}%}
+										delete {nexus.alive::%{_ek}%}
+										kill {_target}
+								else:
+									damage {_target} by 2.5
 							if {_team} is "blue":
 								draw 2 happy villager at {_target}
 							if {_team} is "red":
