@@ -303,15 +303,16 @@ every 10 ticks:
 				loop all players in radius 20 around {_n}:
 					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
-on damage:
+on damage with priority lowest:
 	if victim is not set:
 		stop
 	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {nexus.hp::%{_k}%} is set:
-			set {_dmg} to damage
+			set {_raw} to damage
 			cancel event
 			set {_team} to {nexus.team::%{_k}%}
+			set {_dmg} to {_raw}
 			# 같은 팀 포탑이 남아 있으면 공격 불가
 			set {_shield} to 0
 			loop {turret.list::*}:
@@ -332,36 +333,41 @@ on damage:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
 					stop
-				if {_dmg} <= 1.5:
-					set {_tool} to tool of attacker
-					set {_wd} to 1
-					if {_tool} is a wooden sword:
-						set {_wd} to 4
-					if {_tool} is a golden sword:
-						set {_wd} to 4
-					if {_tool} is a stone sword:
-						set {_wd} to 5
-					if {_tool} is an iron sword:
-						set {_wd} to 6
-					if {_tool} is a diamond sword:
-						set {_wd} to 7
-					if {_tool} is a netherite sword:
-						set {_wd} to 8
-					if {_tool} is a wooden axe:
-						set {_wd} to 7
-					if {_tool} is a golden axe:
-						set {_wd} to 7
-					if {_tool} is a stone axe:
-						set {_wd} to 9
-					if {_tool} is an iron axe:
-						set {_wd} to 9
-					if {_tool} is a diamond axe:
-						set {_wd} to 9
-					if {_tool} is a netherite axe:
-						set {_wd} to 10
-					if {_tool} is a trident:
-						set {_wd} to 9
-					set {_dmg} to {_wd}
+				set {_tool} to tool of attacker
+				set {_wd} to 1
+				if {_tool} is a wooden sword:
+					set {_wd} to 4
+				if {_tool} is a golden sword:
+					set {_wd} to 4
+				if {_tool} is a stone sword:
+					set {_wd} to 5
+				if {_tool} is an iron sword:
+					set {_wd} to 6
+				if {_tool} is a diamond sword:
+					set {_wd} to 7
+				if {_tool} is a netherite sword:
+					set {_wd} to 8
+				if {_tool} is a wooden axe:
+					set {_wd} to 7
+				if {_tool} is a golden axe:
+					set {_wd} to 7
+				if {_tool} is a stone axe:
+					set {_wd} to 9
+				if {_tool} is an iron axe:
+					set {_wd} to 9
+				if {_tool} is a diamond axe:
+					set {_wd} to 9
+				if {_tool} is a netherite axe:
+					set {_wd} to 10
+				if {_tool} is a trident:
+					set {_wd} to 9
+				if {_raw} > {_wd}:
+					set {_dmg} to {_raw}
+				else:
+					set {_bonus} to {_raw} - 1
+					if {_bonus} < 0:
+						set {_bonus} to 0
+					set {_dmg} to {_wd} + {_bonus}
 			if attacker is an armor stand:
 				set {_ak} to "%uuid of attacker%"
 				if {nexus.team::%{_ak}%} is set:
