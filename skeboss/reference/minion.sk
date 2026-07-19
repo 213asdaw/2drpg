@@ -1,9 +1,9 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719k
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260719l
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
-#       이동은 텔레포트(XZ만) — 공중 추적 안 함
+#       이동은 텔레포트(XZ만) — 공중 추적 안 함 / 타겟·목표 바라보기
 #       이름표에 체력바 표시 / 근접HP15 DMG2.5 / 원거리HP12 DMG2.0
 #       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
 #       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
@@ -27,7 +27,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719k (근접+원거리)" to player
+		send "&e미니언 VER=20260719l (바라보기)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
@@ -518,6 +518,10 @@ every 5 ticks:
 						set {_atk} to 2
 						set {_hold} to 4.8
 					if {_d} <= {_atkRange}:
+						# 타겟 바라보기
+						set {_dir} to direction from {_m} to {_target}
+						set yaw of {_m} to yaw of {_dir}
+						set pitch of {_m} to 0
 						set {_canHit} to true
 						if {minion.next::%{_k}%} is set:
 							if difference between {minion.next::%{_k}%} and now < 1 second:
@@ -620,6 +624,10 @@ every 5 ticks:
 										set {_sep} to true
 						if {_sep} is true:
 							set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+							set {_face} to location((x-coordinate of {_target}), {_my}, (z-coordinate of {_target}), {_mw})
+							set {_dir} to direction from {_dest} to {_face}
+							set yaw of {_dest} to yaw of {_dir}
+							set pitch of {_dest} to 0
 							teleport {_m} to {_dest}
 					else:
 						# XZ만 추적 (Y 따라가면 공중 비행함)
@@ -664,6 +672,10 @@ every 5 ticks:
 										set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
 										set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
 						set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
+						set {_face} to location({_tx}, {_ny}, {_tz}, {_mw})
+						set {_dir} to direction from {_dest} to {_face}
+						set yaw of {_dest} to yaw of {_dir}
+						set pitch of {_dest} to 0
 						teleport {_m} to {_dest}
 				else:
 					if {_moveTo} is set:
@@ -708,9 +720,16 @@ every 5 ticks:
 											set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
 											set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
 							set {_dest} to location({_nx}, {_ny}, {_nz}, {_mw})
+							set {_face} to location({_tx}, {_ny}, {_tz}, {_mw})
+							set {_dir} to direction from {_dest} to {_face}
+							set yaw of {_dest} to yaw of {_dir}
+							set pitch of {_dest} to 0
 							teleport {_m} to {_dest}
 						else:
-							# 목표 근처에서도 겹침 방지
+							# 목표 근처: 목표는 바라보고, 겹치면 밀어냄
+							set {_dir} to direction from {_m} to {_moveTo}
+							set yaw of {_m} to yaw of {_dir}
+							set pitch of {_m} to 0
 							set {_nx} to {_mx}
 							set {_nz} to {_mz}
 							set {_sep} to false
@@ -732,4 +751,8 @@ every 5 ticks:
 											set {_sep} to true
 							if {_sep} is true:
 								set {_dest} to location({_nx}, {_my}, {_nz}, {_mw})
+								set {_face} to location({_tx}, {_my}, {_tz}, {_mw})
+								set {_dir} to direction from {_dest} to {_face}
+								set yaw of {_dest} to yaw of {_dir}
+								set pitch of {_dest} to 0
 								teleport {_m} to {_dest}
