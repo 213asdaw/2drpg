@@ -1,10 +1,10 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260719r
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260720b
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
 #       예전 minion.sk 는 삭제하고 이 파일만 남기세요
 #       이동: XZ텔레포트 + 낙하(중력) + 막히면 옆돌/1단점프 / yaw
-#       이름표에 체력바 표시 / 근접HP30 DMG2.5 / 원거리HP20 DMG2.0
+#       체력/딜: {근거리미니언체력}/{근거리미니언공격력}, {원거리미니언체력}/{원거리미니언공격력}
 #       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
 #       중첩루프는 loop-value-2 사용 (미니언=좀비라 loop-zombie 겹침)
 #
@@ -28,7 +28,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260719r (낙하+옆돌기)" to player
+		send "&e미니언 VER=20260720b (낙하+옆돌기)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
@@ -38,7 +38,17 @@ command /미니언:
 		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
 		send "&e/미니언목록" to player
 		send "&7포탑.sk + 넥서스.sk 같이 넣으면 서로 싸움" to player
+		send "&7스탯: &f{근거리미니언체력}&7/&f{근거리미니언공격력}&7 , &f{원거리미니언체력}&7/&f{원거리미니언공격력}" to player
 		send "&cminion.sk 와 미니언.sk 둘 다 있으면 삭제하세요 (하나만)" to player
+		if {근거리미니언체력} is not set:
+			set {근거리미니언체력} to 30
+		if {근거리미니언공격력} is not set:
+			set {근거리미니언공격력} to 2.5
+		if {원거리미니언체력} is not set:
+			set {원거리미니언체력} to 20
+		if {원거리미니언공격력} is not set:
+			set {원거리미니언공격력} to 2
+		send "&7현재 근거리 HP&f%{근거리미니언체력}%&7 딜&f%{근거리미니언공격력}% &7| 원거리 HP&f%{원거리미니언체력}%&7 딜&f%{원거리미니언공격력}%" to player
 
 command /미니언팀 <text>:
 	trigger:
@@ -192,9 +202,14 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				set {minion.alive::%{_k}%} to true
 				set {minion.kind::%{_k}%} to "melee"
 				add {_m} to {minion.list::*}
-				set max health of {_m} to 30
-				set health of {_m} to 30
-				set {minion.maxhp::%{_k}%} to 30
+				if {근거리미니언체력} is not set:
+					set {근거리미니언체력} to 30
+				if {근거리미니언공격력} is not set:
+					set {근거리미니언공격력} to 2.5
+				set {_hpstat} to {근거리미니언체력}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
+				set {minion.maxhp::%{_k}%} to {_hpstat}
 				set AI of {_m} to false
 				set {_color} to "&9"
 				set {_label} to "블루 근접미니언"
@@ -204,7 +219,7 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 					set {_color} to "&c"
 					set {_label} to "레드 근접미니언"
 					set helmet of {_m} to red wool
-				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f30&7/&730"
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f%{_hpstat}%&7/&7%{_hpstat}%"
 				set chestplate of {_m} to leather chestplate
 				set tool of {_m} to iron sword
 		send "&a%{_team}% 근접 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
@@ -266,9 +281,14 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 				set {minion.alive::%{_k}%} to true
 				set {minion.kind::%{_k}%} to "ranged"
 				add {_m} to {minion.list::*}
-				set max health of {_m} to 20
-				set health of {_m} to 20
-				set {minion.maxhp::%{_k}%} to 20
+				if {원거리미니언체력} is not set:
+					set {원거리미니언체력} to 20
+				if {원거리미니언공격력} is not set:
+					set {원거리미니언공격력} to 2
+				set {_hpstat} to {원거리미니언체력}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
+				set {minion.maxhp::%{_k}%} to {_hpstat}
 				set AI of {_m} to false
 				set {_color} to "&9"
 				set {_label} to "블루 원거리미니언"
@@ -278,7 +298,7 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 					set {_color} to "&c"
 					set {_label} to "레드 원거리미니언"
 					set helmet of {_m} to redstone block
-				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f20&7/&720"
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f%{_hpstat}%&7/&7%{_hpstat}%"
 				set chestplate of {_m} to chainmail chestplate
 				set tool of {_m} to bow
 		send "&a%{_team}% 원거리 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
@@ -466,38 +486,44 @@ every 5 ticks:
 														set {_target} to {_e}
 														set {_best} to {_d}
 
-					# 2) 적 포탑
+					# 2) 적 포탑 (리스트 기준 — skeleton/armorstand 타입 무관)
 					if {_target} is not set:
 						set {_best} to 9999
-						loop all skeletons in radius 10 around {_m}:
-							set {_e} to loop-skeleton
-							set {_ek} to "%uuid of {_e}%"
-							if {turret.hp::%{_ek}%} is set:
-								if {turret.team::%{_ek}%} is not {_team}:
-									if {turret.hp::%{_ek}%} > 0:
-										set {_d} to distance between {_m} and {_e}
-										if {_d} < {_best}:
-											set {_target} to {_e}
-											set {_best} to {_d}
+						loop {turret.list::*}:
+							set {_e} to loop-value-2
+							if {_e} is set:
+								set {_ek} to "%uuid of {_e}%"
+								if {turret.hp::%{_ek}%} is set:
+									if {turret.team::%{_ek}%} is not {_team}:
+										if {turret.hp::%{_ek}%} > 0:
+											if "%world of {_e}%" is "%world of {_m}%":
+												set {_d} to distance between {_m} and {_e}
+												if {_d} <= 14:
+													if {_d} < {_best}:
+														set {_target} to {_e}
+														set {_best} to {_d}
 
 					# 3) 적 넥서스 (그 팀 포탑이 남아있으면 공격 불가)
 					if {_target} is not set:
 						set {_best} to 9999
-						loop all skeletons in radius 12 around {_m}:
-							set {_e} to loop-skeleton
-							set {_ek} to "%uuid of {_e}%"
-							if {nexus.hp::%{_ek}%} is set:
-								if {nexus.team::%{_ek}%} is not {_team}:
-									if {nexus.hp::%{_ek}%} > 0:
-										set {_nteam} to {nexus.team::%{_ek}%}
-										set {_shield} to 0
-										if {turret.count::%{_nteam}%} is set:
-											set {_shield} to {turret.count::%{_nteam}%}
-										if {_shield} <= 0:
-											set {_d} to distance between {_m} and {_e}
-											if {_d} < {_best}:
-												set {_target} to {_e}
-												set {_best} to {_d}
+						loop {nexus.list::*}:
+							set {_e} to loop-value-2
+							if {_e} is set:
+								set {_ek} to "%uuid of {_e}%"
+								if {nexus.hp::%{_ek}%} is set:
+									if {nexus.team::%{_ek}%} is not {_team}:
+										if {nexus.hp::%{_ek}%} > 0:
+											set {_nteam} to {nexus.team::%{_ek}%}
+											set {_shield} to 0
+											if {turret.count::%{_nteam}%} is set:
+												set {_shield} to {turret.count::%{_nteam}%}
+											if {_shield} <= 0:
+												if "%world of {_e}%" is "%world of {_m}%":
+													set {_d} to distance between {_m} and {_e}
+													if {_d} <= 16:
+														if {_d} < {_best}:
+															set {_target} to {_e}
+															set {_best} to {_d}
 
 					# 4) 적 플레이어
 					if {_target} is not set:
@@ -537,10 +563,14 @@ every 5 ticks:
 						set {_d} to distance between {_m} and {_target}
 						set {_atkRange} to 2.3
 						set {_atk} to 2.5
+						if {근거리미니언공격력} is set:
+							set {_atk} to {근거리미니언공격력}
 						set {_hold} to 0
 						if {minion.kind::%{_k}%} is "ranged":
 							set {_atkRange} to 7.5
 							set {_atk} to 2
+							if {원거리미니언공격력} is set:
+								set {_atk} to {원거리미니언공격력}
 							set {_hold} to 4.8
 						if {_d} <= {_atkRange}:
 							# 타겟 바라보기 (direction from 미지원 → vector yaw)
