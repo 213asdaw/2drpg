@@ -1,4 +1,4 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720a
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720e
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
 # 플레이어 공격 damage 값을 그대로 반영
@@ -19,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260720a (포탑 보호)" to player
+		send "&e넥서스 VER=20260720e (포탑 보호)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -119,9 +119,10 @@ command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 		set {nexus.team::%{_k}%} to {_team}
 		set {nexus.alive::%{_k}%} to true
 		set {nexus.stand::%{_team}%} to {_stand}
-		set chestplate of {_stand} to diamond chestplate
-		set leggings of {_stand} to diamond leggings
-		set boots of {_stand} to diamond boots
+		# 갑옷 있으면 데미지가 거의 안 들어감 → 헬멧만
+		set chestplate of {_stand} to air
+		set leggings of {_stand} to air
+		set boots of {_stand} to air
 		set {_color} to "&9"
 		set {_label} to "블루 넥서스"
 		if {_team} is "blue":
@@ -267,6 +268,9 @@ every 10 ticks:
 				extinguish {_n}
 				set AI of {_n} to false
 				set gravity of {_n} to false
+				set chestplate of {_n} to air
+				set leggings of {_n} to air
+				set boots of {_n} to air
 				set {_hp} to {nexus.hp::%{_k}%}
 				set {_max} to {nexus.maxhp::%{_k}%}
 				set {_team} to {nexus.team::%{_k}%}

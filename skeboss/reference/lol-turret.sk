@@ -136,9 +136,10 @@ command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
 		set {_k} to "%uuid of {_stand}%"
 		set AI of {_stand} to false
 		set gravity of {_stand} to false
-		set chestplate of {_stand} to iron chestplate
-		set leggings of {_stand} to iron leggings
-		set boots of {_stand} to iron boots
+		# 갑옷 있으면 바닐라 데미지가 0.5 등으로 깎여 실딜 반영 안 됨 → 헬멧만
+		set chestplate of {_stand} to air
+		set leggings of {_stand} to air
+		set boots of {_stand} to air
 		set {turret.hp::%{_k}%} to 300
 		set {turret.maxhp::%{_k}%} to 300
 		set {turret.team::%{_k}%} to {_team}
@@ -169,6 +170,9 @@ every 10 ticks:
 				extinguish {_t}
 				set AI of {_t} to false
 				set gravity of {_t} to false
+				set chestplate of {_t} to air
+				set leggings of {_t} to air
+				set boots of {_t} to air
 				set {_team} to {turret.team::%{_k}%}
 				delete {_teamOk}
 				if {_team} is "blue":
