@@ -307,7 +307,6 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 		send "&a%{_team}% 원거리 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
 # 바닐라 타겟팅 차단
-# 바닐라 타겟팅 차단
 on entity target:
 	set {_k} to "%uuid of entity%"
 	if {minion.alive::%{_k}%} is set:
