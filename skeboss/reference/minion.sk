@@ -469,8 +469,8 @@ every 5 ticks:
 					# 2) 적 포탑
 					if {_target} is not set:
 						set {_best} to 9999
-						loop all armor stands in radius 10 around {_m}:
-							set {_e} to loop-armor stand
+						loop all skeletons in radius 10 around {_m}:
+							set {_e} to loop-skeleton
 							set {_ek} to "%uuid of {_e}%"
 							if {turret.hp::%{_ek}%} is set:
 								if {turret.team::%{_ek}%} is not {_team}:
@@ -483,8 +483,8 @@ every 5 ticks:
 					# 3) 적 넥서스 (그 팀 포탑이 남아있으면 공격 불가)
 					if {_target} is not set:
 						set {_best} to 9999
-						loop all armor stands in radius 12 around {_m}:
-							set {_e} to loop-armor stand
+						loop all skeletons in radius 12 around {_m}:
+							set {_e} to loop-skeleton
 							set {_ek} to "%uuid of {_e}%"
 							if {nexus.hp::%{_ek}%} is set:
 								if {nexus.team::%{_ek}%} is not {_team}:

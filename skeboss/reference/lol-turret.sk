@@ -12,7 +12,7 @@
 # 기본 우선순위: 적 미니언 > 적 포탑 > 적 플레이어
 # 플레이어 어그로: 적 플레이어가 아군을 때렸을 때만 (포탑만 때린다고 안 붙음)
 # 미니언과 싸우려면 minion.sk 도 같이 넣으세요
-# 아머스탠드 피격: 무기딜 + 증강(이벤트 damage 보너스) 합산 (priority lowest)
+# 스켈레톤 구조물 피격: 실제 플레이어 damage 값을 그대로 반영
 
 command /포탑:
 	trigger:
@@ -131,9 +131,13 @@ command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
 			else:
 				send "&c사용법: /포탑소환 <blue|red> <x> <y> <z>" to player
 				stop
-		spawn armor stand at {_loc}
+		spawn skeleton at {_loc}
 		set {_stand} to last spawned entity
 		set {_k} to "%uuid of {_stand}%"
+		set AI of {_stand} to false
+		set gravity of {_stand} to false
+		set silent of {_stand} to true
+		set can pick up items of {_stand} to false
 		set chestplate of {_stand} to iron chestplate
 		set leggings of {_stand} to iron leggings
 		set boots of {_stand} to iron boots
@@ -164,6 +168,10 @@ every 10 ticks:
 			if {turret.alive::%{_k}%} is not set:
 				remove {_t} from {turret.list::*}
 			if {turret.alive::%{_k}%} is set:
+				extinguish {_t}
+				set AI of {_t} to false
+				set gravity of {_t} to false
+				set silent of {_t} to true
 				set {_team} to {turret.team::%{_k}%}
 				delete {_teamOk}
 				if {_team} is "blue":
@@ -220,8 +228,8 @@ every 10 ticks:
 						# 2) 적 포탑
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all armor stands in radius 12 around {_t}:
-								set {_e} to loop-armor stand
+							loop all skeletons in radius 12 around {_t}:
+								set {_e} to loop-skeleton
 								if {_e} is not {_t}:
 									set {_ek} to "%uuid of {_e}%"
 									if {turret.hp::%{_ek}%} is set:
@@ -379,11 +387,9 @@ every 20 ticks:
 on damage with priority lowest:
 	if victim is not set:
 		stop
-	if victim is an armor stand:
+	if victim is a skeleton:
 		set {_k} to "%uuid of victim%"
 		if {turret.hp::%{_k}%} is set:
-			# 아머스탠드 기본 이벤트딜≈1. 증강이 damage 를 올린 뒤(lowest)에
-			# 무기 기본딜 + (이벤트딜-1) 보너스를 합산
 			set {_raw} to damage
 			cancel event
 			set {_team} to {turret.team::%{_k}%}
@@ -395,74 +401,10 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 포탑은 공격할 수 없습니다." to attacker
 					stop
-				set {_tool} to tool of attacker
-				set {_wd} to 1
-				if {_tool} is a wooden sword:
-					set {_wd} to 4
-				if {_tool} is a golden sword:
-					set {_wd} to 4
-				if {_tool} is a stone sword:
-					set {_wd} to 5
-				if {_tool} is an iron sword:
-					set {_wd} to 6
-				if {_tool} is a diamond sword:
-					set {_wd} to 7
-				if {_tool} is a netherite sword:
-					set {_wd} to 8
-				if {_tool} is a wooden axe:
-					set {_wd} to 7
-				if {_tool} is a golden axe:
-					set {_wd} to 7
-				if {_tool} is a stone axe:
-					set {_wd} to 9
-				if {_tool} is an iron axe:
-					set {_wd} to 9
-				if {_tool} is a diamond axe:
-					set {_wd} to 9
-				if {_tool} is a netherite axe:
-					set {_wd} to 10
-				if {_tool} is a wooden pickaxe:
-					set {_wd} to 2
-				if {_tool} is a stone pickaxe:
-					set {_wd} to 3
-				if {_tool} is an iron pickaxe:
-					set {_wd} to 4
-				if {_tool} is a diamond pickaxe:
-					set {_wd} to 5
-				if {_tool} is a netherite pickaxe:
-					set {_wd} to 6
-				if {_tool} is a wooden shovel:
-					set {_wd} to 2
-				if {_tool} is a stone shovel:
-					set {_wd} to 3
-				if {_tool} is an iron shovel:
-					set {_wd} to 4
-				if {_tool} is a diamond shovel:
-					set {_wd} to 5
-				if {_tool} is a netherite shovel:
-					set {_wd} to 6
-				if {_tool} is a wooden hoe:
-					set {_wd} to 1
-				if {_tool} is a stone hoe:
-					set {_wd} to 1
-				if {_tool} is an iron hoe:
-					set {_wd} to 1
-				if {_tool} is a diamond hoe:
-					set {_wd} to 1
-				if {_tool} is a netherite hoe:
-					set {_wd} to 1
-				if {_tool} is a trident:
-					set {_wd} to 9
-				# 이벤트딜이 무기딜보다 크면 증강이 통째로 넣음 → 그대로
-				# 아니면 무기딜 + (이벤트-1) = 바닐라AS 1 위에 붙은 증강분
-				if {_raw} > {_wd}:
-					set {_dmg} to {_raw}
-				else:
-					set {_bonus} to {_raw} - 1
-					if {_bonus} < 0:
-						set {_bonus} to 0
-					set {_dmg} to {_wd} + {_bonus}
-			if attacker is an armor stand:
+				if {_raw} < 0:
+					set {_raw} to 0
+				set {_dmg} to {_raw}
+			if attacker is a skeleton:
 				set {_ak} to "%uuid of attacker%"
 				if {turret.team::%{_ak}%} is set:
 					if {turret.team::%{_ak}%} is {_team}:
@@ -532,8 +474,8 @@ on damage with priority lowest:
 			if {turret.team.player::%uuid of attacker%} is set:
 				set {_ateam} to {turret.team.player::%uuid of attacker%}
 			if {_ateam} is not {_vteam}:
-				loop all armor stands in radius 12 around victim:
-					set {_k} to "%uuid of loop-armor stand%"
+				loop all skeletons in radius 12 around victim:
+					set {_k} to "%uuid of loop-skeleton%"
 					if {turret.hp::%{_k}%} is set:
 						if {turret.team::%{_k}%} is {_vteam}:
 							set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"

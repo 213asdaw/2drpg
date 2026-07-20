@@ -1,7 +1,7 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260719d
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720a
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
-# 플레이어 근접 공격은 무기 데미지 반영
+# 플레이어 공격 damage 값을 그대로 반영
 # 같은 팀 포탑이 남아 있으면 넥서스 공격 불가
 #
 # /넥서스
@@ -19,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260719d (포탑 보호)" to player
+		send "&e넥서스 VER=20260720a (포탑 보호)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -109,9 +109,13 @@ command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 					send "&c이미 %{_team}% 넥서스가 있습니다. /넥서스제거 후 다시" to player
 					stop
 		set {_loc} to location({_wx}, {_wy}, {_wz}, {_ww})
-		spawn armor stand at {_loc}
+		spawn skeleton at {_loc}
 		set {_stand} to last spawned entity
 		set {_k} to "%uuid of {_stand}%"
+		set AI of {_stand} to false
+		set gravity of {_stand} to false
+		set silent of {_stand} to true
+		set can pick up items of {_stand} to false
 		set {nexus.hp::%{_k}%} to 800
 		set {nexus.maxhp::%{_k}%} to 800
 		set {nexus.team::%{_k}%} to {_team}
@@ -262,6 +266,10 @@ every 10 ticks:
 		if {_n} is set:
 			set {_k} to "%uuid of {_n}%"
 			if {nexus.alive::%{_k}%} is set:
+				extinguish {_n}
+				set AI of {_n} to false
+				set gravity of {_n} to false
+				set silent of {_n} to true
 				set {_hp} to {nexus.hp::%{_k}%}
 				set {_max} to {nexus.maxhp::%{_k}%}
 				set {_team} to {nexus.team::%{_k}%}
@@ -301,7 +309,7 @@ every 10 ticks:
 on damage with priority lowest:
 	if victim is not set:
 		stop
-	if victim is an armor stand:
+	if victim is a skeleton:
 		set {_k} to "%uuid of victim%"
 		if {nexus.hp::%{_k}%} is set:
 			set {_raw} to damage
@@ -328,42 +336,10 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
 					stop
-				set {_tool} to tool of attacker
-				set {_wd} to 1
-				if {_tool} is a wooden sword:
-					set {_wd} to 4
-				if {_tool} is a golden sword:
-					set {_wd} to 4
-				if {_tool} is a stone sword:
-					set {_wd} to 5
-				if {_tool} is an iron sword:
-					set {_wd} to 6
-				if {_tool} is a diamond sword:
-					set {_wd} to 7
-				if {_tool} is a netherite sword:
-					set {_wd} to 8
-				if {_tool} is a wooden axe:
-					set {_wd} to 7
-				if {_tool} is a golden axe:
-					set {_wd} to 7
-				if {_tool} is a stone axe:
-					set {_wd} to 9
-				if {_tool} is an iron axe:
-					set {_wd} to 9
-				if {_tool} is a diamond axe:
-					set {_wd} to 9
-				if {_tool} is a netherite axe:
-					set {_wd} to 10
-				if {_tool} is a trident:
-					set {_wd} to 9
-				if {_raw} > {_wd}:
-					set {_dmg} to {_raw}
-				else:
-					set {_bonus} to {_raw} - 1
-					if {_bonus} < 0:
-						set {_bonus} to 0
-					set {_dmg} to {_wd} + {_bonus}
-			if attacker is an armor stand:
+				if {_raw} < 0:
+					set {_raw} to 0
+				set {_dmg} to {_raw}
+			if attacker is a skeleton:
 				set {_ak} to "%uuid of attacker%"
 				if {nexus.team::%{_ak}%} is set:
 					if {nexus.team::%{_ak}%} is {_team}:
