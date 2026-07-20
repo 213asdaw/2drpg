@@ -19,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260720e (포탑 보호)" to player
+		send "&e넥서스 VER=20260720e (실데미지/무갑옷)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
