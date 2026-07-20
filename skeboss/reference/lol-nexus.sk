@@ -1,4 +1,4 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720g
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720h
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
 # 아머스탠드 / 플레이어 피격 = {공격력::%player%}
@@ -19,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260720g (아머스탠드/공격력)" to player
+		send "&e넥서스 VER=20260720h (아머스탠드/공격력)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -300,16 +300,16 @@ every 10 ticks:
 				loop all players in radius 20 around {_n}:
 					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
-on damage with priority lowest:
+on damage:
 	if victim is not set:
 		stop
 	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {nexus.hp::%{_k}%} is set:
+			# 미니언과 동일: {공격력::%player%}
 			cancel event
 			set {_team} to {nexus.team::%{_k}%}
 			set {_dmg} to 1
-			# 같은 팀 포탑이 남아 있으면 공격 불가
 			set {_shield} to 0
 			loop {turret.list::*}:
 				if loop-value is set:
@@ -329,7 +329,6 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
 					stop
-				# 스탯 {공격력::%player%}
 				if {공격력::%attacker%} is set:
 					set {_dmg} to {공격력::%attacker%}
 				else:

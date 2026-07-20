@@ -1,4 +1,4 @@
-# 롤 스타일 미니언 (구버전 Skript)  VER=20260720g
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260720h
 # plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
 #
 # 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
@@ -6,7 +6,7 @@
 #       이동: XZ텔레포트 + 낙하(중력) + 막히면 옆돌/1단점프 / yaw
 #       체력/딜: {근거리미니언체력}/{근거리미니언공격력}, {원거리미니언체력}/{원거리미니언공격력}
 #       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
-#       아머스탠드 미니언 / 플레이어 피격 = {공격력::%player%}
+#       좀비 미니언 + 이름표 체력바 / 플레이어 피격 = {공격력::%player%}
 #       중첩루프는 loop-value-2 사용
 #
 # /미니언
@@ -29,7 +29,7 @@
 
 command /미니언:
 	trigger:
-		send "&e미니언 VER=20260720g (낙하+옆돌기)" to player
+		send "&e미니언 VER=20260720h (좀비/공격력/체력바)" to player
 		send "&e/미니언팀 <blue|red>" to player
 		send "&e/미니언목표 [blue|red]" to player
 		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
@@ -197,7 +197,7 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 			set {_sx} to {_wx} + {_off}
 			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
 			add 1.2 to {_off}
-			spawn armor stand at {_loc}
+			spawn zombie at {_loc}
 			set {_m} to last spawned entity
 			if {_m} is set:
 				set {_k} to "%uuid of {_m}%"
@@ -210,9 +210,10 @@ command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
 				if {근거리미니언공격력} is not set:
 					set {근거리미니언공격력} to 2.5
 				set {_hpstat} to {근거리미니언체력}
-				set {minion.hp::%{_k}%} to {_hpstat}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
 				set {minion.maxhp::%{_k}%} to {_hpstat}
-				set gravity of {_m} to false
+				set AI of {_m} to false
 				set {_color} to "&9"
 				set {_label} to "블루 근접미니언"
 				if {_team} is "blue":
@@ -275,7 +276,7 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 			set {_sx} to {_wx} + {_off}
 			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
 			add 1.2 to {_off}
-			spawn armor stand at {_loc}
+			spawn zombie at {_loc}
 			set {_m} to last spawned entity
 			if {_m} is set:
 				set {_k} to "%uuid of {_m}%"
@@ -288,9 +289,10 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 				if {원거리미니언공격력} is not set:
 					set {원거리미니언공격력} to 2
 				set {_hpstat} to {원거리미니언체력}
-				set {minion.hp::%{_k}%} to {_hpstat}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
 				set {minion.maxhp::%{_k}%} to {_hpstat}
-				set gravity of {_m} to false
+				set AI of {_m} to false
 				set {_color} to "&9"
 				set {_label} to "블루 원거리미니언"
 				if {_team} is "blue":
@@ -305,6 +307,12 @@ command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<nu
 		send "&a%{_team}% 원거리 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
 
 # 바닐라 타겟팅 차단
+# 바닐라 타겟팅 차단
+on entity target:
+	set {_k} to "%uuid of entity%"
+	if {minion.alive::%{_k}%} is set:
+		cancel event
+
 on damage:
 	if attacker is not set:
 		stop
@@ -313,62 +321,45 @@ on damage:
 	set {_ak} to "%uuid of attacker%"
 	set {_vk} to "%uuid of victim%"
 
-	# 아머스탠드 미니언 피격
-	if victim is an armor stand:
-		if {minion.alive::%{_vk}%} is set:
-			cancel event
-			set {_mteam} to {minion.team::%{_vk}%}
-			set {_dmg} to 1
-			if attacker is a player:
-				set {_ateam} to "blue"
-				if {turret.team.player::%uuid of attacker%} is set:
-					set {_ateam} to {turret.team.player::%uuid of attacker%}
-				if {_ateam} is {_mteam}:
-					send action bar "&7아군 미니언은 공격할 수 없습니다." to attacker
-					stop
-				# 스탯 {공격력::%player%}
-				if {공격력::%attacker%} is set:
-					set {_dmg} to {공격력::%attacker%}
-				else:
-					set {_dmg} to 1
-				set {minion.aggro.id::%{_vk}%} to "%uuid of attacker%"
-				set {minion.aggro.until::%{_vk}%} to now
-			if attacker is an armor stand:
-				if {minion.alive::%{_ak}%} is set:
-					if {minion.team::%{_ak}%} is {_mteam}:
-						stop
-					# 미니언→미니언 데미지는 AI에서 직접 깎음
-					stop
-				if {turret.team::%{_ak}%} is set:
-					if {turret.team::%{_ak}%} is {_mteam}:
-						stop
-			if {_dmg} < 0:
-				set {_dmg} to 0
-			set {_hp} to {minion.hp::%{_vk}%}
-			if {_hp} is not set:
-				set {_hp} to {minion.maxhp::%{_vk}%}
-			remove {_dmg} from {_hp}
-			if {_hp} < 0:
-				set {_hp} to 0
-			set {minion.hp::%{_vk}%} to {_hp}
-			if {_hp} <= 0:
-				remove victim from {minion.list::*}
-				delete {minion.team::%{_vk}%}
-				delete {minion.alive::%{_vk}%}
-				delete {minion.hp::%{_vk}%}
-				delete {minion.maxhp::%{_vk}%}
-				delete {minion.kind::%{_vk}%}
-				delete {minion.next::%{_vk}%}
-				delete {minion.aggro.id::%{_vk}%}
-				delete {minion.aggro.until::%{_vk}%}
-				delete {minion.side::%{_vk}%}
-				draw 6 cloud at victim
-				kill victim
-			stop
-
-	# 미니언이 가해자 → 아군 플레이어 보호
+	# 미니언끼리 아군 피해 차단
 	if {minion.alive::%{_ak}%} is set:
+		if {minion.alive::%{_vk}%} is set:
+			set {_ateam} to {minion.team::%{_ak}%}
+			set {_vteam} to {minion.team::%{_vk}%}
+			if {_ateam} is set:
+				if {_vteam} is set:
+					if {_ateam} is {_vteam}:
+						cancel event
+						stop
+
+	# 미니언이 피격
+	if {minion.alive::%{_vk}%} is set:
+		set {_mteam} to {minion.team::%{_vk}%}
+		if attacker is a player:
+			set {_ateam} to "blue"
+			if {turret.team.player::%uuid of attacker%} is set:
+				set {_ateam} to {turret.team.player::%uuid of attacker%}
+			if {_ateam} is {_mteam}:
+				cancel event
+				send action bar "&7아군 미니언은 공격할 수 없습니다." to attacker
+				stop
+			# 스탯 {공격력::%player%} 를 실제 데미지로
+			if {공격력::%attacker%} is set:
+				set damage to {공격력::%attacker%}
+			set {minion.aggro.id::%{_vk}%} to "%uuid of attacker%"
+			set {minion.aggro.until::%{_vk}%} to now
+		if {minion.team::%{_ak}%} is set:
+			if {minion.team::%{_ak}%} is {_mteam}:
+				cancel event
+				stop
+
+	# 미니언이 가해자
+	if {minion.team::%{_ak}%} is set:
 		set {_ateam} to {minion.team::%{_ak}%}
+		if {minion.team::%{_vk}%} is set:
+			if {minion.team::%{_vk}%} is {_ateam}:
+				cancel event
+				stop
 		if victim is a player:
 			set {_vteam} to "blue"
 			if {turret.team.player::%uuid of victim%} is set:
@@ -487,22 +478,20 @@ every 5 ticks:
 					# 1) 적 미니언
 					if {_target} is not set:
 						set {_best} to 9999
-						loop {minion.list::*}:
+						loop all zombies in radius 10 around {_m}:
 							set {_e} to loop-value-2
-							if {_e} is set:
-								if {_e} is not {_m}:
-									set {_ek} to "%uuid of {_e}%"
-									if {minion.alive::%{_ek}%} is set:
-										if {minion.team::%{_ek}%} is set:
-											if {minion.team::%{_ek}%} is not {_team}:
-												set {_hp} to {minion.hp::%{_ek}%}
-												if {_hp} is set:
-													if {_hp} > 0:
-														set {_d} to distance between {_m} and {_e}
-														if {_d} <= 10:
-															if {_d} < {_best}:
-																set {_target} to {_e}
-																set {_best} to {_d}
+							if {_e} is not {_m}:
+								set {_ek} to "%uuid of {_e}%"
+								if {minion.alive::%{_ek}%} is set:
+									if {minion.team::%{_ek}%} is set:
+										if {minion.team::%{_ek}%} is not {_team}:
+											set {_hp} to health of {_e}
+											if {_hp} is set:
+												if {_hp} > 0:
+													set {_d} to distance between {_m} and {_e}
+													if {_d} < {_best}:
+														set {_target} to {_e}
+														set {_best} to {_d}
 
 					# 2) 적 포탑 (리스트 기준 — skeleton/armorstand 타입 무관)
 					if {_target} is not set:
@@ -649,29 +638,12 @@ every 5 ticks:
 													delete {nexus.stand::%{_nteam}%}
 												kill {_target}
 									else:
+										damage {_target} by {_atk}
 										set {_tk} to "%uuid of {_target}%"
 										if {minion.alive::%{_tk}%} is set:
-											set {_mhp} to {minion.hp::%{_tk}%}
-											if {_mhp} is not set:
-												set {_mhp} to 0
-											remove {_atk} from {_mhp}
-											if {_mhp} < 0:
-												set {_mhp} to 0
-											set {minion.hp::%{_tk}%} to {_mhp}
-											if {_mhp} <= 0:
-												remove {_target} from {minion.list::*}
-												delete {minion.team::%{_tk}%}
-												delete {minion.alive::%{_tk}%}
-												delete {minion.hp::%{_tk}%}
-												delete {minion.maxhp::%{_tk}%}
-												delete {minion.kind::%{_tk}%}
-												delete {minion.next::%{_tk}%}
-												delete {minion.aggro.id::%{_tk}%}
-												delete {minion.aggro.until::%{_tk}%}
-												delete {minion.side::%{_tk}%}
-												kill {_target}
-										else:
-											damage {_target} by {_atk}
+											set velocity of {_target} to vector(0, 0, 0)
+										if {_target} is a player:
+											set velocity of {_target} to vector(0, 0, 0)
 								if {minion.kind::%{_k}%} is "ranged":
 									draw 1 flame at {_m}
 									draw 3 flame at {_target}
@@ -703,7 +675,7 @@ every 5 ticks:
 									set {_nx} to {_mx} + ({_mx} - {_tx}) / {_hd} * 0.55
 									set {_nz} to {_mz} + ({_mz} - {_tz}) / {_hd} * 0.55
 									set {_sep} to true
-							loop all armor stands in radius 1.3 around {_m}:
+							loop all zombies in radius 1.3 around {_m}:
 								set {_o} to loop-value-2
 								if {_o} is not {_m}:
 									set {_okey} to "%uuid of {_o}%"
@@ -911,7 +883,7 @@ every 5 ticks:
 							set {_dz} to {_tz} - {_mz}
 							set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
 							set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
-							loop all armor stands in radius 1.3 around {_m}:
+							loop all zombies in radius 1.3 around {_m}:
 								set {_o} to loop-value-2
 								if {_o} is not {_m}:
 									set {_okey} to "%uuid of {_o}%"
@@ -1117,7 +1089,7 @@ every 5 ticks:
 								set {_dz} to {_tz} - {_mz}
 								set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
 								set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
-								loop all armor stands in radius 1.3 around {_m}:
+								loop all zombies in radius 1.3 around {_m}:
 									set {_o} to loop-value-2
 									if {_o} is not {_m}:
 										set {_okey} to "%uuid of {_o}%"
@@ -1312,7 +1284,7 @@ every 5 ticks:
 								set pitch of {_m} to 0
 								set {_nx} to {_mx}
 								set {_nz} to {_mz}
-								loop all armor stands in radius 1.3 around {_m}:
+								loop all zombies in radius 1.3 around {_m}:
 									set {_o} to loop-value-2
 									if {_o} is not {_m}:
 										set {_okey} to "%uuid of {_o}%"

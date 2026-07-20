@@ -202,26 +202,22 @@ every 10 ticks:
 									delete {turret.aggro.id::%{_k}%}
 									delete {turret.aggro.until::%{_k}%}
 
-						# 1) 적 미니언 (아머스탠드)
+						# 1) 적 미니언
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop {minion.list::*}:
-								set {_e} to loop-value-2
-								if {_e} is set:
-									set {_mk} to "%uuid of {_e}%"
-									if {minion.alive::%{_mk}%} is set:
-										if {minion.team::%{_mk}%} is set:
-											if {minion.team::%{_mk}%} is not {_team}:
-												set {_ehp} to {minion.hp::%{_mk}%}
-												if {_ehp} is not set:
-													set {_ehp} to 1
-												if {_ehp} > 0:
-													set {_d} to distance between {_t} and {_e}
-													if {_d} <= 12:
-														if {_d} < {_bestDist}:
-															set {_target} to {_e}
-															set {_targetKind} to "minion"
-															set {_bestDist} to {_d}
+							loop all zombies in radius 12 around {_t}:
+								set {_e} to loop-zombie
+								set {_mk} to "%uuid of {_e}%"
+								if {minion.alive::%{_mk}%} is set:
+									if {minion.team::%{_mk}%} is not {_team}:
+										set {_ehp} to health of {_e}
+										if {_ehp} is set:
+											if {_ehp} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} < {_bestDist}:
+													set {_target} to {_e}
+													set {_targetKind} to "minion"
+													set {_bestDist} to {_d}
 
 						# 2) 적 포탑
 						if {_target} is not set:
@@ -320,28 +316,7 @@ every 10 ticks:
 														delete {turret.alive::%{_tk}%}
 														kill {_target}
 											else:
-												if {_targetKind} is "minion":
-													set {_mk} to "%uuid of {_target}%"
-													if {minion.hp::%{_mk}%} is set:
-														set {_mhp} to {minion.hp::%{_mk}%}
-														remove 7 from {_mhp}
-														if {_mhp} < 0:
-															set {_mhp} to 0
-														set {minion.hp::%{_mk}%} to {_mhp}
-														if {_mhp} <= 0:
-															remove {_target} from {minion.list::*}
-															delete {minion.team::%{_mk}%}
-															delete {minion.alive::%{_mk}%}
-															delete {minion.hp::%{_mk}%}
-															delete {minion.maxhp::%{_mk}%}
-															delete {minion.kind::%{_mk}%}
-															delete {minion.next::%{_mk}%}
-															delete {minion.aggro.id::%{_mk}%}
-															delete {minion.aggro.until::%{_mk}%}
-															delete {minion.side::%{_mk}%}
-															kill {_target}
-												else:
-													damage {_target} by 7
+												damage {_target} by 7
 											set {turret.nextshot::%{_k}%} to now
 
 every 20 ticks:
@@ -405,12 +380,13 @@ every 20 ticks:
 				loop all players in radius 16 around {_near}:
 					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
-on damage with priority lowest:
+on damage:
 	if victim is not set:
 		stop
 	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {turret.hp::%{_k}%} is set:
+			# 미니언과 동일: {공격력::%player%}
 			cancel event
 			set {_team} to {turret.team::%{_k}%}
 			set {_dmg} to 1
@@ -421,7 +397,6 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 포탑은 공격할 수 없습니다." to attacker
 					stop
-				# 스탯 {공격력::%player%}
 				if {공격력::%attacker%} is set:
 					set {_dmg} to {공격력::%attacker%}
 				else:
