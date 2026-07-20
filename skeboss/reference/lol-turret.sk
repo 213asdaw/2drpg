@@ -136,8 +136,6 @@ command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
 		set {_k} to "%uuid of {_stand}%"
 		set AI of {_stand} to false
 		set gravity of {_stand} to false
-		set silent of {_stand} to true
-		set can pick up items of {_stand} to false
 		set chestplate of {_stand} to iron chestplate
 		set leggings of {_stand} to iron leggings
 		set boots of {_stand} to iron boots
@@ -171,7 +169,6 @@ every 10 ticks:
 				extinguish {_t}
 				set AI of {_t} to false
 				set gravity of {_t} to false
-				set silent of {_t} to true
 				set {_team} to {turret.team::%{_k}%}
 				delete {_teamOk}
 				if {_team} is "blue":

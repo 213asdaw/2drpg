@@ -114,8 +114,6 @@ command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 		set {_k} to "%uuid of {_stand}%"
 		set AI of {_stand} to false
 		set gravity of {_stand} to false
-		set silent of {_stand} to true
-		set can pick up items of {_stand} to false
 		set {nexus.hp::%{_k}%} to 800
 		set {nexus.maxhp::%{_k}%} to 800
 		set {nexus.team::%{_k}%} to {_team}
@@ -269,7 +267,6 @@ every 10 ticks:
 				extinguish {_n}
 				set AI of {_n} to false
 				set gravity of {_n} to false
-				set silent of {_n} to true
 				set {_hp} to {nexus.hp::%{_k}%}
 				set {_max} to {nexus.maxhp::%{_k}%}
 				set {_team} to {nexus.team::%{_k}%}
