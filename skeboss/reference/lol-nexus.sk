@@ -1,7 +1,7 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720f
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720g
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
-# 플레이어 공격: 무기딜 기준 (이벤트 0.5 고정 대응)
+# 아머스탠드 / 플레이어 피격 = {공격력::%player%}
 # 같은 팀 포탑이 남아 있으면 넥서스 공격 불가
 #
 # /넥서스
@@ -19,7 +19,7 @@
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260720f (무기딜반영)" to player
+		send "&e넥서스 VER=20260720g (아머스탠드/공격력)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -109,20 +109,18 @@ command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
 					send "&c이미 %{_team}% 넥서스가 있습니다. /넥서스제거 후 다시" to player
 					stop
 		set {_loc} to location({_wx}, {_wy}, {_wz}, {_ww})
-		spawn skeleton at {_loc}
+		spawn armor stand at {_loc}
 		set {_stand} to last spawned entity
 		set {_k} to "%uuid of {_stand}%"
-		set AI of {_stand} to false
 		set gravity of {_stand} to false
 		set {nexus.hp::%{_k}%} to 800
 		set {nexus.maxhp::%{_k}%} to 800
 		set {nexus.team::%{_k}%} to {_team}
 		set {nexus.alive::%{_k}%} to true
 		set {nexus.stand::%{_team}%} to {_stand}
-		# 갑옷 있으면 데미지가 거의 안 들어감 → 헬멧만
-		set chestplate of {_stand} to air
-		set leggings of {_stand} to air
-		set boots of {_stand} to air
+		set chestplate of {_stand} to diamond chestplate
+		set leggings of {_stand} to diamond leggings
+		set boots of {_stand} to diamond boots
 		set {_color} to "&9"
 		set {_label} to "블루 넥서스"
 		if {_team} is "blue":
@@ -265,12 +263,7 @@ every 10 ticks:
 		if {_n} is set:
 			set {_k} to "%uuid of {_n}%"
 			if {nexus.alive::%{_k}%} is set:
-				extinguish {_n}
-				set AI of {_n} to false
 				set gravity of {_n} to false
-				set chestplate of {_n} to air
-				set leggings of {_n} to air
-				set boots of {_n} to air
 				set {_hp} to {nexus.hp::%{_k}%}
 				set {_max} to {nexus.maxhp::%{_k}%}
 				set {_team} to {nexus.team::%{_k}%}
@@ -310,18 +303,12 @@ every 10 ticks:
 on damage with priority lowest:
 	if victim is not set:
 		stop
-	if victim is a skeleton:
+	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {nexus.hp::%{_k}%} is set:
-			set {_raw} to damage
-			if attacker is set:
-				if {struct.rawdmg::%uuid of attacker%} is set:
-					if {struct.rawdmg::%uuid of attacker%} > {_raw}:
-						set {_raw} to {struct.rawdmg::%uuid of attacker%}
-					delete {struct.rawdmg::%uuid of attacker%}
 			cancel event
 			set {_team} to {nexus.team::%{_k}%}
-			set {_dmg} to {_raw}
+			set {_dmg} to 1
 			# 같은 팀 포탑이 남아 있으면 공격 불가
 			set {_shield} to 0
 			loop {turret.list::*}:
@@ -342,78 +329,12 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
 					stop
-				set {_tool} to tool of attacker
-				set {_wd} to 1
-				if {_tool} is a wooden sword:
-					set {_wd} to 4
-				if {_tool} is a golden sword:
-					set {_wd} to 4
-				if {_tool} is a stone sword:
-					set {_wd} to 5
-				if {_tool} is an iron sword:
-					set {_wd} to 6
-				if {_tool} is a diamond sword:
-					set {_wd} to 7
-				if {_tool} is a netherite sword:
-					set {_wd} to 8
-				if {_tool} is a wooden axe:
-					set {_wd} to 7
-				if {_tool} is a golden axe:
-					set {_wd} to 7
-				if {_tool} is a stone axe:
-					set {_wd} to 9
-				if {_tool} is an iron axe:
-					set {_wd} to 9
-				if {_tool} is a diamond axe:
-					set {_wd} to 9
-				if {_tool} is a netherite axe:
-					set {_wd} to 10
-				if {_tool} is a wooden pickaxe:
-					set {_wd} to 2
-				if {_tool} is a stone pickaxe:
-					set {_wd} to 3
-				if {_tool} is an iron pickaxe:
-					set {_wd} to 4
-				if {_tool} is a diamond pickaxe:
-					set {_wd} to 5
-				if {_tool} is a netherite pickaxe:
-					set {_wd} to 6
-				if {_tool} is a wooden shovel:
-					set {_wd} to 2
-				if {_tool} is a stone shovel:
-					set {_wd} to 3
-				if {_tool} is an iron shovel:
-					set {_wd} to 4
-				if {_tool} is a diamond shovel:
-					set {_wd} to 5
-				if {_tool} is a netherite shovel:
-					set {_wd} to 6
-				if {_tool} is a wooden hoe:
-					set {_wd} to 1
-				if {_tool} is a stone hoe:
-					set {_wd} to 1
-				if {_tool} is an iron hoe:
-					set {_wd} to 1
-				if {_tool} is a diamond hoe:
-					set {_wd} to 1
-				if {_tool} is a netherite hoe:
-					set {_wd} to 1
-				if {_tool} is a trident:
-					set {_wd} to 9
-				# 이 서버는 구조물 이벤트딜이 0.5로 고정되는 경우가 많음
-				# → 무기 기본딜 사용, 이벤트딜이 더 크면(증강 등) 그 값 사용
-				set {_dmg} to {_wd}
-				if {_raw} > {_dmg}:
-					set {_dmg} to {_raw}
-				# 플레이어 커스텀 공격력 변수가 있으면 합산/대체
-				if {플레이어공격력::%uuid of attacker%} is set:
-					if {플레이어공격력::%uuid of attacker%} > {_dmg}:
-						set {_dmg} to {플레이어공격력::%uuid of attacker%}
-				if {공격력::%uuid of attacker%} is set:
-					if {공격력::%uuid of attacker%} > {_dmg}:
-						set {_dmg} to {공격력::%uuid of attacker%}
-
-			if attacker is a skeleton:
+				# 스탯 {공격력::%player%}
+				if {공격력::%attacker%} is set:
+					set {_dmg} to {공격력::%attacker%}
+				else:
+					set {_dmg} to 1
+			if attacker is an armor stand:
 				set {_ak} to "%uuid of attacker%"
 				if {nexus.team::%{_ak}%} is set:
 					if {nexus.team::%{_ak}%} is {_team}:
@@ -421,6 +342,8 @@ on damage with priority lowest:
 				if {turret.team::%{_ak}%} is set:
 					if {turret.team::%{_ak}%} is {_team}:
 						stop
+			if {_dmg} < 0:
+				set {_dmg} to 0
 			set {_hp} to {nexus.hp::%{_k}%}
 			remove {_dmg} from {_hp}
 			if {_hp} < 0:
@@ -452,6 +375,8 @@ on damage with priority lowest:
 					set {_bar} to "%{_bar}%&7|"
 			set {_bar} to "%{_bar}%&8]"
 			set name of victim to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+			loop all players in radius 20 around victim:
+				send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}% &7(-%{_dmg}%)" to loop-player
 			if {_hp} <= 0:
 				play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at victim
 				loop 16 times:

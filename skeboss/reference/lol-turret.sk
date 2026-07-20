@@ -12,7 +12,7 @@
 # 기본 우선순위: 적 미니언 > 적 포탑 > 적 플레이어
 # 플레이어 어그로: 적 플레이어가 아군을 때렸을 때만 (포탑만 때린다고 안 붙음)
 # 미니언과 싸우려면 minion.sk 도 같이 넣으세요
-# 구조물 피격: 이벤트딜이 0.5로 고정되는 서버 대응 → 무기딜 기준, 더 큰 이벤트/커스텀딜 우선
+# 아머스탠드 구조물 / 플레이어 피격 데미지 = {공격력::%player%}
 
 command /포탑:
 	trigger:
@@ -131,15 +131,13 @@ command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
 			else:
 				send "&c사용법: /포탑소환 <blue|red> <x> <y> <z>" to player
 				stop
-		spawn skeleton at {_loc}
+		spawn armor stand at {_loc}
 		set {_stand} to last spawned entity
 		set {_k} to "%uuid of {_stand}%"
-		set AI of {_stand} to false
 		set gravity of {_stand} to false
-		# 갑옷 있으면 바닐라 데미지가 0.5 등으로 깎여 실딜 반영 안 됨 → 헬멧만
-		set chestplate of {_stand} to air
-		set leggings of {_stand} to air
-		set boots of {_stand} to air
+		set chestplate of {_stand} to iron chestplate
+		set leggings of {_stand} to iron leggings
+		set boots of {_stand} to iron boots
 		set {turret.hp::%{_k}%} to 300
 		set {turret.maxhp::%{_k}%} to 300
 		set {turret.team::%{_k}%} to {_team}
@@ -167,12 +165,7 @@ every 10 ticks:
 			if {turret.alive::%{_k}%} is not set:
 				remove {_t} from {turret.list::*}
 			if {turret.alive::%{_k}%} is set:
-				extinguish {_t}
-				set AI of {_t} to false
 				set gravity of {_t} to false
-				set chestplate of {_t} to air
-				set leggings of {_t} to air
-				set boots of {_t} to air
 				set {_team} to {turret.team::%{_k}%}
 				delete {_teamOk}
 				if {_team} is "blue":
@@ -209,38 +202,44 @@ every 10 ticks:
 									delete {turret.aggro.id::%{_k}%}
 									delete {turret.aggro.until::%{_k}%}
 
-						# 1) 적 미니언
+						# 1) 적 미니언 (아머스탠드)
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all zombies in radius 12 around {_t}:
-								set {_e} to loop-zombie
-								set {_mk} to "%uuid of {_e}%"
-								if {minion.team::%{_mk}%} is set:
-									if {minion.team::%{_mk}%} is not {_team}:
-										set {_ehp} to health of {_e}
-										if {_ehp} is set:
-											if {_ehp} > 0:
-												set {_d} to distance between {_t} and {_e}
-												if {_d} < {_bestDist}:
-													set {_target} to {_e}
-													set {_targetKind} to "minion"
-													set {_bestDist} to {_d}
+							loop {minion.list::*}:
+								set {_e} to loop-value-2
+								if {_e} is set:
+									set {_mk} to "%uuid of {_e}%"
+									if {minion.alive::%{_mk}%} is set:
+										if {minion.team::%{_mk}%} is set:
+											if {minion.team::%{_mk}%} is not {_team}:
+												set {_ehp} to {minion.hp::%{_mk}%}
+												if {_ehp} is not set:
+													set {_ehp} to 1
+												if {_ehp} > 0:
+													set {_d} to distance between {_t} and {_e}
+													if {_d} <= 12:
+														if {_d} < {_bestDist}:
+															set {_target} to {_e}
+															set {_targetKind} to "minion"
+															set {_bestDist} to {_d}
 
 						# 2) 적 포탑
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all skeletons in radius 12 around {_t}:
-								set {_e} to loop-skeleton
-								if {_e} is not {_t}:
-									set {_ek} to "%uuid of {_e}%"
-									if {turret.hp::%{_ek}%} is set:
-										if {turret.team::%{_ek}%} is not {_team}:
-											if {turret.hp::%{_ek}%} > 0:
-												set {_d} to distance between {_t} and {_e}
-												if {_d} < {_bestDist}:
-													set {_target} to {_e}
-													set {_targetKind} to "turret"
-													set {_bestDist} to {_d}
+							loop {turret.list::*}:
+								set {_e} to loop-value-2
+								if {_e} is set:
+									if {_e} is not {_t}:
+										set {_ek} to "%uuid of {_e}%"
+										if {turret.hp::%{_ek}%} is set:
+											if {turret.team::%{_ek}%} is not {_team}:
+												if {turret.hp::%{_ek}%} > 0:
+													set {_d} to distance between {_t} and {_e}
+													if {_d} <= 12:
+														if {_d} < {_bestDist}:
+															set {_target} to {_e}
+															set {_targetKind} to "turret"
+															set {_bestDist} to {_d}
 
 						# 3) 적 플레이어
 						if {_target} is not set:
@@ -321,7 +320,28 @@ every 10 ticks:
 														delete {turret.alive::%{_tk}%}
 														kill {_target}
 											else:
-												damage {_target} by 7
+												if {_targetKind} is "minion":
+													set {_mk} to "%uuid of {_target}%"
+													if {minion.hp::%{_mk}%} is set:
+														set {_mhp} to {minion.hp::%{_mk}%}
+														remove 7 from {_mhp}
+														if {_mhp} < 0:
+															set {_mhp} to 0
+														set {minion.hp::%{_mk}%} to {_mhp}
+														if {_mhp} <= 0:
+															remove {_target} from {minion.list::*}
+															delete {minion.team::%{_mk}%}
+															delete {minion.alive::%{_mk}%}
+															delete {minion.hp::%{_mk}%}
+															delete {minion.maxhp::%{_mk}%}
+															delete {minion.kind::%{_mk}%}
+															delete {minion.next::%{_mk}%}
+															delete {minion.aggro.id::%{_mk}%}
+															delete {minion.aggro.until::%{_mk}%}
+															delete {minion.side::%{_mk}%}
+															kill {_target}
+												else:
+													damage {_target} by 7
 											set {turret.nextshot::%{_k}%} to now
 
 every 20 ticks:
@@ -385,33 +405,15 @@ every 20 ticks:
 				loop all players in radius 16 around {_near}:
 					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
 
-on damage with priority highest:
-	if victim is not set:
-		stop
-	if attacker is not set:
-		stop
-	if victim is a skeleton:
-		set {_k} to "%uuid of victim%"
-		if {turret.hp::%{_k}%} is set:
-			set {struct.rawdmg::%uuid of attacker%} to damage
-		if {nexus.hp::%{_k}%} is set:
-			set {struct.rawdmg::%uuid of attacker%} to damage
-
 on damage with priority lowest:
 	if victim is not set:
 		stop
-	if victim is a skeleton:
+	if victim is an armor stand:
 		set {_k} to "%uuid of victim%"
 		if {turret.hp::%{_k}%} is set:
-			set {_raw} to damage
-			if attacker is set:
-				if {struct.rawdmg::%uuid of attacker%} is set:
-					if {struct.rawdmg::%uuid of attacker%} > {_raw}:
-						set {_raw} to {struct.rawdmg::%uuid of attacker%}
-					delete {struct.rawdmg::%uuid of attacker%}
 			cancel event
 			set {_team} to {turret.team::%{_k}%}
-			set {_dmg} to {_raw}
+			set {_dmg} to 1
 			if attacker is a player:
 				set {_ateam} to "blue"
 				if {turret.team.player::%uuid of attacker%} is set:
@@ -419,89 +421,23 @@ on damage with priority lowest:
 				if {_ateam} is {_team}:
 					send action bar "&7아군 포탑은 공격할 수 없습니다." to attacker
 					stop
-				set {_tool} to tool of attacker
-				set {_wd} to 1
-				if {_tool} is a wooden sword:
-					set {_wd} to 4
-				if {_tool} is a golden sword:
-					set {_wd} to 4
-				if {_tool} is a stone sword:
-					set {_wd} to 5
-				if {_tool} is an iron sword:
-					set {_wd} to 6
-				if {_tool} is a diamond sword:
-					set {_wd} to 7
-				if {_tool} is a netherite sword:
-					set {_wd} to 8
-				if {_tool} is a wooden axe:
-					set {_wd} to 7
-				if {_tool} is a golden axe:
-					set {_wd} to 7
-				if {_tool} is a stone axe:
-					set {_wd} to 9
-				if {_tool} is an iron axe:
-					set {_wd} to 9
-				if {_tool} is a diamond axe:
-					set {_wd} to 9
-				if {_tool} is a netherite axe:
-					set {_wd} to 10
-				if {_tool} is a wooden pickaxe:
-					set {_wd} to 2
-				if {_tool} is a stone pickaxe:
-					set {_wd} to 3
-				if {_tool} is an iron pickaxe:
-					set {_wd} to 4
-				if {_tool} is a diamond pickaxe:
-					set {_wd} to 5
-				if {_tool} is a netherite pickaxe:
-					set {_wd} to 6
-				if {_tool} is a wooden shovel:
-					set {_wd} to 2
-				if {_tool} is a stone shovel:
-					set {_wd} to 3
-				if {_tool} is an iron shovel:
-					set {_wd} to 4
-				if {_tool} is a diamond shovel:
-					set {_wd} to 5
-				if {_tool} is a netherite shovel:
-					set {_wd} to 6
-				if {_tool} is a wooden hoe:
-					set {_wd} to 1
-				if {_tool} is a stone hoe:
-					set {_wd} to 1
-				if {_tool} is an iron hoe:
-					set {_wd} to 1
-				if {_tool} is a diamond hoe:
-					set {_wd} to 1
-				if {_tool} is a netherite hoe:
-					set {_wd} to 1
-				if {_tool} is a trident:
-					set {_wd} to 9
-				# 이 서버는 구조물 이벤트딜이 0.5로 고정되는 경우가 많음
-				# → 무기 기본딜 사용, 이벤트딜이 더 크면(증강 등) 그 값 사용
-				set {_dmg} to {_wd}
-				if {_raw} > {_dmg}:
-					set {_dmg} to {_raw}
-				# 플레이어 커스텀 공격력 변수가 있으면 합산/대체
-				if {플레이어공격력::%uuid of attacker%} is set:
-					if {플레이어공격력::%uuid of attacker%} > {_dmg}:
-						set {_dmg} to {플레이어공격력::%uuid of attacker%}
-				if {공격력::%uuid of attacker%} is set:
-					if {공격력::%uuid of attacker%} > {_dmg}:
-						set {_dmg} to {공격력::%uuid of attacker%}
-
-			if attacker is a skeleton:
+				# 스탯 {공격력::%player%}
+				if {공격력::%attacker%} is set:
+					set {_dmg} to {공격력::%attacker%}
+				else:
+					set {_dmg} to 1
+			if attacker is an armor stand:
 				set {_ak} to "%uuid of attacker%"
 				if {turret.team::%{_ak}%} is set:
 					if {turret.team::%{_ak}%} is {_team}:
 						stop
+			if {_dmg} < 0:
+				set {_dmg} to 0
 			set {_hp} to {turret.hp::%{_k}%}
 			remove {_dmg} from {_hp}
 			if {_hp} < 0:
 				set {_hp} to 0
 			set {turret.hp::%{_k}%} to {_hp}
-			# 포탑/구조물만 때린 경우엔 플레이어 어그로 안 줌
-			# (적 플레이어가 아군을 때릴 때만 아래 player 피격 쪽에서 어그로)
 			set {_max} to {turret.maxhp::%{_k}%}
 			set {_color} to "&9"
 			set {_label} to "블루 포탑"
@@ -560,8 +496,8 @@ on damage with priority lowest:
 			if {turret.team.player::%uuid of attacker%} is set:
 				set {_ateam} to {turret.team.player::%uuid of attacker%}
 			if {_ateam} is not {_vteam}:
-				loop all skeletons in radius 12 around victim:
-					set {_k} to "%uuid of loop-skeleton%"
+				loop all armor stands in radius 12 around victim:
+					set {_k} to "%uuid of loop-armor stand%"
 					if {turret.hp::%{_k}%} is set:
 						if {turret.team::%{_k}%} is {_vteam}:
 							set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
