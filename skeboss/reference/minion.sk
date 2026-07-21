@@ -461,15 +461,16 @@ every 5 ticks:
 							if difference between {minion.aggro.until::%{_k}%} and now < 8 seconds:
 								set {_aid} to {minion.aggro.id::%{_k}%}
 								loop all players in radius 12 around {_m}:
-									if "%uuid of loop-player%" is {_aid}:
-										set {_ateam} to "blue"
-										if {turret.team.player::%uuid of loop-player%} is set:
-											set {_ateam} to {turret.team.player::%uuid of loop-player%}
-										if {_ateam} is not {_team}:
-											set {_hp} to health of loop-player
-											if {_hp} is set:
-												if {_hp} > 0:
-													set {_target} to loop-player
+									if loop-player is alive:
+										if "%uuid of loop-player%" is {_aid}:
+											set {_ateam} to "blue"
+											if {turret.team.player::%uuid of loop-player%} is set:
+												set {_ateam} to {turret.team.player::%uuid of loop-player%}
+											if {_ateam} is not {_team}:
+												set {_hp} to health of loop-player
+												if {_hp} is set:
+													if {_hp} > 0:
+														set {_target} to loop-player
 							else:
 								delete {minion.aggro.id::%{_k}%}
 								delete {minion.aggro.until::%{_k}%}
@@ -535,18 +536,19 @@ every 5 ticks:
 					if {_target} is not set:
 						set {_best} to 9999
 						loop all players in radius 10 around {_m}:
-							set {_e} to loop-player
-							set {_eteam} to "blue"
-							if {turret.team.player::%uuid of {_e}%} is set:
-								set {_eteam} to {turret.team.player::%uuid of {_e}%}
-							if {_eteam} is not {_team}:
-								set {_hp} to health of {_e}
-								if {_hp} is set:
-									if {_hp} > 0:
-										set {_d} to distance between {_m} and {_e}
-										if {_d} < {_best}:
-											set {_target} to {_e}
-											set {_best} to {_d}
+							if loop-player is alive:
+								set {_e} to loop-player
+								set {_eteam} to "blue"
+								if {turret.team.player::%uuid of {_e}%} is set:
+									set {_eteam} to {turret.team.player::%uuid of {_e}%}
+								if {_eteam} is not {_team}:
+									set {_hp} to health of {_e}
+									if {_hp} is set:
+										if {_hp} > 0:
+											set {_d} to distance between {_m} and {_e}
+											if {_d} < {_best}:
+												set {_target} to {_e}
+												set {_best} to {_d}
 
 					# 이동/공격 (텔레포트 스텝 — velocity/vector 미사용)
 					if {_target} is set:

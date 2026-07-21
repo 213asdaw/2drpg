@@ -188,16 +188,17 @@ every 10 ticks:
 								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
 									set {_aid} to {turret.aggro.id::%{_k}%}
 									loop all players in radius 12 around {_t}:
-										if "%uuid of loop-player%" is {_aid}:
-											set {_ateam} to "blue"
-											if {turret.team.player::%uuid of loop-player%} is set:
-												set {_ateam} to {turret.team.player::%uuid of loop-player%}
-											if {_ateam} is not {_team}:
-												set {_ahp} to health of loop-player
-												if {_ahp} is set:
-													if {_ahp} > 0:
-														set {_target} to loop-player
-														set {_targetKind} to "player"
+										if loop-player is alive:
+											if "%uuid of loop-player%" is {_aid}:
+												set {_ateam} to "blue"
+												if {turret.team.player::%uuid of loop-player%} is set:
+													set {_ateam} to {turret.team.player::%uuid of loop-player%}
+												if {_ateam} is not {_team}:
+													set {_ahp} to health of loop-player
+													if {_ahp} is set:
+														if {_ahp} > 0:
+															set {_target} to loop-player
+															set {_targetKind} to "player"
 								else:
 									delete {turret.aggro.id::%{_k}%}
 									delete {turret.aggro.until::%{_k}%}
@@ -241,20 +242,21 @@ every 10 ticks:
 						if {_target} is not set:
 							set {_bestDist} to 9999
 							loop all players in radius 12 around {_t}:
-								set {_e} to loop-player
-								set {_eteam} to "blue"
-								if {turret.team.player::%uuid of {_e}%} is set:
-									set {_eteam} to {turret.team.player::%uuid of {_e}%}
-								if {_eteam} is not {_team}:
-									set {_ehp} to health of {_e}
-									if {_ehp} is set:
-										if {_ehp} > 0:
-											set {_d} to distance between {_t} and {_e}
-											if {_d} <= 12:
-												if {_d} < {_bestDist}:
-													set {_target} to {_e}
-													set {_targetKind} to "player"
-													set {_bestDist} to {_d}
+								if loop-player is alive:
+									set {_e} to loop-player
+									set {_eteam} to "blue"
+									if {turret.team.player::%uuid of {_e}%} is set:
+										set {_eteam} to {turret.team.player::%uuid of {_e}%}
+									if {_eteam} is not {_team}:
+										set {_ehp} to health of {_e}
+										if {_ehp} is set:
+											if {_ehp} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} <= 12:
+													if {_d} < {_bestDist}:
+														set {_target} to {_e}
+														set {_targetKind} to "player"
+														set {_bestDist} to {_d}
 
 						# 4) 일반 몹 (아군 미니언 제외)
 						if {_target} is not set:

@@ -1,4 +1,4 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260720h
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260721a
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
 # 아머스탠드 / 플레이어 피격 = {공격력::%player%}
@@ -16,10 +16,11 @@
 # 팀 변수는 포탑/미니언과 공유: {turret.team.player::%uuid%}
 # 넥서스 파괴 시 해당 팀 패배 안내
 # 시작구역: 아군 회복 + 적 데미지 + 리스폰 위치
+# 죽은 플레이어에게 힐/데미지 금지 (리스폰 깨짐 방지)
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260720h (아머스탠드/공격력)" to player
+		send "&e넥서스 VER=20260721a (리스폰/분수대 수정)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -199,16 +200,40 @@ command /시작귀환:
 		set food level of player to 20
 		send "&a시작구역으로 귀환" to player
 
+on death of player:
+	set {nexus.pendingbase::%uuid of victim%} to true
+
 on respawn:
+	set {_id} to "%uuid of player%"
 	set {_team} to "blue"
-	if {turret.team.player::%uuid of player%} is set:
-		set {_team} to {turret.team.player::%uuid of player%}
+	if {turret.team.player::%{_id}%} is set:
+		set {_team} to {turret.team.player::%{_id}%}
 	if {base.loc::%{_team}%} is set:
-		wait 1 tick
+		# wait 없이 즉시 리스폰 위치 지정 (죽은 자리에서 분수대 힐/딜 방지)
+		set the respawn location to {base.loc::%{_team}%}
 		teleport player to {base.loc::%{_team}%}
 		set health of player to max health of player
 		set food level of player to 20
+		set {nexus.spawnprotect::%{_id}%} to now
+		delete {nexus.pendingbase::%{_id}%}
 		send action bar "&a시작구역에서 부활" to player
+
+on join:
+	wait 2 ticks
+	set {_id} to "%uuid of player%"
+	# 리스폰이 깨진 채로 재접속하면 사망 지점에서 다시 죽는 루프 방지
+	if {nexus.pendingbase::%{_id}%} is set:
+		set {_team} to "blue"
+		if {turret.team.player::%{_id}%} is set:
+			set {_team} to {turret.team.player::%{_id}%}
+		if {base.loc::%{_team}%} is set:
+			teleport player to {base.loc::%{_team}%}
+			if player is alive:
+				set health of player to max health of player
+				set food level of player to 20
+			set {nexus.spawnprotect::%{_id}%} to now
+			send "&a시작구역으로 복귀했습니다." to player
+		delete {nexus.pendingbase::%{_id}%}
 
 every 20 ticks:
 	# 시작구역: 아군 회복 / 적 피해 (분수대) — blue
@@ -220,19 +245,31 @@ every 20 ticks:
 		draw 2 happy villager at {_loc}
 		loop all players in radius {_r} around {_loc}:
 			set {_p} to loop-player
-			set {_pteam} to "blue"
-			if {turret.team.player::%uuid of {_p}%} is set:
-				set {_pteam} to {turret.team.player::%uuid of {_p}%}
-			if {_pteam} is "blue":
-				set {_h} to health of {_p}
-				add 2 to {_h}
-				if {_h} > max health of {_p}:
-					set {_h} to max health of {_p}
-				set health of {_p} to {_h}
-				set food level of {_p} to 20
-			else:
-				damage {_p} by 3
-				send action bar "&c적 시작구역! 나가세요" to {_p}
+			# 죽은 플레이어에 set health / damage 하면 리스폰 화면이 깨짐
+			if {_p} is alive:
+				set {_pid} to "%uuid of {_p}%"
+				set {_pteam} to "blue"
+				if {turret.team.player::%{_pid}%} is set:
+					set {_pteam} to {turret.team.player::%{_pid}%}
+				if {_pteam} is "blue":
+					set {_h} to health of {_p}
+					if {_h} is set:
+						if {_h} > 0:
+							add 2 to {_h}
+							if {_h} > max health of {_p}:
+								set {_h} to max health of {_p}
+							set health of {_p} to {_h}
+							set food level of {_p} to 20
+				else:
+					delete {_skipDmg}
+					if {nexus.spawnprotect::%{_pid}%} is set:
+						if difference between {nexus.spawnprotect::%{_pid}%} and now < 4 seconds:
+							set {_skipDmg} to true
+						else:
+							delete {nexus.spawnprotect::%{_pid}%}
+					if {_skipDmg} is not set:
+						damage {_p} by 3
+						send action bar "&c적 시작구역! 나가세요" to {_p}
 	# 시작구역 — red
 	if {base.loc::red} is set:
 		set {_loc} to {base.loc::red}
@@ -242,19 +279,30 @@ every 20 ticks:
 		draw 2 flame at {_loc}
 		loop all players in radius {_r} around {_loc}:
 			set {_p} to loop-player
-			set {_pteam} to "blue"
-			if {turret.team.player::%uuid of {_p}%} is set:
-				set {_pteam} to {turret.team.player::%uuid of {_p}%}
-			if {_pteam} is "red":
-				set {_h} to health of {_p}
-				add 2 to {_h}
-				if {_h} > max health of {_p}:
-					set {_h} to max health of {_p}
-				set health of {_p} to {_h}
-				set food level of {_p} to 20
-			else:
-				damage {_p} by 3
-				send action bar "&c적 시작구역! 나가세요" to {_p}
+			if {_p} is alive:
+				set {_pid} to "%uuid of {_p}%"
+				set {_pteam} to "blue"
+				if {turret.team.player::%{_pid}%} is set:
+					set {_pteam} to {turret.team.player::%{_pid}%}
+				if {_pteam} is "red":
+					set {_h} to health of {_p}
+					if {_h} is set:
+						if {_h} > 0:
+							add 2 to {_h}
+							if {_h} > max health of {_p}:
+								set {_h} to max health of {_p}
+							set health of {_p} to {_h}
+							set food level of {_p} to 20
+				else:
+					delete {_skipDmg}
+					if {nexus.spawnprotect::%{_pid}%} is set:
+						if difference between {nexus.spawnprotect::%{_pid}%} and now < 4 seconds:
+							set {_skipDmg} to true
+						else:
+							delete {nexus.spawnprotect::%{_pid}%}
+					if {_skipDmg} is not set:
+						damage {_p} by 3
+						send action bar "&c적 시작구역! 나가세요" to {_p}
 
 every 10 ticks:
 	# 넥서스 체력바
