@@ -1,4 +1,4 @@
-# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260721a
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260722a
 # plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
 # {nexus.stand::blue/red} 로 미니언 목표 연동
 # 아머스탠드 / 플레이어 피격 = {공격력::%player%}
@@ -17,10 +17,11 @@
 # 넥서스 파괴 시 해당 팀 패배 안내
 # 시작구역: 아군 회복 + 적 데미지 + 리스폰 위치
 # 죽은 플레이어에게 힐/데미지 금지 (리스폰 깨짐 방지)
+# 자동부활: on death → respawn (SkBee 등 respawn 이펙트 필요)
 
 command /넥서스:
 	trigger:
-		send "&e넥서스 VER=20260721a (리스폰/분수대 수정)" to player
+		send "&e넥서스 VER=20260722a (자동부활)" to player
 		send "&e/넥서스소환 [blue|red]" to player
 		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
 		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
@@ -201,7 +202,11 @@ command /시작귀환:
 		send "&a시작구역으로 귀환" to player
 
 on death of player:
-	set {nexus.pendingbase::%uuid of victim%} to true
+	set {_p} to victim
+	set {nexus.pendingbase::%uuid of {_p}%} to true
+	wait 1 tick
+	# 사망 화면 없이 자동 부활 (SkBee: respawn 이펙트)
+	respawn {_p}
 
 on respawn:
 	set {_id} to "%uuid of player%"
