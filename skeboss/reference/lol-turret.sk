@@ -1,0 +1,530 @@
+# 롤 스타일 포탑 (구버전 Skript)
+# plugins/Skript/scripts/포탑.sk
+#
+# /포탑
+# /포탑팀 <blue|red>
+# /포탑유저팀 <닉네임> <blue|red>
+# /포탑소환 [blue|red]
+# /포탑소환 <blue|red> <x> <y> <z>
+# /포탑제거
+# /포탑목록
+#
+# 기본 우선순위: 챔피언어그로 > 플레이어락 > 적 미니언 > 적 포탑 > 적 플레이어
+# 사거리: 13
+# 플레이어 어그로:
+#   - 포탑만 때림 → 절대 안 붙음
+#   - 적 플레이어를 적 포탑 사거리(13) 안에서 때림 → 그 포탑 어그로가 나에게로 전환
+# 플레이어 락:
+#   - 미니언보다 먼저 사거리에 들어온 플레이어는 나갈 때까지 계속 유지
+#   - 사거리 밖으로 나갔다 다시 들어오면 그때 미니언이 있으면 미니언 우선
+# 미니언과 싸우려면 minion.sk 도 같이 넣으세요
+# 아머스탠드 구조물 / 플레이어 피격 데미지 = {공격력::%player%}
+
+command /포탑:
+	trigger:
+		send "&e/포탑팀 <blue|red>" to player
+		send "&e/포탑유저팀 <닉네임> <blue|red>" to player
+		send "&e/포탑소환 [blue|red]" to player
+		send "&e/포탑소환 <blue|red> <x> <y> <z>" to player
+		send "&e/포탑제거 &7← 모든 포탑 제거" to player
+		send "&e/포탑목록" to player
+
+command /포탑팀 <text>:
+	trigger:
+		set {_team} to arg-1
+		if {_team} is "blue":
+			set {turret.team.player::%uuid of player%} to "blue"
+			send "&9팀을 &fBLUE&9 로 설정했습니다." to player
+			stop
+		if {_team} is "red":
+			set {turret.team.player::%uuid of player%} to "red"
+			send "&c팀을 &fRED&c 로 설정했습니다." to player
+			stop
+		send "&c사용법: /포탑팀 <blue|red>" to player
+
+command /포탑유저팀 <text> <text>:
+	trigger:
+		set {_name} to arg-1
+		set {_team} to arg-2
+		if {_team} is not "blue":
+			if {_team} is not "red":
+				send "&c사용법: /포탑유저팀 <닉네임> <blue|red>" to player
+				stop
+		delete {_target}
+		loop all players:
+			if name of loop-player is {_name}:
+				set {_target} to loop-player
+		if {_target} is not set:
+			send "&c온라인 플레이어 &f%{_name}%&c 를 찾을 수 없습니다." to player
+			stop
+		set {turret.team.player::%uuid of {_target}%} to {_team}
+		if {_team} is "blue":
+			send "&9%name of {_target}%&7 님 팀을 &fBLUE&9 로 설정했습니다." to player
+			send "&9팀이 &fBLUE&9 로 설정되었습니다." to {_target}
+		if {_team} is "red":
+			send "&c%name of {_target}%&7 님 팀을 &fRED&c 로 설정했습니다." to player
+			send "&c팀이 &fRED&c 로 설정되었습니다." to {_target}
+
+command /포탑목록:
+	trigger:
+		set {_n} to 0
+		set {_nb} to 0
+		set {_nr} to 0
+		set {_u} to "%uuid of player%"
+		loop {turret.list::*}:
+			set {_k} to "%uuid of loop-value%"
+			if {turret.owner::%{_k}%} is {_u}:
+				add 1 to {_n}
+				if {turret.team::%{_k}%} is "blue":
+					add 1 to {_nb}
+				if {turret.team::%{_k}%} is "red":
+					add 1 to {_nr}
+		set {_my} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_my} to {turret.team.player::%uuid of player%}
+		send "&b내 팀: &f%{_my}%" to player
+		send "&b내 포탑: &f%{_n}%&7개 &9(블루 %{_nb}%) &c(레드 %{_nr}%)" to player
+
+command /포탑제거:
+	trigger:
+		set {_n} to 0
+		loop {turret.list::*}:
+			set {_t} to loop-value
+			if {_t} is set:
+				set {_k} to "%uuid of {_t}%"
+				delete {turret.hp::%{_k}%}
+				delete {turret.maxhp::%{_k}%}
+				delete {turret.team::%{_k}%}
+				delete {turret.owner::%{_k}%}
+				delete {turret.aggro.id::%{_k}%}
+				delete {turret.aggro.until::%{_k}%}
+				delete {turret.lock.id::%{_k}%}
+				delete {turret.nextshot::%{_k}%}
+				delete {turret.alive::%{_k}%}
+				kill {_t}
+				add 1 to {_n}
+		delete {turret.list::*}
+		set {turret.count::blue} to 0
+		set {turret.count::red} to 0
+		send "&a포탑 전체 제거 &f%{_n}%&a개" to player
+
+# /포탑소환
+# /포탑소환 blue
+# /포탑소환 blue 100 64 200
+command /포탑소환 [<text>] [<number>] [<number>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		set {_loc} to location of player
+		if arg-1 is set:
+			if arg-1 is "blue":
+				set {_team} to "blue"
+			if arg-1 is "red":
+				set {_team} to "red"
+			if arg-1 is not "blue":
+				if arg-1 is not "red":
+					send "&c사용법: /포탑소환 [blue|red] [x y z]" to player
+					stop
+		if arg-2 is set:
+			if arg-3 is set:
+				if arg-4 is set:
+					set x-coordinate of {_loc} to arg-2
+					set y-coordinate of {_loc} to arg-3
+					set z-coordinate of {_loc} to arg-4
+				else:
+					send "&c사용법: /포탑소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				send "&c사용법: /포탑소환 <blue|red> <x> <y> <z>" to player
+				stop
+		spawn armor stand at {_loc}
+		set {_stand} to last spawned entity
+		set {_k} to "%uuid of {_stand}%"
+		set gravity of {_stand} to false
+		set chestplate of {_stand} to iron chestplate
+		set leggings of {_stand} to iron leggings
+		set boots of {_stand} to iron boots
+		set {turret.hp::%{_k}%} to 300
+		set {turret.maxhp::%{_k}%} to 300
+		set {turret.team::%{_k}%} to {_team}
+		set {turret.owner::%{_k}%} to "%uuid of player%"
+		set {turret.alive::%{_k}%} to true
+		if {_team} is "blue":
+			set helmet of {_stand} to blue wool
+			set name of {_stand} to "&9&l블루 포탑 &8[&a||||||||||&8] &f300&7/&7300"
+			send "&9BLUE 포탑 소환 &7(%x-coordinate of {_loc}%, %y-coordinate of {_loc}%, %z-coordinate of {_loc}%)" to player
+		if {_team} is "red":
+			set helmet of {_stand} to red wool
+			set name of {_stand} to "&c&l레드 포탑 &8[&a||||||||||&8] &f300&7/&7300"
+			send "&cRED 포탑 소환 &7(%x-coordinate of {_loc}%, %y-coordinate of {_loc}%, %z-coordinate of {_loc}%)" to player
+		add {_stand} to {turret.list::*}
+		play sound "block.anvil.place" with volume 0.8 and pitch 1.2 at {_loc}
+
+every 10 ticks:
+	loop {turret.list::*}:
+		set {_t} to loop-value
+		# 죽은/없는 포탑 정리
+		if {_t} is not set:
+			remove {_t} from {turret.list::*}
+		if {_t} is set:
+			set {_k} to "%uuid of {_t}%"
+			if {turret.alive::%{_k}%} is not set:
+				remove {_t} from {turret.list::*}
+			if {turret.alive::%{_k}%} is set:
+				set gravity of {_t} to false
+				set {_team} to {turret.team::%{_k}%}
+				delete {_teamOk}
+				if {_team} is "blue":
+					set {_teamOk} to true
+				if {_team} is "red":
+					set {_teamOk} to true
+				if {_teamOk} is set:
+					# 락된 플레이어가 사거리 밖이면 락 해제 (나가면 리셋)
+					if {turret.lock.id::%{_k}%} is set:
+						delete {_lockOk}
+						set {_lid} to {turret.lock.id::%{_k}%}
+						loop all players in radius 13 around {_t}:
+							if loop-player is alive:
+								if "%uuid of loop-player%" is {_lid}:
+									set {_lockOk} to true
+						if {_lockOk} is not set:
+							delete {turret.lock.id::%{_k}%}
+					set {_canShoot} to true
+					if {turret.nextshot::%{_k}%} is set:
+						if difference between {turret.nextshot::%{_k}%} and now < 1 second:
+							set {_canShoot} to false
+					if {_canShoot} is true:
+						delete {_target}
+						delete {_targetKind}
+						set {_bestDist} to 9999
+
+						# 0) 챔피언 피격 어그로 (최우선)
+						if {turret.aggro.id::%{_k}%} is set:
+							if {turret.aggro.until::%{_k}%} is set:
+								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
+									set {_aid} to {turret.aggro.id::%{_k}%}
+									loop all players in radius 13 around {_t}:
+										if loop-player is alive:
+											if "%uuid of loop-player%" is {_aid}:
+												set {_ateam} to "blue"
+												if {turret.team.player::%uuid of loop-player%} is set:
+													set {_ateam} to {turret.team.player::%uuid of loop-player%}
+												if {_ateam} is not {_team}:
+													set {_ahp} to health of loop-player
+													if {_ahp} is set:
+														if {_ahp} > 0:
+															set {_target} to loop-player
+															set {_targetKind} to "player"
+															set {turret.lock.id::%{_k}%} to {_aid}
+								else:
+									delete {turret.aggro.id::%{_k}%}
+									delete {turret.aggro.until::%{_k}%}
+
+						# 0.5) 플레이어 락: 미니언보다 먼저 들어온 플레이어 유지
+						if {_target} is not set:
+							if {turret.lock.id::%{_k}%} is set:
+								set {_lid} to {turret.lock.id::%{_k}%}
+								loop all players in radius 13 around {_t}:
+									if loop-player is alive:
+										if "%uuid of loop-player%" is {_lid}:
+											set {_lteam} to "blue"
+											if {turret.team.player::%uuid of loop-player%} is set:
+												set {_lteam} to {turret.team.player::%uuid of loop-player%}
+											if {_lteam} is not {_team}:
+												set {_lhp} to health of loop-player
+												if {_lhp} is set:
+													if {_lhp} > 0:
+														set {_target} to loop-player
+														set {_targetKind} to "player"
+
+						# 1) 적 미니언
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all zombies in radius 13 around {_t}:
+								set {_e} to loop-zombie
+								set {_mk} to "%uuid of {_e}%"
+								if {minion.alive::%{_mk}%} is set:
+									if {minion.team::%{_mk}%} is not {_team}:
+										set {_ehp} to health of {_e}
+										if {_ehp} is set:
+											if {_ehp} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} < {_bestDist}:
+													set {_target} to {_e}
+													set {_targetKind} to "minion"
+													set {_bestDist} to {_d}
+
+						# 2) 적 포탑
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop {turret.list::*}:
+								set {_e} to loop-value-2
+								if {_e} is set:
+									if {_e} is not {_t}:
+										set {_ek} to "%uuid of {_e}%"
+										if {turret.hp::%{_ek}%} is set:
+											if {turret.team::%{_ek}%} is not {_team}:
+												if {turret.hp::%{_ek}%} > 0:
+													set {_d} to distance between {_t} and {_e}
+													if {_d} <= 13:
+														if {_d} < {_bestDist}:
+															set {_target} to {_e}
+															set {_targetKind} to "turret"
+															set {_bestDist} to {_d}
+
+						# 3) 적 플레이어 (이때 락 설정 → 이후 미니언이 와도 유지)
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all players in radius 13 around {_t}:
+								if loop-player is alive:
+									set {_e} to loop-player
+									set {_eteam} to "blue"
+									if {turret.team.player::%uuid of {_e}%} is set:
+										set {_eteam} to {turret.team.player::%uuid of {_e}%}
+									if {_eteam} is not {_team}:
+										set {_ehp} to health of {_e}
+										if {_ehp} is set:
+											if {_ehp} > 0:
+												set {_d} to distance between {_t} and {_e}
+												if {_d} <= 13:
+													if {_d} < {_bestDist}:
+														set {_target} to {_e}
+														set {_targetKind} to "player"
+														set {_bestDist} to {_d}
+							if {_target} is set:
+								if {_targetKind} is "player":
+									set {turret.lock.id::%{_k}%} to "%uuid of {_target}%"
+
+						# 4) 일반 몹 (아군 미니언 제외)
+						if {_target} is not set:
+							set {_bestDist} to 9999
+							loop all monsters in radius 13 around {_t}:
+								set {_e} to loop-monster
+								set {_mk} to "%uuid of {_e}%"
+								delete {_skipMob}
+								if {minion.team::%{_mk}%} is set:
+									if {minion.team::%{_mk}%} is {_team}:
+										set {_skipMob} to true
+								if {_skipMob} is not set:
+									set {_ehp} to health of {_e}
+									if {_ehp} is set:
+										if {_ehp} > 0:
+											set {_d} to distance between {_t} and {_e}
+											if {_d} < {_bestDist}:
+												set {_target} to {_e}
+												set {_targetKind} to "mob"
+												set {_bestDist} to {_d}
+
+						# 대상 검증 후에만 발사 (location 좌표 수정 절대 안 함)
+						if {_target} is set:
+							if {_targetKind} is set:
+								set {_finalDist} to distance between {_t} and {_target}
+								if {_finalDist} > 0.5:
+									if {_finalDist} <= 13:
+										if "%world of {_target}%" is "%world of {_t}%":
+											play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
+											# 엔티티에 직접 draw (좌표 변조 없음 → 이상한 곳 발사 방지)
+											if {_team} is "blue":
+												draw 2 happy villager at {_t}
+												draw 4 happy villager at {_target}
+											if {_team} is "red":
+												draw 2 flame at {_t}
+												draw 4 flame at {_target}
+
+											if {_targetKind} is "turret":
+												set {_tk} to "%uuid of {_target}%"
+												if {turret.hp::%{_tk}%} is set:
+													set {_thp} to {turret.hp::%{_tk}%}
+													remove 7 from {_thp}
+													if {_thp} < 0:
+														set {_thp} to 0
+													set {turret.hp::%{_tk}%} to {_thp}
+													if {_thp} <= 0:
+														play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_target}
+														loop 12 times:
+															draw 1 flame at {_target}
+														send "&e적 포탑이 파괴되었습니다!" to all players in radius 20 around {_target}
+														remove {_target} from {turret.list::*}
+														delete {turret.hp::%{_tk}%}
+														delete {turret.maxhp::%{_tk}%}
+														delete {turret.team::%{_tk}%}
+														delete {turret.owner::%{_tk}%}
+														delete {turret.aggro.id::%{_tk}%}
+														delete {turret.aggro.until::%{_tk}%}
+														delete {turret.lock.id::%{_tk}%}
+														delete {turret.nextshot::%{_tk}%}
+														delete {turret.alive::%{_tk}%}
+														kill {_target}
+											else:
+												damage {_target} by 7
+											set {turret.nextshot::%{_k}%} to now
+
+every 20 ticks:
+	# 팀별 생존 포탑 수 (넥서스 보호용)
+	set {turret.count::blue} to 0
+	set {turret.count::red} to 0
+	loop {turret.list::*}:
+		set {_ct} to loop-value
+		if {_ct} is set:
+			set {_ck} to "%uuid of {_ct}%"
+			if {turret.hp::%{_ck}%} is set:
+				if {turret.hp::%{_ck}%} > 0:
+					if {turret.team::%{_ck}%} is "blue":
+						add 1 to {turret.count::blue}
+					if {turret.team::%{_ck}%} is "red":
+						add 1 to {turret.count::red}
+	# 팀 오라: 엔티티에 직접 (location y 수정 금지)
+	loop {turret.list::*}:
+		set {_t} to loop-value
+		if {_t} is set:
+			set {_k} to "%uuid of {_t}%"
+			if {turret.alive::%{_k}%} is set:
+				if {turret.team::%{_k}%} is "blue":
+					draw 1 happy villager at {_t}
+				if {turret.team::%{_k}%} is "red":
+					draw 1 flame at {_t}
+
+	loop {turret.list::*}:
+		set {_near} to loop-value
+		if {_near} is set:
+			set {_k} to "%uuid of {_near}%"
+			if {turret.hp::%{_k}%} is set:
+				set {_hp} to {turret.hp::%{_k}%}
+				set {_max} to {turret.maxhp::%{_k}%}
+				set {_team} to {turret.team::%{_k}%}
+				set {_color} to "&9"
+				set {_label} to "블루 포탑"
+				if {_team} is "red":
+					set {_color} to "&c"
+					set {_label} to "레드 포탑"
+				set {_filled} to round(({_hp} / {_max}) * 10)
+				if {_filled} > 10:
+					set {_filled} to 10
+				if {_filled} < 0:
+					set {_filled} to 0
+				set {_barColor} to "&a"
+				if {_filled} <= 6:
+					set {_barColor} to "&e"
+				if {_filled} <= 3:
+					set {_barColor} to "&c"
+				set {_bar} to "&8["
+				set {_n} to 0
+				loop 10 times:
+					add 1 to {_n}
+					if {_n} <= {_filled}:
+						set {_bar} to "%{_bar}%%{_barColor}%|"
+					else:
+						set {_bar} to "%{_bar}%&7|"
+				set {_bar} to "%{_bar}%&8]"
+				set name of {_near} to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+				loop all players in radius 16 around {_near}:
+					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
+
+on damage:
+	if victim is not set:
+		stop
+	if victim is an armor stand:
+		set {_k} to "%uuid of victim%"
+		if {turret.hp::%{_k}%} is set:
+			# 미니언과 동일: {공격력::%player%}
+			cancel event
+			set {_team} to {turret.team::%{_k}%}
+			set {_dmg} to 1
+			if attacker is a player:
+				set {_ateam} to "blue"
+				if {turret.team.player::%uuid of attacker%} is set:
+					set {_ateam} to {turret.team.player::%uuid of attacker%}
+				if {_ateam} is {_team}:
+					send action bar "&7아군 포탑은 공격할 수 없습니다." to attacker
+					stop
+				if {공격력::%attacker%} is set:
+					set {_dmg} to {공격력::%attacker%}
+				else:
+					set {_dmg} to 1
+			if attacker is an armor stand:
+				set {_ak} to "%uuid of attacker%"
+				if {turret.team::%{_ak}%} is set:
+					if {turret.team::%{_ak}%} is {_team}:
+						stop
+			if {_dmg} < 0:
+				set {_dmg} to 0
+			set {_hp} to {turret.hp::%{_k}%}
+			remove {_dmg} from {_hp}
+			if {_hp} < 0:
+				set {_hp} to 0
+			set {turret.hp::%{_k}%} to {_hp}
+			set {_max} to {turret.maxhp::%{_k}%}
+			set {_color} to "&9"
+			set {_label} to "블루 포탑"
+			if {_team} is "red":
+				set {_color} to "&c"
+				set {_label} to "레드 포탑"
+			set {_filled} to round(({_hp} / {_max}) * 10)
+			if {_filled} > 10:
+				set {_filled} to 10
+			if {_filled} < 0:
+				set {_filled} to 0
+			set {_barColor} to "&a"
+			if {_filled} <= 6:
+				set {_barColor} to "&e"
+			if {_filled} <= 3:
+				set {_barColor} to "&c"
+			set {_bar} to "&8["
+			set {_n} to 0
+			loop 10 times:
+				add 1 to {_n}
+				if {_n} <= {_filled}:
+					set {_bar} to "%{_bar}%%{_barColor}%|"
+				else:
+					set {_bar} to "%{_bar}%&7|"
+			set {_bar} to "%{_bar}%&8]"
+			set name of victim to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+			loop all players in radius 16 around victim:
+				send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}% &7(-%{_dmg}%)" to loop-player
+			# 포탑만 때린 경우 플레이어 어그로 절대 부여하지 않음
+			# (사거리 안 미니언이 있으면 계속 미니언 공격)
+			if {_hp} <= 0:
+				set {_loc} to location of victim
+				play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_loc}
+				loop 12 times:
+					if {_team} is "blue":
+						draw 1 happy villager at {_loc}
+					if {_team} is "red":
+						draw 1 flame at {_loc}
+				send "%{_color}%&l%{_label}%&r &7이(가) 파괴되었습니다!" to all players in radius 20 around victim
+				remove victim from {turret.list::*}
+				delete {turret.hp::%{_k}%}
+				delete {turret.maxhp::%{_k}%}
+				delete {turret.team::%{_k}%}
+				delete {turret.owner::%{_k}%}
+				delete {turret.aggro.id::%{_k}%}
+				delete {turret.aggro.until::%{_k}%}
+				delete {turret.lock.id::%{_k}%}
+				delete {turret.nextshot::%{_k}%}
+				delete {turret.alive::%{_k}%}
+				kill victim
+			stop
+	if victim is a player:
+		# 적 플레이어를 "그 팀 포탑 사거리 안"에서 때리면 → 해당 포탑 어그로가 공격자에게로 전환
+		if attacker is a player:
+			set {_vteam} to "blue"
+			if {turret.team.player::%uuid of victim%} is set:
+				set {_vteam} to {turret.team.player::%uuid of victim%}
+			set {_ateam} to "blue"
+			if {turret.team.player::%uuid of attacker%} is set:
+				set {_ateam} to {turret.team.player::%uuid of attacker%}
+			if {_ateam} is not {_vteam}:
+				loop {turret.list::*}:
+					set {_tur} to loop-value-2
+					if {_tur} is set:
+						set {_k} to "%uuid of {_tur}%"
+						if {turret.hp::%{_k}%} is set:
+							if {turret.team::%{_k}%} is {_vteam}:
+								if {turret.hp::%{_k}%} > 0:
+									if "%world of {_tur}%" is "%world of attacker%":
+										set {_da} to distance between {_tur} and attacker
+										if {_da} <= 13:
+											set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
+											set {turret.aggro.until::%{_k}%} to now
+											set {turret.lock.id::%{_k}%} to "%uuid of attacker%"

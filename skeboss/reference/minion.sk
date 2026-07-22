@@ -1,0 +1,1651 @@
+# 롤 스타일 미니언 (구버전 Skript)  VER=20260720h
+# plugins/Skript/scripts/미니언.sk  (이 파일 하나만!)
+#
+# 주의: minion.sk 와 미니언.sk 를 둘 다 넣으면 커맨드 중복 에러남
+#       예전 minion.sk 는 삭제하고 이 파일만 남기세요
+#       이동: XZ텔레포트 + 낙하(중력) + 막히면 옆돌/1단점프 / yaw
+#       체력/딜: {근거리미니언체력}/{근거리미니언공격력}, {원거리미니언체력}/{원거리미니언공격력}
+#       적 넥서스 공격 (넥서스.sk 필요, 포탑 남으면 넥서스 면역)
+#       좀비 미니언 + 이름표 체력바 / 플레이어 피격 = {공격력::%player%}
+#       중첩루프는 loop-value-2 사용
+#
+# /미니언
+# /미니언팀 <blue|red>
+# /미니언목표 [blue|red]
+# /미니언소환 [blue|red] [수]          ← 근접
+# /미니언소환 <blue|red> <x> <y> <z>
+# /미니언소환 <blue|red> <수> <x> <y> <z>
+# /미니언원거리소환 [blue|red] [수]   ← 원거리
+# /미니언원거리소환 <blue|red> <x> <y> <z>
+# /미니언원거리소환 <blue|red> <수> <x> <y> <z>
+# /미니언제거
+# /미니언전체제거
+# /미니언목록
+#
+# 기본 우선순위: 적 미니언 > 적 포탑 > 적 넥서스 > 적 플레이어
+# 단, 플레이어가 이 미니언을 직접 때리면 그 플레이어가 최우선(어그로)
+# 포탑/넥서스만 때린다고 미니언 어그로가 붙진 않음
+# 포탑.sk + 넥서스.sk 같이 넣어야 연동됨
+
+command /미니언:
+	trigger:
+		send "&e미니언 VER=20260720h (좀비/공격력/체력바)" to player
+		send "&e/미니언팀 <blue|red>" to player
+		send "&e/미니언목표 [blue|red]" to player
+		send "&e/미니언소환 [blue|red] [수] &7← 근접" to player
+		send "&e/미니언소환 <blue|red> <x> <y> <z>" to player
+		send "&e/미니언원거리소환 [blue|red] [수] &7← 원거리" to player
+		send "&e/미니언원거리소환 <blue|red> <x> <y> <z>" to player
+		send "&e/미니언제거 &7/ &e/미니언전체제거" to player
+		send "&e/미니언목록" to player
+		send "&7포탑.sk + 넥서스.sk 같이 넣으면 서로 싸움" to player
+		send "&7스탯: &f{근거리미니언체력}&7/&f{근거리미니언공격력}&7 , &f{원거리미니언체력}&7/&f{원거리미니언공격력}" to player
+		send "&cminion.sk 와 미니언.sk 둘 다 있으면 삭제하세요 (하나만)" to player
+		if {근거리미니언체력} is not set:
+			set {근거리미니언체력} to 30
+		if {근거리미니언공격력} is not set:
+			set {근거리미니언공격력} to 2.5
+		if {원거리미니언체력} is not set:
+			set {원거리미니언체력} to 20
+		if {원거리미니언공격력} is not set:
+			set {원거리미니언공격력} to 2
+		send "&7현재 근거리 HP&f%{근거리미니언체력}%&7 딜&f%{근거리미니언공격력}% &7| 원거리 HP&f%{원거리미니언체력}%&7 딜&f%{원거리미니언공격력}%" to player
+
+command /미니언팀 <text>:
+	trigger:
+		set {_team} to arg-1
+		if {_team} is "blue":
+			set {turret.team.player::%uuid of player%} to "blue"
+			send "&9팀을 &fBLUE&9 로 설정했습니다." to player
+			stop
+		if {_team} is "red":
+			set {turret.team.player::%uuid of player%} to "red"
+			send "&c팀을 &fRED&c 로 설정했습니다." to player
+			stop
+		send "&c사용법: /미니언팀 <blue|red>" to player
+
+command /미니언목표 [<text>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		if arg-1 is set:
+			set {_team} to arg-1
+		if {_team} is not "blue":
+			if {_team} is not "red":
+				send "&c사용법: /미니언목표 [blue|red]" to player
+				stop
+		set {minion.goal::%{_team}%} to location of player
+		send "&a%{_team}% 팀 목표 설정 &7(%x-coordinate of player%, %y-coordinate of player%, %z-coordinate of player%)" to player
+		if {_team} is "blue":
+			draw 8 happy villager at player
+		if {_team} is "red":
+			draw 8 flame at player
+
+command /미니언목록:
+	trigger:
+		set {_nb} to 0
+		set {_nr} to 0
+		loop {minion.list::*}:
+			if loop-value is set:
+				set {_k} to "%uuid of loop-value%"
+				if {minion.team::%{_k}%} is "blue":
+					add 1 to {_nb}
+				if {minion.team::%{_k}%} is "red":
+					add 1 to {_nr}
+		set {_my} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_my} to {turret.team.player::%uuid of player%}
+		send "&b내 팀: &f%{_my}% &7| 미니언 &9B%{_nb}% &cR%{_nr}%" to player
+
+command /미니언제거:
+	trigger:
+		delete {_near}
+		set {_best} to 999
+		loop {minion.list::*}:
+			if loop-value is set:
+				set {_d} to distance between player and loop-value
+				if {_d} <= 10:
+					if {_d} < {_best}:
+						set {_near} to loop-value
+						set {_best} to {_d}
+		if {_near} is not set:
+			send "&c근처 미니언 없음" to player
+			stop
+		set {_k} to "%uuid of {_near}%"
+		remove {_near} from {minion.list::*}
+		delete {minion.team::%{_k}%}
+		delete {minion.alive::%{_k}%}
+		delete {minion.hp::%{_k}%}
+		delete {minion.maxhp::%{_k}%}
+		delete {minion.kind::%{_k}%}
+		delete {minion.next::%{_k}%}
+		delete {minion.aggro.id::%{_k}%}
+		delete {minion.aggro.until::%{_k}%}
+		delete {minion.side::%{_k}%}
+		kill {_near}
+		send "&a근처 미니언 제거" to player
+
+command /미니언전체제거:
+	trigger:
+		set {_n} to 0
+		loop {minion.list::*}:
+			set {_m} to loop-value
+			if {_m} is set:
+				set {_k} to "%uuid of {_m}%"
+				delete {minion.team::%{_k}%}
+				delete {minion.alive::%{_k}%}
+				delete {minion.hp::%{_k}%}
+				delete {minion.maxhp::%{_k}%}
+				delete {minion.kind::%{_k}%}
+				delete {minion.next::%{_k}%}
+				delete {minion.aggro.id::%{_k}%}
+				delete {minion.aggro.until::%{_k}%}
+				delete {minion.side::%{_k}%}
+				kill {_m}
+				add 1 to {_n}
+		delete {minion.list::*}
+		send "&a미니언 %{_n}%마리 제거" to player
+
+command /미니언소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		set {_amt} to 1
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
+		if arg-1 is set:
+			if arg-1 is "blue":
+				set {_team} to "blue"
+			if arg-1 is "red":
+				set {_team} to "red"
+			if arg-1 is not "blue":
+				if arg-1 is not "red":
+					send "&c/미니언소환 [blue|red] [수]" to player
+					send "&c/미니언소환 <blue|red> <x> <y> <z>" to player
+					send "&c/미니언소환 <blue|red> <수> <x> <y> <z>" to player
+					stop
+		# 좌표: team x y z  또는  team 수 x y z
+		if arg-2 is set:
+			if arg-3 is set:
+				if arg-4 is set:
+					if arg-5 is set:
+						set {_amt} to arg-2
+						set {_wx} to arg-3
+						set {_wy} to arg-4
+						set {_wz} to arg-5
+					else:
+						set {_wx} to arg-2
+						set {_wy} to arg-3
+						set {_wz} to arg-4
+				else:
+					send "&c사용법: /미니언소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				set {_amt} to arg-2
+		if {_amt} < 1:
+			set {_amt} to 1
+		if {_amt} > 20:
+			set {_amt} to 20
+		if {minion.goal::%{_team}%} is not set:
+			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
+		set {_off} to 0
+		loop {_amt} times:
+			set {_sx} to {_wx} + {_off}
+			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
+			add 1.2 to {_off}
+			spawn zombie at {_loc}
+			set {_m} to last spawned entity
+			if {_m} is set:
+				set {_k} to "%uuid of {_m}%"
+				set {minion.team::%{_k}%} to {_team}
+				set {minion.alive::%{_k}%} to true
+				set {minion.kind::%{_k}%} to "melee"
+				add {_m} to {minion.list::*}
+				if {근거리미니언체력} is not set:
+					set {근거리미니언체력} to 30
+				if {근거리미니언공격력} is not set:
+					set {근거리미니언공격력} to 2.5
+				set {_hpstat} to {근거리미니언체력}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
+				set {minion.maxhp::%{_k}%} to {_hpstat}
+				set AI of {_m} to false
+				set {_color} to "&9"
+				set {_label} to "블루 근접미니언"
+				if {_team} is "blue":
+					set helmet of {_m} to blue wool
+				if {_team} is "red":
+					set {_color} to "&c"
+					set {_label} to "레드 근접미니언"
+					set helmet of {_m} to red wool
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f%{_hpstat}%&7/&7%{_hpstat}%"
+				set chestplate of {_m} to leather chestplate
+				set tool of {_m} to iron sword
+		send "&a%{_team}% 근접 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
+
+command /미니언원거리소환 [<text>] [<number>] [<number>] [<number>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		set {_amt} to 1
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
+		if arg-1 is set:
+			if arg-1 is "blue":
+				set {_team} to "blue"
+			if arg-1 is "red":
+				set {_team} to "red"
+			if arg-1 is not "blue":
+				if arg-1 is not "red":
+					send "&c/미니언원거리소환 [blue|red] [수]" to player
+					send "&c/미니언원거리소환 <blue|red> <x> <y> <z>" to player
+					send "&c/미니언원거리소환 <blue|red> <수> <x> <y> <z>" to player
+					stop
+		if arg-2 is set:
+			if arg-3 is set:
+				if arg-4 is set:
+					if arg-5 is set:
+						set {_amt} to arg-2
+						set {_wx} to arg-3
+						set {_wy} to arg-4
+						set {_wz} to arg-5
+					else:
+						set {_wx} to arg-2
+						set {_wy} to arg-3
+						set {_wz} to arg-4
+				else:
+					send "&c사용법: /미니언원거리소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				set {_amt} to arg-2
+		if {_amt} < 1:
+			set {_amt} to 1
+		if {_amt} > 20:
+			set {_amt} to 20
+		if {minion.goal::%{_team}%} is not set:
+			send "&e목표 없음! 먼저 &f/미니언목표 %{_team}%" to player
+		set {_off} to 0
+		loop {_amt} times:
+			set {_sx} to {_wx} + {_off}
+			set {_loc} to location({_sx}, {_wy}, {_wz}, {_ww})
+			add 1.2 to {_off}
+			spawn zombie at {_loc}
+			set {_m} to last spawned entity
+			if {_m} is set:
+				set {_k} to "%uuid of {_m}%"
+				set {minion.team::%{_k}%} to {_team}
+				set {minion.alive::%{_k}%} to true
+				set {minion.kind::%{_k}%} to "ranged"
+				add {_m} to {minion.list::*}
+				if {원거리미니언체력} is not set:
+					set {원거리미니언체력} to 20
+				if {원거리미니언공격력} is not set:
+					set {원거리미니언공격력} to 2
+				set {_hpstat} to {원거리미니언체력}
+				set max health of {_m} to {_hpstat}
+				set health of {_m} to {_hpstat}
+				set {minion.maxhp::%{_k}%} to {_hpstat}
+				set AI of {_m} to false
+				set {_color} to "&9"
+				set {_label} to "블루 원거리미니언"
+				if {_team} is "blue":
+					set helmet of {_m} to lapis block
+				if {_team} is "red":
+					set {_color} to "&c"
+					set {_label} to "레드 원거리미니언"
+					set helmet of {_m} to redstone block
+				set name of {_m} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f%{_hpstat}%&7/&7%{_hpstat}%"
+				set chestplate of {_m} to chainmail chestplate
+				set tool of {_m} to bow
+		send "&a%{_team}% 원거리 미니언 &f%{_amt}%&a마리 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
+
+# 바닐라 타겟팅 차단
+on entity target:
+	set {_k} to "%uuid of entity%"
+	if {minion.alive::%{_k}%} is set:
+		cancel event
+
+on damage:
+	if attacker is not set:
+		stop
+	if victim is not set:
+		stop
+	set {_ak} to "%uuid of attacker%"
+	set {_vk} to "%uuid of victim%"
+
+	# 미니언끼리 아군 피해 차단
+	if {minion.alive::%{_ak}%} is set:
+		if {minion.alive::%{_vk}%} is set:
+			set {_ateam} to {minion.team::%{_ak}%}
+			set {_vteam} to {minion.team::%{_vk}%}
+			if {_ateam} is set:
+				if {_vteam} is set:
+					if {_ateam} is {_vteam}:
+						cancel event
+						stop
+
+	# 미니언이 피격
+	if {minion.alive::%{_vk}%} is set:
+		set {_mteam} to {minion.team::%{_vk}%}
+		if attacker is a player:
+			set {_ateam} to "blue"
+			if {turret.team.player::%uuid of attacker%} is set:
+				set {_ateam} to {turret.team.player::%uuid of attacker%}
+			if {_ateam} is {_mteam}:
+				cancel event
+				send action bar "&7아군 미니언은 공격할 수 없습니다." to attacker
+				stop
+			# 스탯 {공격력::%player%} 를 실제 데미지로
+			if {공격력::%attacker%} is set:
+				set damage to {공격력::%attacker%}
+			set {minion.aggro.id::%{_vk}%} to "%uuid of attacker%"
+			set {minion.aggro.until::%{_vk}%} to now
+		if {minion.team::%{_ak}%} is set:
+			if {minion.team::%{_ak}%} is {_mteam}:
+				cancel event
+				stop
+
+	# 미니언이 가해자
+	if {minion.team::%{_ak}%} is set:
+		set {_ateam} to {minion.team::%{_ak}%}
+		if {minion.team::%{_vk}%} is set:
+			if {minion.team::%{_vk}%} is {_ateam}:
+				cancel event
+				stop
+		if victim is a player:
+			set {_vteam} to "blue"
+			if {turret.team.player::%uuid of victim%} is set:
+				set {_vteam} to {turret.team.player::%uuid of victim%}
+			if {_vteam} is {_ateam}:
+				cancel event
+				stop
+
+on death:
+	if victim is not set:
+		stop
+	set {_k} to "%uuid of victim%"
+	if {minion.alive::%{_k}%} is set:
+		remove victim from {minion.list::*}
+		delete {minion.team::%{_k}%}
+		delete {minion.alive::%{_k}%}
+		delete {minion.hp::%{_k}%}
+		delete {minion.maxhp::%{_k}%}
+		delete {minion.kind::%{_k}%}
+		delete {minion.next::%{_k}%}
+		delete {minion.aggro.id::%{_k}%}
+		delete {minion.aggro.until::%{_k}%}
+		delete {minion.side::%{_k}%}
+		clear drops
+		draw 6 cloud at victim
+
+every 10 ticks:
+	# 미니언 이름표 체력바
+	loop {minion.list::*}:
+		set {_m} to loop-value
+		if {_m} is set:
+			set {_k} to "%uuid of {_m}%"
+			if {minion.alive::%{_k}%} is set:
+				set {_hp} to health of {_m}
+				if {_hp} is set:
+					set {_hp} to round({_hp})
+					set {_max} to 30
+					if {minion.maxhp::%{_k}%} is set:
+						set {_max} to {minion.maxhp::%{_k}%}
+					set {_team} to {minion.team::%{_k}%}
+					set {_color} to "&9"
+					set {_label} to "블루 근접미니언"
+					if {minion.kind::%{_k}%} is "ranged":
+						set {_label} to "블루 원거리미니언"
+					if {_team} is "red":
+						set {_color} to "&c"
+						set {_label} to "레드 근접미니언"
+						if {minion.kind::%{_k}%} is "ranged":
+							set {_label} to "레드 원거리미니언"
+					set {_filled} to round(({_hp} / {_max}) * 10)
+					if {_filled} > 10:
+						set {_filled} to 10
+					if {_filled} < 0:
+						set {_filled} to 0
+					set {_barColor} to "&a"
+					if {_filled} <= 6:
+						set {_barColor} to "&e"
+					if {_filled} <= 3:
+						set {_barColor} to "&c"
+					set {_bar} to "&8["
+					set {_n} to 0
+					loop 10 times:
+						add 1 to {_n}
+						if {_n} <= {_filled}:
+							set {_bar} to "%{_bar}%%{_barColor}%|"
+						else:
+							set {_bar} to "%{_bar}%&7|"
+					set {_bar} to "%{_bar}%&8]"
+					set name of {_m} to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+
+every 5 ticks:
+	loop {minion.list::*}:
+		set {_m} to loop-value
+		if {_m} is not set:
+			remove {_m} from {minion.list::*}
+		if {_m} is set:
+			set {_k} to "%uuid of {_m}%"
+			if {minion.alive::%{_k}%} is not set:
+				remove {_m} from {minion.list::*}
+			if {minion.alive::%{_k}%} is set:
+				extinguish {_m}
+				# AI 계속 꺼두기 + 넉백/떠오름 제거
+				set AI of {_m} to false
+				set velocity of {_m} to vector(0, 0, 0)
+				set {_team} to {minion.team::%{_k}%}
+				set {_teamOk} to false
+				if {_team} is "blue":
+					set {_teamOk} to true
+				if {_team} is "red":
+					set {_teamOk} to true
+				if {_teamOk} is true:
+					delete {_target}
+					delete {_moveTo}
+					delete {_sep}
+					delete {_look}
+
+					# 0) 어그로 플레이어 (맞으면 최우선)
+					if {minion.aggro.id::%{_k}%} is set:
+						if {minion.aggro.until::%{_k}%} is set:
+							if difference between {minion.aggro.until::%{_k}%} and now < 8 seconds:
+								set {_aid} to {minion.aggro.id::%{_k}%}
+								loop all players in radius 12 around {_m}:
+									if loop-player is alive:
+										if "%uuid of loop-player%" is {_aid}:
+											set {_ateam} to "blue"
+											if {turret.team.player::%uuid of loop-player%} is set:
+												set {_ateam} to {turret.team.player::%uuid of loop-player%}
+											if {_ateam} is not {_team}:
+												set {_hp} to health of loop-player
+												if {_hp} is set:
+													if {_hp} > 0:
+														set {_target} to loop-player
+							else:
+								delete {minion.aggro.id::%{_k}%}
+								delete {minion.aggro.until::%{_k}%}
+
+					# 1) 적 미니언
+					if {_target} is not set:
+						set {_best} to 9999
+						loop all zombies in radius 10 around {_m}:
+							set {_e} to loop-value-2
+							if {_e} is not {_m}:
+								set {_ek} to "%uuid of {_e}%"
+								if {minion.alive::%{_ek}%} is set:
+									if {minion.team::%{_ek}%} is set:
+										if {minion.team::%{_ek}%} is not {_team}:
+											set {_hp} to health of {_e}
+											if {_hp} is set:
+												if {_hp} > 0:
+													set {_d} to distance between {_m} and {_e}
+													if {_d} < {_best}:
+														set {_target} to {_e}
+														set {_best} to {_d}
+
+					# 2) 적 포탑 (리스트 기준 — skeleton/armorstand 타입 무관)
+					if {_target} is not set:
+						set {_best} to 9999
+						loop {turret.list::*}:
+							set {_e} to loop-value-2
+							if {_e} is set:
+								set {_ek} to "%uuid of {_e}%"
+								if {turret.hp::%{_ek}%} is set:
+									if {turret.team::%{_ek}%} is not {_team}:
+										if {turret.hp::%{_ek}%} > 0:
+											if "%world of {_e}%" is "%world of {_m}%":
+												set {_d} to distance between {_m} and {_e}
+												if {_d} <= 14:
+													if {_d} < {_best}:
+														set {_target} to {_e}
+														set {_best} to {_d}
+
+					# 3) 적 넥서스 (그 팀 포탑이 남아있으면 공격 불가)
+					if {_target} is not set:
+						set {_best} to 9999
+						loop {nexus.list::*}:
+							set {_e} to loop-value-2
+							if {_e} is set:
+								set {_ek} to "%uuid of {_e}%"
+								if {nexus.hp::%{_ek}%} is set:
+									if {nexus.team::%{_ek}%} is not {_team}:
+										if {nexus.hp::%{_ek}%} > 0:
+											set {_nteam} to {nexus.team::%{_ek}%}
+											set {_shield} to 0
+											if {turret.count::%{_nteam}%} is set:
+												set {_shield} to {turret.count::%{_nteam}%}
+											if {_shield} <= 0:
+												if "%world of {_e}%" is "%world of {_m}%":
+													set {_d} to distance between {_m} and {_e}
+													if {_d} <= 16:
+														if {_d} < {_best}:
+															set {_target} to {_e}
+															set {_best} to {_d}
+
+					# 4) 적 플레이어
+					if {_target} is not set:
+						set {_best} to 9999
+						loop all players in radius 10 around {_m}:
+							if loop-player is alive:
+								set {_e} to loop-player
+								set {_eteam} to "blue"
+								if {turret.team.player::%uuid of {_e}%} is set:
+									set {_eteam} to {turret.team.player::%uuid of {_e}%}
+								if {_eteam} is not {_team}:
+									set {_hp} to health of {_e}
+									if {_hp} is set:
+										if {_hp} > 0:
+											set {_d} to distance between {_m} and {_e}
+											if {_d} < {_best}:
+												set {_target} to {_e}
+												set {_best} to {_d}
+
+					# 이동/공격 (텔레포트 스텝 — velocity/vector 미사용)
+					if {_target} is set:
+						set {_moveTo} to {_target}
+					else:
+						if {minion.goal::%{_team}%} is set:
+							set {_goal} to {minion.goal::%{_team}%}
+							if "%world of {_goal}%" is "%world of {_m}%":
+								set {_moveTo} to {_goal}
+						else:
+							# 목표 없으면 적 넥서스 (중첩루프 없이 변수 사용)
+							if {_team} is "blue":
+								if {nexus.stand::red} is set:
+									set {_moveTo} to {nexus.stand::red}
+							if {_team} is "red":
+								if {nexus.stand::blue} is set:
+									set {_moveTo} to {nexus.stand::blue}
+
+					if {_target} is set:
+						set {_d} to distance between {_m} and {_target}
+						set {_atkRange} to 2.3
+						set {_atk} to 2.5
+						if {근거리미니언공격력} is set:
+							set {_atk} to {근거리미니언공격력}
+						set {_hold} to 0
+						if {minion.kind::%{_k}%} is "ranged":
+							set {_atkRange} to 7.5
+							set {_atk} to 2
+							if {원거리미니언공격력} is set:
+								set {_atk} to {원거리미니언공격력}
+							set {_hold} to 4.8
+						if {_d} <= {_atkRange}:
+							# 타겟 바라보기 (direction from 미지원 → vector yaw)
+							set {_ldx} to (x-coordinate of {_target}) - (x-coordinate of {_m})
+							set {_ldz} to (z-coordinate of {_target}) - (z-coordinate of {_m})
+							set {_look} to vector({_ldx}, 0, {_ldz})
+							set yaw of {_m} to yaw of {_look}
+							set pitch of {_m} to 0
+							set {_canHit} to true
+							if {minion.next::%{_k}%} is set:
+								if difference between {minion.next::%{_k}%} and now < 1 second:
+									set {_canHit} to false
+							if {_canHit} is true:
+								set {_ek} to "%uuid of {_target}%"
+								if {turret.hp::%{_ek}%} is set:
+									set {_thp} to {turret.hp::%{_ek}%}
+									remove {_atk} from {_thp}
+									if {_thp} < 0:
+										set {_thp} to 0
+									set {turret.hp::%{_ek}%} to {_thp}
+									if {_thp} <= 0:
+										play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_target}
+										loop 8 times:
+											draw 1 flame at {_target}
+										remove {_target} from {turret.list::*}
+										delete {turret.hp::%{_ek}%}
+										delete {turret.maxhp::%{_ek}%}
+										delete {turret.team::%{_ek}%}
+										delete {turret.owner::%{_ek}%}
+										delete {turret.alive::%{_ek}%}
+										kill {_target}
+								else:
+									if {nexus.hp::%{_ek}%} is set:
+										set {_nteam} to {nexus.team::%{_ek}%}
+										set {_shield} to 0
+										if {turret.count::%{_nteam}%} is set:
+											set {_shield} to {turret.count::%{_nteam}%}
+										if {_shield} <= 0:
+											set {_nhp} to {nexus.hp::%{_ek}%}
+											remove {_atk} from {_nhp}
+											if {_nhp} < 0:
+												set {_nhp} to 0
+											set {nexus.hp::%{_ek}%} to {_nhp}
+											if {_nhp} <= 0:
+												play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at {_target}
+												loop 12 times:
+													draw 1 flame at {_target}
+												if {_nteam} is "blue":
+													send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
+												if {_nteam} is "red":
+													send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
+												remove {_target} from {nexus.list::*}
+												delete {nexus.hp::%{_ek}%}
+												delete {nexus.maxhp::%{_ek}%}
+												delete {nexus.team::%{_ek}%}
+												delete {nexus.alive::%{_ek}%}
+												if {_nteam} is set:
+													delete {nexus.stand::%{_nteam}%}
+												kill {_target}
+									else:
+										damage {_target} by {_atk}
+										set {_tk} to "%uuid of {_target}%"
+										if {minion.alive::%{_tk}%} is set:
+											set velocity of {_target} to vector(0, 0, 0)
+										if {_target} is a player:
+											set velocity of {_target} to vector(0, 0, 0)
+								if {minion.kind::%{_k}%} is "ranged":
+									draw 1 flame at {_m}
+									draw 3 flame at {_target}
+									play sound "entity.arrow.shoot" with volume 0.55 and pitch 1.2 at {_m}
+								else:
+									if {_team} is "blue":
+										draw 2 happy villager at {_target}
+									if {_team} is "red":
+										draw 2 flame at {_target}
+									play sound "entity.zombie.attack_wooden_door" with volume 0.45 and pitch 1.3 at {_m}
+								set {minion.next::%{_k}%} to now
+							# 원거리 후퇴/겹침 해소 + 항상 낙하·벽회피
+							set {_mx} to x-coordinate of {_m}
+							set {_my} to y-coordinate of {_m}
+							set {_mz} to z-coordinate of {_m}
+							set {_mw} to world of {_m}
+							set {_nx} to {_mx}
+							set {_nz} to {_mz}
+							set {_sep} to false
+							if {minion.kind::%{_k}%} is "ranged":
+								if {_d} < {_hold}:
+									set {_tx} to x-coordinate of {_target}
+									set {_tz} to z-coordinate of {_target}
+									set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+									set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+									set {_hd} to distance between {_flatA} and {_flatB}
+									if {_hd} < 0.3:
+										set {_hd} to 0.3
+									set {_nx} to {_mx} + ({_mx} - {_tx}) / {_hd} * 0.55
+									set {_nz} to {_mz} + ({_mz} - {_tz}) / {_hd} * 0.55
+									set {_sep} to true
+							loop all zombies in radius 1.3 around {_m}:
+								set {_o} to loop-value-2
+								if {_o} is not {_m}:
+									set {_okey} to "%uuid of {_o}%"
+									if {minion.team::%{_okey}%} is {_team}:
+										set {_ox} to x-coordinate of {_o}
+										set {_oz} to z-coordinate of {_o}
+										set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+										set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+										set {_od} to distance between {_flatA} and {_flatB}
+										if {_od} < 1.05:
+											if {_od} < 0.15:
+												set {_od} to 0.15
+											set {_nx} to {_nx} + ({_mx} - {_ox}) / {_od} * 0.45
+											set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
+											set {_sep} to true
+							set {_ldx} to (x-coordinate of {_target}) - {_nx}
+							set {_ldz} to (z-coordinate of {_target}) - {_nz}
+							set {_look} to vector({_ldx}, 0, {_ldz})
+							# [이동확정] 낙하 + 앞막힘 옆돌/계단 + 벽뚫림 방지
+							set {_gy} to {_my}
+							# 발 위치가 블록 안이면 위로
+							delete {_inblk}
+							set {_bf} to location({_mx}, {_gy}, {_mz}, {_mw})
+							if block at {_bf} is solid:
+								set {_inblk} to true
+							if {_inblk} is set:
+								set {_gy} to {_gy} + 1
+							# 아래가 공기면 땅까지 낙하
+							set {_falling} to true
+							loop 24 times:
+								if {_falling} is true:
+									set {_uy} to {_gy} - 1
+									set {_bu} to location({_mx}, {_uy}, {_mz}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_gy} to {_uy}
+							# 목적지 검사 함수 대용
+							delete {_fx}
+							delete {_fz}
+							delete {_fy}
+							set {_candX} to {_nx}
+							set {_candZ} to {_nz}
+							set {_candY} to {_gy}
+							delete {_okmove}
+							# 1) 직진
+							delete {_blocked}
+							set {_bf} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							set {_hy} to {_candY} + 1
+							set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+							if block at {_bf} is solid:
+								set {_blocked} to true
+							if block at {_bh} is solid:
+								set {_blocked} to true
+							if {_blocked} is not set:
+								set {_okmove} to true
+							else:
+								# 2) 1칸 올라가기 (계단)
+								delete {_blocked}
+								set {_up} to {_candY} + 1
+								set {_bf} to location({_candX}, {_up}, {_candZ}, {_mw})
+								set {_hy} to {_up} + 1
+								set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candY} to {_up}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 3) 옆으로 돌기 (좌/우) — 직진 방향의 수직
+								set {_ddx} to {_nx} - {_mx}
+								set {_ddz} to {_nz} - {_mz}
+								set {_flatA} to location({_mx}, {_gy}, {_mz}, {_mw})
+								set {_flatB} to location({_nx}, {_gy}, {_nz}, {_mw})
+								set {_plen} to distance between {_flatA} and {_flatB}
+								if {_plen} < 0.2:
+									set {_plen} to 0.2
+								set {_sx} to (0 - {_ddz}) / {_plen} * 0.75
+								set {_sz} to {_ddx} / {_plen} * 0.75
+								set {_prefer} to "L"
+								if {minion.side::%{_k}%} is set:
+									set {_prefer} to {minion.side::%{_k}%}
+								# try preferred then other
+								set {_try} to 1
+								loop 2 times:
+									if {_okmove} is not set:
+										if {_try} is 1:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+											else:
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+										else:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+											else:
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+										delete {_blocked}
+										set {_bf} to location({_tx2}, {_gy}, {_tz2}, {_mw})
+										set {_hy} to {_gy} + 1
+										set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+										if block at {_bf} is solid:
+											set {_blocked} to true
+										if block at {_bh} is solid:
+											set {_blocked} to true
+										if {_blocked} is not set:
+											set {_candX} to {_tx2}
+											set {_candZ} to {_tz2}
+											set {_candY} to {_gy}
+											set {_okmove} to true
+											set {minion.side::%{_k}%} to {_sideTag}
+										else:
+											# 옆+1단
+											delete {_blocked}
+											set {_up} to {_gy} + 1
+											set {_bf} to location({_tx2}, {_up}, {_tz2}, {_mw})
+											set {_hy} to {_up} + 1
+											set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+											if block at {_bf} is solid:
+												set {_blocked} to true
+											if block at {_bh} is solid:
+												set {_blocked} to true
+											if {_blocked} is not set:
+												set {_candX} to {_tx2}
+												set {_candZ} to {_tz2}
+												set {_candY} to {_up}
+												set {_okmove} to true
+												set {minion.side::%{_k}%} to {_sideTag}
+										add 1 to {_try}
+							if {_okmove} is not set:
+								# 4) X만 / Z만 슬라이드
+								delete {_blocked}
+								set {_bf} to location({_nx}, {_gy}, {_mz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_nx}
+									set {_candZ} to {_mz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								delete {_blocked}
+								set {_bf} to location({_mx}, {_gy}, {_nz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_mx}
+									set {_candZ} to {_nz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 제자리 (낙하만 적용)
+								set {_candX} to {_mx}
+								set {_candZ} to {_mz}
+								set {_candY} to {_gy}
+							# 도착지에서도 한 번 더 낙하 보정
+							set {_falling} to true
+							loop 16 times:
+								if {_falling} is true:
+									set {_uy} to {_candY} - 1
+									set {_bu} to location({_candX}, {_uy}, {_candZ}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_candY} to {_uy}
+							set {_dest} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							if {_look} is set:
+								set yaw of {_dest} to yaw of {_look}
+								set pitch of {_dest} to 0
+							teleport {_m} to {_dest}
+							set velocity of {_m} to vector(0, 0, 0)
+
+						else:
+							# 타겟 추적 (낙하+옆돌기)
+							set {_mx} to x-coordinate of {_m}
+							set {_my} to y-coordinate of {_m}
+							set {_mz} to z-coordinate of {_m}
+							set {_mw} to world of {_m}
+							set {_tx} to x-coordinate of {_target}
+							set {_tz} to z-coordinate of {_target}
+							set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+							set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+							set {_hdist} to distance between {_flatA} and {_flatB}
+							if {_hdist} < 0.3:
+								set {_hdist} to 0.3
+							set {_spd} to 0.75
+							set {_dx} to {_tx} - {_mx}
+							set {_dz} to {_tz} - {_mz}
+							set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
+							set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
+							loop all zombies in radius 1.3 around {_m}:
+								set {_o} to loop-value-2
+								if {_o} is not {_m}:
+									set {_okey} to "%uuid of {_o}%"
+									if {minion.team::%{_okey}%} is {_team}:
+										set {_ox} to x-coordinate of {_o}
+										set {_oz} to z-coordinate of {_o}
+										set {_flatA} to location({_nx}, {_my}, {_nz}, {_mw})
+										set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+										set {_od} to distance between {_flatA} and {_flatB}
+										if {_od} < 1.05:
+											if {_od} < 0.15:
+												set {_od} to 0.15
+											set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
+											set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
+							set {_look} to vector({_dx}, 0, {_dz})
+							# [이동확정] 낙하 + 앞막힘 옆돌/계단 + 벽뚫림 방지
+							set {_gy} to {_my}
+							# 발 위치가 블록 안이면 위로
+							delete {_inblk}
+							set {_bf} to location({_mx}, {_gy}, {_mz}, {_mw})
+							if block at {_bf} is solid:
+								set {_inblk} to true
+							if {_inblk} is set:
+								set {_gy} to {_gy} + 1
+							# 아래가 공기면 땅까지 낙하
+							set {_falling} to true
+							loop 24 times:
+								if {_falling} is true:
+									set {_uy} to {_gy} - 1
+									set {_bu} to location({_mx}, {_uy}, {_mz}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_gy} to {_uy}
+							# 목적지 검사 함수 대용
+							delete {_fx}
+							delete {_fz}
+							delete {_fy}
+							set {_candX} to {_nx}
+							set {_candZ} to {_nz}
+							set {_candY} to {_gy}
+							delete {_okmove}
+							# 1) 직진
+							delete {_blocked}
+							set {_bf} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							set {_hy} to {_candY} + 1
+							set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+							if block at {_bf} is solid:
+								set {_blocked} to true
+							if block at {_bh} is solid:
+								set {_blocked} to true
+							if {_blocked} is not set:
+								set {_okmove} to true
+							else:
+								# 2) 1칸 올라가기 (계단)
+								delete {_blocked}
+								set {_up} to {_candY} + 1
+								set {_bf} to location({_candX}, {_up}, {_candZ}, {_mw})
+								set {_hy} to {_up} + 1
+								set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candY} to {_up}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 3) 옆으로 돌기 (좌/우) — 직진 방향의 수직
+								set {_ddx} to {_nx} - {_mx}
+								set {_ddz} to {_nz} - {_mz}
+								set {_flatA} to location({_mx}, {_gy}, {_mz}, {_mw})
+								set {_flatB} to location({_nx}, {_gy}, {_nz}, {_mw})
+								set {_plen} to distance between {_flatA} and {_flatB}
+								if {_plen} < 0.2:
+									set {_plen} to 0.2
+								set {_sx} to (0 - {_ddz}) / {_plen} * 0.75
+								set {_sz} to {_ddx} / {_plen} * 0.75
+								set {_prefer} to "L"
+								if {minion.side::%{_k}%} is set:
+									set {_prefer} to {minion.side::%{_k}%}
+								# try preferred then other
+								set {_try} to 1
+								loop 2 times:
+									if {_okmove} is not set:
+										if {_try} is 1:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+											else:
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+										else:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+											else:
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+										delete {_blocked}
+										set {_bf} to location({_tx2}, {_gy}, {_tz2}, {_mw})
+										set {_hy} to {_gy} + 1
+										set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+										if block at {_bf} is solid:
+											set {_blocked} to true
+										if block at {_bh} is solid:
+											set {_blocked} to true
+										if {_blocked} is not set:
+											set {_candX} to {_tx2}
+											set {_candZ} to {_tz2}
+											set {_candY} to {_gy}
+											set {_okmove} to true
+											set {minion.side::%{_k}%} to {_sideTag}
+										else:
+											# 옆+1단
+											delete {_blocked}
+											set {_up} to {_gy} + 1
+											set {_bf} to location({_tx2}, {_up}, {_tz2}, {_mw})
+											set {_hy} to {_up} + 1
+											set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+											if block at {_bf} is solid:
+												set {_blocked} to true
+											if block at {_bh} is solid:
+												set {_blocked} to true
+											if {_blocked} is not set:
+												set {_candX} to {_tx2}
+												set {_candZ} to {_tz2}
+												set {_candY} to {_up}
+												set {_okmove} to true
+												set {minion.side::%{_k}%} to {_sideTag}
+										add 1 to {_try}
+							if {_okmove} is not set:
+								# 4) X만 / Z만 슬라이드
+								delete {_blocked}
+								set {_bf} to location({_nx}, {_gy}, {_mz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_nx}
+									set {_candZ} to {_mz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								delete {_blocked}
+								set {_bf} to location({_mx}, {_gy}, {_nz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_mx}
+									set {_candZ} to {_nz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 제자리 (낙하만 적용)
+								set {_candX} to {_mx}
+								set {_candZ} to {_mz}
+								set {_candY} to {_gy}
+							# 도착지에서도 한 번 더 낙하 보정
+							set {_falling} to true
+							loop 16 times:
+								if {_falling} is true:
+									set {_uy} to {_candY} - 1
+									set {_bu} to location({_candX}, {_uy}, {_candZ}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_candY} to {_uy}
+							set {_dest} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							if {_look} is set:
+								set yaw of {_dest} to yaw of {_look}
+								set pitch of {_dest} to 0
+							teleport {_m} to {_dest}
+							set velocity of {_m} to vector(0, 0, 0)
+
+					else:
+						if {_moveTo} is set:
+							set {_mx} to x-coordinate of {_m}
+							set {_my} to y-coordinate of {_m}
+							set {_mz} to z-coordinate of {_m}
+							set {_mw} to world of {_m}
+							set {_tx} to x-coordinate of {_moveTo}
+							set {_tz} to z-coordinate of {_moveTo}
+							set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+							set {_flatB} to location({_tx}, {_my}, {_tz}, {_mw})
+							set {_hdist} to distance between {_flatA} and {_flatB}
+							if {_hdist} > 1.8:
+								if {_hdist} < 0.3:
+									set {_hdist} to 0.3
+								set {_spd} to 0.6
+								set {_dx} to {_tx} - {_mx}
+								set {_dz} to {_tz} - {_mz}
+								set {_nx} to {_mx} + {_dx} / {_hdist} * {_spd}
+								set {_nz} to {_mz} + {_dz} / {_hdist} * {_spd}
+								loop all zombies in radius 1.3 around {_m}:
+									set {_o} to loop-value-2
+									if {_o} is not {_m}:
+										set {_okey} to "%uuid of {_o}%"
+										if {minion.team::%{_okey}%} is {_team}:
+											set {_ox} to x-coordinate of {_o}
+											set {_oz} to z-coordinate of {_o}
+											set {_flatA} to location({_nx}, {_my}, {_nz}, {_mw})
+											set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+											set {_od} to distance between {_flatA} and {_flatB}
+											if {_od} < 1.05:
+												if {_od} < 0.15:
+													set {_od} to 0.15
+												set {_nx} to {_nx} + ({_nx} - {_ox}) / {_od} * 0.5
+												set {_nz} to {_nz} + ({_nz} - {_oz}) / {_od} * 0.5
+								set {_look} to vector({_dx}, 0, {_dz})
+								# [이동확정] 낙하 + 앞막힘 옆돌/계단 + 벽뚫림 방지
+								set {_gy} to {_my}
+								# 발 위치가 블록 안이면 위로
+								delete {_inblk}
+								set {_bf} to location({_mx}, {_gy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_inblk} to true
+								if {_inblk} is set:
+									set {_gy} to {_gy} + 1
+								# 아래가 공기면 땅까지 낙하
+								set {_falling} to true
+								loop 24 times:
+									if {_falling} is true:
+										set {_uy} to {_gy} - 1
+										set {_bu} to location({_mx}, {_uy}, {_mz}, {_mw})
+										if block at {_bu} is solid:
+											set {_falling} to false
+										else:
+											set {_gy} to {_uy}
+								# 목적지 검사 함수 대용
+								delete {_fx}
+								delete {_fz}
+								delete {_fy}
+								set {_candX} to {_nx}
+								set {_candZ} to {_nz}
+								set {_candY} to {_gy}
+								delete {_okmove}
+								# 1) 직진
+								delete {_blocked}
+								set {_bf} to location({_candX}, {_candY}, {_candZ}, {_mw})
+								set {_hy} to {_candY} + 1
+								set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_okmove} to true
+								else:
+									# 2) 1칸 올라가기 (계단)
+									delete {_blocked}
+									set {_up} to {_candY} + 1
+									set {_bf} to location({_candX}, {_up}, {_candZ}, {_mw})
+									set {_hy} to {_up} + 1
+									set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candY} to {_up}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									# 3) 옆으로 돌기 (좌/우) — 직진 방향의 수직
+									set {_ddx} to {_nx} - {_mx}
+									set {_ddz} to {_nz} - {_mz}
+									set {_flatA} to location({_mx}, {_gy}, {_mz}, {_mw})
+									set {_flatB} to location({_nx}, {_gy}, {_nz}, {_mw})
+									set {_plen} to distance between {_flatA} and {_flatB}
+									if {_plen} < 0.2:
+										set {_plen} to 0.2
+									set {_sx} to (0 - {_ddz}) / {_plen} * 0.75
+									set {_sz} to {_ddx} / {_plen} * 0.75
+									set {_prefer} to "L"
+									if {minion.side::%{_k}%} is set:
+										set {_prefer} to {minion.side::%{_k}%}
+									# try preferred then other
+									set {_try} to 1
+									loop 2 times:
+										if {_okmove} is not set:
+											if {_try} is 1:
+												if {_prefer} is "L":
+													set {_tx2} to {_mx} + {_sx}
+													set {_tz2} to {_mz} + {_sz}
+													set {_sideTag} to "L"
+												else:
+													set {_tx2} to {_mx} - {_sx}
+													set {_tz2} to {_mz} - {_sz}
+													set {_sideTag} to "R"
+											else:
+												if {_prefer} is "L":
+													set {_tx2} to {_mx} - {_sx}
+													set {_tz2} to {_mz} - {_sz}
+													set {_sideTag} to "R"
+												else:
+													set {_tx2} to {_mx} + {_sx}
+													set {_tz2} to {_mz} + {_sz}
+													set {_sideTag} to "L"
+											delete {_blocked}
+											set {_bf} to location({_tx2}, {_gy}, {_tz2}, {_mw})
+											set {_hy} to {_gy} + 1
+											set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+											if block at {_bf} is solid:
+												set {_blocked} to true
+											if block at {_bh} is solid:
+												set {_blocked} to true
+											if {_blocked} is not set:
+												set {_candX} to {_tx2}
+												set {_candZ} to {_tz2}
+												set {_candY} to {_gy}
+												set {_okmove} to true
+												set {minion.side::%{_k}%} to {_sideTag}
+											else:
+												# 옆+1단
+												delete {_blocked}
+												set {_up} to {_gy} + 1
+												set {_bf} to location({_tx2}, {_up}, {_tz2}, {_mw})
+												set {_hy} to {_up} + 1
+												set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+												if block at {_bf} is solid:
+													set {_blocked} to true
+												if block at {_bh} is solid:
+													set {_blocked} to true
+												if {_blocked} is not set:
+													set {_candX} to {_tx2}
+													set {_candZ} to {_tz2}
+													set {_candY} to {_up}
+													set {_okmove} to true
+													set {minion.side::%{_k}%} to {_sideTag}
+											add 1 to {_try}
+								if {_okmove} is not set:
+									# 4) X만 / Z만 슬라이드
+									delete {_blocked}
+									set {_bf} to location({_nx}, {_gy}, {_mz}, {_mw})
+									set {_hy} to {_gy} + 1
+									set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candX} to {_nx}
+										set {_candZ} to {_mz}
+										set {_candY} to {_gy}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									delete {_blocked}
+									set {_bf} to location({_mx}, {_gy}, {_nz}, {_mw})
+									set {_hy} to {_gy} + 1
+									set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candX} to {_mx}
+										set {_candZ} to {_nz}
+										set {_candY} to {_gy}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									# 제자리 (낙하만 적용)
+									set {_candX} to {_mx}
+									set {_candZ} to {_mz}
+									set {_candY} to {_gy}
+								# 도착지에서도 한 번 더 낙하 보정
+								set {_falling} to true
+								loop 16 times:
+									if {_falling} is true:
+										set {_uy} to {_candY} - 1
+										set {_bu} to location({_candX}, {_uy}, {_candZ}, {_mw})
+										if block at {_bu} is solid:
+											set {_falling} to false
+										else:
+											set {_candY} to {_uy}
+								set {_dest} to location({_candX}, {_candY}, {_candZ}, {_mw})
+								if {_look} is set:
+									set yaw of {_dest} to yaw of {_look}
+									set pitch of {_dest} to 0
+								teleport {_m} to {_dest}
+								set velocity of {_m} to vector(0, 0, 0)
+							else:
+								# 목표 근처: 바라보기 + 겹침/낙하
+								set {_ldx} to {_tx} - {_mx}
+								set {_ldz} to {_tz} - {_mz}
+								set {_look} to vector({_ldx}, 0, {_ldz})
+								set yaw of {_m} to yaw of {_look}
+								set pitch of {_m} to 0
+								set {_nx} to {_mx}
+								set {_nz} to {_mz}
+								loop all zombies in radius 1.3 around {_m}:
+									set {_o} to loop-value-2
+									if {_o} is not {_m}:
+										set {_okey} to "%uuid of {_o}%"
+										if {minion.team::%{_okey}%} is {_team}:
+											set {_ox} to x-coordinate of {_o}
+											set {_oz} to z-coordinate of {_o}
+											set {_flatA} to location({_mx}, {_my}, {_mz}, {_mw})
+											set {_flatB} to location({_ox}, {_my}, {_oz}, {_mw})
+											set {_od} to distance between {_flatA} and {_flatB}
+											if {_od} < 1.05:
+												if {_od} < 0.15:
+													set {_od} to 0.15
+												set {_nx} to {_nx} + ({_mx} - {_ox}) / {_od} * 0.45
+												set {_nz} to {_nz} + ({_mz} - {_oz}) / {_od} * 0.45
+								# [이동확정] 낙하 + 앞막힘 옆돌/계단 + 벽뚫림 방지
+								set {_gy} to {_my}
+								# 발 위치가 블록 안이면 위로
+								delete {_inblk}
+								set {_bf} to location({_mx}, {_gy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_inblk} to true
+								if {_inblk} is set:
+									set {_gy} to {_gy} + 1
+								# 아래가 공기면 땅까지 낙하
+								set {_falling} to true
+								loop 24 times:
+									if {_falling} is true:
+										set {_uy} to {_gy} - 1
+										set {_bu} to location({_mx}, {_uy}, {_mz}, {_mw})
+										if block at {_bu} is solid:
+											set {_falling} to false
+										else:
+											set {_gy} to {_uy}
+								# 목적지 검사 함수 대용
+								delete {_fx}
+								delete {_fz}
+								delete {_fy}
+								set {_candX} to {_nx}
+								set {_candZ} to {_nz}
+								set {_candY} to {_gy}
+								delete {_okmove}
+								# 1) 직진
+								delete {_blocked}
+								set {_bf} to location({_candX}, {_candY}, {_candZ}, {_mw})
+								set {_hy} to {_candY} + 1
+								set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_okmove} to true
+								else:
+									# 2) 1칸 올라가기 (계단)
+									delete {_blocked}
+									set {_up} to {_candY} + 1
+									set {_bf} to location({_candX}, {_up}, {_candZ}, {_mw})
+									set {_hy} to {_up} + 1
+									set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candY} to {_up}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									# 3) 옆으로 돌기 (좌/우) — 직진 방향의 수직
+									set {_ddx} to {_nx} - {_mx}
+									set {_ddz} to {_nz} - {_mz}
+									set {_flatA} to location({_mx}, {_gy}, {_mz}, {_mw})
+									set {_flatB} to location({_nx}, {_gy}, {_nz}, {_mw})
+									set {_plen} to distance between {_flatA} and {_flatB}
+									if {_plen} < 0.2:
+										set {_plen} to 0.2
+									set {_sx} to (0 - {_ddz}) / {_plen} * 0.75
+									set {_sz} to {_ddx} / {_plen} * 0.75
+									set {_prefer} to "L"
+									if {minion.side::%{_k}%} is set:
+										set {_prefer} to {minion.side::%{_k}%}
+									# try preferred then other
+									set {_try} to 1
+									loop 2 times:
+										if {_okmove} is not set:
+											if {_try} is 1:
+												if {_prefer} is "L":
+													set {_tx2} to {_mx} + {_sx}
+													set {_tz2} to {_mz} + {_sz}
+													set {_sideTag} to "L"
+												else:
+													set {_tx2} to {_mx} - {_sx}
+													set {_tz2} to {_mz} - {_sz}
+													set {_sideTag} to "R"
+											else:
+												if {_prefer} is "L":
+													set {_tx2} to {_mx} - {_sx}
+													set {_tz2} to {_mz} - {_sz}
+													set {_sideTag} to "R"
+												else:
+													set {_tx2} to {_mx} + {_sx}
+													set {_tz2} to {_mz} + {_sz}
+													set {_sideTag} to "L"
+											delete {_blocked}
+											set {_bf} to location({_tx2}, {_gy}, {_tz2}, {_mw})
+											set {_hy} to {_gy} + 1
+											set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+											if block at {_bf} is solid:
+												set {_blocked} to true
+											if block at {_bh} is solid:
+												set {_blocked} to true
+											if {_blocked} is not set:
+												set {_candX} to {_tx2}
+												set {_candZ} to {_tz2}
+												set {_candY} to {_gy}
+												set {_okmove} to true
+												set {minion.side::%{_k}%} to {_sideTag}
+											else:
+												# 옆+1단
+												delete {_blocked}
+												set {_up} to {_gy} + 1
+												set {_bf} to location({_tx2}, {_up}, {_tz2}, {_mw})
+												set {_hy} to {_up} + 1
+												set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+												if block at {_bf} is solid:
+													set {_blocked} to true
+												if block at {_bh} is solid:
+													set {_blocked} to true
+												if {_blocked} is not set:
+													set {_candX} to {_tx2}
+													set {_candZ} to {_tz2}
+													set {_candY} to {_up}
+													set {_okmove} to true
+													set {minion.side::%{_k}%} to {_sideTag}
+											add 1 to {_try}
+								if {_okmove} is not set:
+									# 4) X만 / Z만 슬라이드
+									delete {_blocked}
+									set {_bf} to location({_nx}, {_gy}, {_mz}, {_mw})
+									set {_hy} to {_gy} + 1
+									set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candX} to {_nx}
+										set {_candZ} to {_mz}
+										set {_candY} to {_gy}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									delete {_blocked}
+									set {_bf} to location({_mx}, {_gy}, {_nz}, {_mw})
+									set {_hy} to {_gy} + 1
+									set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+									if block at {_bf} is solid:
+										set {_blocked} to true
+									if block at {_bh} is solid:
+										set {_blocked} to true
+									if {_blocked} is not set:
+										set {_candX} to {_mx}
+										set {_candZ} to {_nz}
+										set {_candY} to {_gy}
+										set {_okmove} to true
+								if {_okmove} is not set:
+									# 제자리 (낙하만 적용)
+									set {_candX} to {_mx}
+									set {_candZ} to {_mz}
+									set {_candY} to {_gy}
+								# 도착지에서도 한 번 더 낙하 보정
+								set {_falling} to true
+								loop 16 times:
+									if {_falling} is true:
+										set {_uy} to {_candY} - 1
+										set {_bu} to location({_candX}, {_uy}, {_candZ}, {_mw})
+										if block at {_bu} is solid:
+											set {_falling} to false
+										else:
+											set {_candY} to {_uy}
+								set {_dest} to location({_candX}, {_candY}, {_candZ}, {_mw})
+								if {_look} is set:
+									set yaw of {_dest} to yaw of {_look}
+									set pitch of {_dest} to 0
+								teleport {_m} to {_dest}
+								set velocity of {_m} to vector(0, 0, 0)
+						else:
+							# 목표 없어도 공중이면 낙하
+							set {_mx} to x-coordinate of {_m}
+							set {_my} to y-coordinate of {_m}
+							set {_mz} to z-coordinate of {_m}
+							set {_mw} to world of {_m}
+							set {_nx} to {_mx}
+							set {_nz} to {_mz}
+							delete {_look}
+							# [이동확정] 낙하 + 앞막힘 옆돌/계단 + 벽뚫림 방지
+							set {_gy} to {_my}
+							# 발 위치가 블록 안이면 위로
+							delete {_inblk}
+							set {_bf} to location({_mx}, {_gy}, {_mz}, {_mw})
+							if block at {_bf} is solid:
+								set {_inblk} to true
+							if {_inblk} is set:
+								set {_gy} to {_gy} + 1
+							# 아래가 공기면 땅까지 낙하
+							set {_falling} to true
+							loop 24 times:
+								if {_falling} is true:
+									set {_uy} to {_gy} - 1
+									set {_bu} to location({_mx}, {_uy}, {_mz}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_gy} to {_uy}
+							# 목적지 검사 함수 대용
+							delete {_fx}
+							delete {_fz}
+							delete {_fy}
+							set {_candX} to {_nx}
+							set {_candZ} to {_nz}
+							set {_candY} to {_gy}
+							delete {_okmove}
+							# 1) 직진
+							delete {_blocked}
+							set {_bf} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							set {_hy} to {_candY} + 1
+							set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+							if block at {_bf} is solid:
+								set {_blocked} to true
+							if block at {_bh} is solid:
+								set {_blocked} to true
+							if {_blocked} is not set:
+								set {_okmove} to true
+							else:
+								# 2) 1칸 올라가기 (계단)
+								delete {_blocked}
+								set {_up} to {_candY} + 1
+								set {_bf} to location({_candX}, {_up}, {_candZ}, {_mw})
+								set {_hy} to {_up} + 1
+								set {_bh} to location({_candX}, {_hy}, {_candZ}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candY} to {_up}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 3) 옆으로 돌기 (좌/우) — 직진 방향의 수직
+								set {_ddx} to {_nx} - {_mx}
+								set {_ddz} to {_nz} - {_mz}
+								set {_flatA} to location({_mx}, {_gy}, {_mz}, {_mw})
+								set {_flatB} to location({_nx}, {_gy}, {_nz}, {_mw})
+								set {_plen} to distance between {_flatA} and {_flatB}
+								if {_plen} < 0.2:
+									set {_plen} to 0.2
+								set {_sx} to (0 - {_ddz}) / {_plen} * 0.75
+								set {_sz} to {_ddx} / {_plen} * 0.75
+								set {_prefer} to "L"
+								if {minion.side::%{_k}%} is set:
+									set {_prefer} to {minion.side::%{_k}%}
+								# try preferred then other
+								set {_try} to 1
+								loop 2 times:
+									if {_okmove} is not set:
+										if {_try} is 1:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+											else:
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+										else:
+											if {_prefer} is "L":
+												set {_tx2} to {_mx} - {_sx}
+												set {_tz2} to {_mz} - {_sz}
+												set {_sideTag} to "R"
+											else:
+												set {_tx2} to {_mx} + {_sx}
+												set {_tz2} to {_mz} + {_sz}
+												set {_sideTag} to "L"
+										delete {_blocked}
+										set {_bf} to location({_tx2}, {_gy}, {_tz2}, {_mw})
+										set {_hy} to {_gy} + 1
+										set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+										if block at {_bf} is solid:
+											set {_blocked} to true
+										if block at {_bh} is solid:
+											set {_blocked} to true
+										if {_blocked} is not set:
+											set {_candX} to {_tx2}
+											set {_candZ} to {_tz2}
+											set {_candY} to {_gy}
+											set {_okmove} to true
+											set {minion.side::%{_k}%} to {_sideTag}
+										else:
+											# 옆+1단
+											delete {_blocked}
+											set {_up} to {_gy} + 1
+											set {_bf} to location({_tx2}, {_up}, {_tz2}, {_mw})
+											set {_hy} to {_up} + 1
+											set {_bh} to location({_tx2}, {_hy}, {_tz2}, {_mw})
+											if block at {_bf} is solid:
+												set {_blocked} to true
+											if block at {_bh} is solid:
+												set {_blocked} to true
+											if {_blocked} is not set:
+												set {_candX} to {_tx2}
+												set {_candZ} to {_tz2}
+												set {_candY} to {_up}
+												set {_okmove} to true
+												set {minion.side::%{_k}%} to {_sideTag}
+										add 1 to {_try}
+							if {_okmove} is not set:
+								# 4) X만 / Z만 슬라이드
+								delete {_blocked}
+								set {_bf} to location({_nx}, {_gy}, {_mz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_nx}, {_hy}, {_mz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_nx}
+									set {_candZ} to {_mz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								delete {_blocked}
+								set {_bf} to location({_mx}, {_gy}, {_nz}, {_mw})
+								set {_hy} to {_gy} + 1
+								set {_bh} to location({_mx}, {_hy}, {_nz}, {_mw})
+								if block at {_bf} is solid:
+									set {_blocked} to true
+								if block at {_bh} is solid:
+									set {_blocked} to true
+								if {_blocked} is not set:
+									set {_candX} to {_mx}
+									set {_candZ} to {_nz}
+									set {_candY} to {_gy}
+									set {_okmove} to true
+							if {_okmove} is not set:
+								# 제자리 (낙하만 적용)
+								set {_candX} to {_mx}
+								set {_candZ} to {_mz}
+								set {_candY} to {_gy}
+							# 도착지에서도 한 번 더 낙하 보정
+							set {_falling} to true
+							loop 16 times:
+								if {_falling} is true:
+									set {_uy} to {_candY} - 1
+									set {_bu} to location({_candX}, {_uy}, {_candZ}, {_mw})
+									if block at {_bu} is solid:
+										set {_falling} to false
+									else:
+										set {_candY} to {_uy}
+							set {_dest} to location({_candX}, {_candY}, {_candZ}, {_mw})
+							if {_look} is set:
+								set yaw of {_dest} to yaw of {_look}
+								set pitch of {_dest} to 0
+							teleport {_m} to {_dest}
+							set velocity of {_m} to vector(0, 0, 0)

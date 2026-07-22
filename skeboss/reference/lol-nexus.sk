@@ -1,0 +1,450 @@
+# 롤 스타일 넥서스 + 시작구역 (구버전 Skript)  VER=20260722a
+# plugins/Skript/scripts/넥서스.sk  (이 파일 하나만!)
+# {nexus.stand::blue/red} 로 미니언 목표 연동
+# 아머스탠드 / 플레이어 피격 = {공격력::%player%}
+# 같은 팀 포탑이 남아 있으면 넥서스 공격 불가
+#
+# /넥서스
+# /넥서스소환 [blue|red]
+# /넥서스소환 <blue|red> <x> <y> <z>
+# /넥서스제거
+# /넥서스목록
+# /시작구역설정 [blue|red] [반경]
+# /시작구역제거 [blue|red]
+# /시작귀환
+#
+# 팀 변수는 포탑/미니언과 공유: {turret.team.player::%uuid%}
+# 넥서스 파괴 시 해당 팀 패배 안내
+# 시작구역: 아군 회복 + 적 데미지 + 리스폰 위치
+# 죽은 플레이어에게 힐/데미지 금지 (리스폰 깨짐 방지)
+# 자동부활: on death → respawn (SkBee 등 respawn 이펙트 필요)
+
+command /넥서스:
+	trigger:
+		send "&e넥서스 VER=20260722a (자동부활)" to player
+		send "&e/넥서스소환 [blue|red]" to player
+		send "&e/넥서스소환 <blue|red> <x> <y> <z>" to player
+		send "&e/넥서스제거 &7← 모든 넥서스 제거 &7/ &e/넥서스목록" to player
+		send "&e/시작구역설정 [blue|red] [반경]" to player
+		send "&e/시작구역제거 [blue|red]" to player
+		send "&e/시작귀환" to player
+
+command /넥서스목록:
+	trigger:
+		set {_nb} to 0
+		set {_nr} to 0
+		loop {nexus.list::*}:
+			if loop-value is set:
+				set {_k} to "%uuid of loop-value%"
+				if {nexus.team::%{_k}%} is "blue":
+					add 1 to {_nb}
+					send "&9블루 넥서스 &fHP %{nexus.hp::%{_k}%}%/%{nexus.maxhp::%{_k}%}%" to player
+				if {nexus.team::%{_k}%} is "red":
+					add 1 to {_nr}
+					send "&c레드 넥서스 &fHP %{nexus.hp::%{_k}%}%/%{nexus.maxhp::%{_k}%}%" to player
+		if {base.loc::blue} is set:
+			send "&9블루 시작구역 설정됨 &7반경 %{base.radius::blue}%" to player
+		else:
+			send "&7블루 시작구역 없음" to player
+		if {base.loc::red} is set:
+			send "&c레드 시작구역 설정됨 &7반경 %{base.radius::red}%" to player
+		else:
+			send "&7레드 시작구역 없음" to player
+		send "&b넥서스 수 &9B%{_nb}% &cR%{_nr}%" to player
+
+command /넥서스제거:
+	trigger:
+		set {_n} to 0
+		loop {nexus.list::*}:
+			set {_x} to loop-value
+			if {_x} is set:
+				set {_k} to "%uuid of {_x}%"
+				set {_t} to {nexus.team::%{_k}%}
+				delete {nexus.hp::%{_k}%}
+				delete {nexus.maxhp::%{_k}%}
+				delete {nexus.team::%{_k}%}
+				delete {nexus.alive::%{_k}%}
+				if {_t} is set:
+					delete {nexus.stand::%{_t}%}
+				kill {_x}
+				add 1 to {_n}
+		delete {nexus.list::*}
+		delete {nexus.stand::blue}
+		delete {nexus.stand::red}
+		send "&a넥서스 전체 제거 &f%{_n}%&a개" to player
+
+command /넥서스소환 [<text>] [<number>] [<number>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
+		if arg-1 is set:
+			if arg-1 is "blue":
+				set {_team} to "blue"
+			if arg-1 is "red":
+				set {_team} to "red"
+			if arg-1 is not "blue":
+				if arg-1 is not "red":
+					send "&c/넥서스소환 [blue|red] [x y z]" to player
+					stop
+		if arg-2 is set:
+			if arg-3 is set:
+				if arg-4 is set:
+					set {_wx} to arg-2
+					set {_wy} to arg-3
+					set {_wz} to arg-4
+				else:
+					send "&c사용법: /넥서스소환 <blue|red> <x> <y> <z>" to player
+					stop
+			else:
+				send "&c사용법: /넥서스소환 <blue|red> <x> <y> <z>" to player
+				stop
+		# 팀당 넥서스 1개
+		loop {nexus.list::*}:
+			if loop-value is set:
+				set {_ok} to "%uuid of loop-value%"
+				if {nexus.team::%{_ok}%} is {_team}:
+					send "&c이미 %{_team}% 넥서스가 있습니다. /넥서스제거 후 다시" to player
+					stop
+		set {_loc} to location({_wx}, {_wy}, {_wz}, {_ww})
+		spawn armor stand at {_loc}
+		set {_stand} to last spawned entity
+		set {_k} to "%uuid of {_stand}%"
+		set gravity of {_stand} to false
+		set {nexus.hp::%{_k}%} to 800
+		set {nexus.maxhp::%{_k}%} to 800
+		set {nexus.team::%{_k}%} to {_team}
+		set {nexus.alive::%{_k}%} to true
+		set {nexus.stand::%{_team}%} to {_stand}
+		set chestplate of {_stand} to diamond chestplate
+		set leggings of {_stand} to diamond leggings
+		set boots of {_stand} to diamond boots
+		set {_color} to "&9"
+		set {_label} to "블루 넥서스"
+		if {_team} is "blue":
+			set helmet of {_stand} to diamond block
+		if {_team} is "red":
+			set {_color} to "&c"
+			set {_label} to "레드 넥서스"
+			set helmet of {_stand} to redstone block
+		set name of {_stand} to "%{_color}%&l%{_label}% &8[&a||||||||||&8] &f800&7/&7800"
+		add {_stand} to {nexus.list::*}
+		# 적 팀 미니언 기본 목표로도 사용 가능
+		if {_team} is "blue":
+			if {minion.goal::red} is not set:
+				set {minion.goal::red} to {_loc}
+		if {_team} is "red":
+			if {minion.goal::blue} is not set:
+				set {minion.goal::blue} to {_loc}
+		play sound "block.beacon.activate" with volume 1 and pitch 0.8 at {_loc}
+		send "&a%{_team}% 넥서스 소환 &7(%{_wx}%, %{_wy}%, %{_wz}%)" to player
+
+command /시작구역설정 [<text>] [<number>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		if arg-1 is set:
+			set {_team} to arg-1
+		if {_team} is not "blue":
+			if {_team} is not "red":
+				send "&c/시작구역설정 [blue|red] [반경]" to player
+				stop
+		set {_r} to 8
+		if arg-2 is set:
+			set {_r} to arg-2
+			if {_r} < 3:
+				set {_r} to 3
+			if {_r} > 30:
+				set {_r} to 30
+		set {_wx} to x-coordinate of player
+		set {_wy} to y-coordinate of player
+		set {_wz} to z-coordinate of player
+		set {_ww} to world of player
+		set {base.loc::%{_team}%} to location({_wx}, {_wy}, {_wz}, {_ww})
+		set {base.radius::%{_team}%} to {_r}
+		send "&a%{_team}% 시작구역 설정 &7중심 (%{_wx}%, %{_wy}%, %{_wz}%) 반경 %{_r}%" to player
+		if {_team} is "blue":
+			draw 10 happy villager at player
+		if {_team} is "red":
+			draw 10 flame at player
+
+command /시작구역제거 [<text>]:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		if arg-1 is set:
+			set {_team} to arg-1
+		if {_team} is not "blue":
+			if {_team} is not "red":
+				send "&c/시작구역제거 [blue|red]" to player
+				stop
+		delete {base.loc::%{_team}%}
+		delete {base.radius::%{_team}%}
+		send "&a%{_team}% 시작구역 제거" to player
+
+command /시작귀환:
+	trigger:
+		set {_team} to "blue"
+		if {turret.team.player::%uuid of player%} is set:
+			set {_team} to {turret.team.player::%uuid of player%}
+		if {base.loc::%{_team}%} is not set:
+			send "&c내 팀 시작구역이 없습니다. /시작구역설정" to player
+			stop
+		teleport player to {base.loc::%{_team}%}
+		set health of player to max health of player
+		set food level of player to 20
+		send "&a시작구역으로 귀환" to player
+
+on death of player:
+	set {_p} to victim
+	set {nexus.pendingbase::%uuid of {_p}%} to true
+	wait 1 tick
+	# 사망 화면 없이 자동 부활 (SkBee: respawn 이펙트)
+	respawn {_p}
+
+on respawn:
+	set {_id} to "%uuid of player%"
+	set {_team} to "blue"
+	if {turret.team.player::%{_id}%} is set:
+		set {_team} to {turret.team.player::%{_id}%}
+	if {base.loc::%{_team}%} is set:
+		# wait 없이 즉시 리스폰 위치 지정 (죽은 자리에서 분수대 힐/딜 방지)
+		set the respawn location to {base.loc::%{_team}%}
+		teleport player to {base.loc::%{_team}%}
+		set health of player to max health of player
+		set food level of player to 20
+		set {nexus.spawnprotect::%{_id}%} to now
+		delete {nexus.pendingbase::%{_id}%}
+		send action bar "&a시작구역에서 부활" to player
+
+on join:
+	wait 2 ticks
+	set {_id} to "%uuid of player%"
+	# 리스폰이 깨진 채로 재접속하면 사망 지점에서 다시 죽는 루프 방지
+	if {nexus.pendingbase::%{_id}%} is set:
+		set {_team} to "blue"
+		if {turret.team.player::%{_id}%} is set:
+			set {_team} to {turret.team.player::%{_id}%}
+		if {base.loc::%{_team}%} is set:
+			teleport player to {base.loc::%{_team}%}
+			if player is alive:
+				set health of player to max health of player
+				set food level of player to 20
+			set {nexus.spawnprotect::%{_id}%} to now
+			send "&a시작구역으로 복귀했습니다." to player
+		delete {nexus.pendingbase::%{_id}%}
+
+every 20 ticks:
+	# 시작구역: 아군 회복 / 적 피해 (분수대) — blue
+	if {base.loc::blue} is set:
+		set {_loc} to {base.loc::blue}
+		set {_r} to 8
+		if {base.radius::blue} is set:
+			set {_r} to {base.radius::blue}
+		draw 2 happy villager at {_loc}
+		loop all players in radius {_r} around {_loc}:
+			set {_p} to loop-player
+			# 죽은 플레이어에 set health / damage 하면 리스폰 화면이 깨짐
+			if {_p} is alive:
+				set {_pid} to "%uuid of {_p}%"
+				set {_pteam} to "blue"
+				if {turret.team.player::%{_pid}%} is set:
+					set {_pteam} to {turret.team.player::%{_pid}%}
+				if {_pteam} is "blue":
+					set {_h} to health of {_p}
+					if {_h} is set:
+						if {_h} > 0:
+							add 2 to {_h}
+							if {_h} > max health of {_p}:
+								set {_h} to max health of {_p}
+							set health of {_p} to {_h}
+							set food level of {_p} to 20
+				else:
+					delete {_skipDmg}
+					if {nexus.spawnprotect::%{_pid}%} is set:
+						if difference between {nexus.spawnprotect::%{_pid}%} and now < 4 seconds:
+							set {_skipDmg} to true
+						else:
+							delete {nexus.spawnprotect::%{_pid}%}
+					if {_skipDmg} is not set:
+						damage {_p} by 3
+						send action bar "&c적 시작구역! 나가세요" to {_p}
+	# 시작구역 — red
+	if {base.loc::red} is set:
+		set {_loc} to {base.loc::red}
+		set {_r} to 8
+		if {base.radius::red} is set:
+			set {_r} to {base.radius::red}
+		draw 2 flame at {_loc}
+		loop all players in radius {_r} around {_loc}:
+			set {_p} to loop-player
+			if {_p} is alive:
+				set {_pid} to "%uuid of {_p}%"
+				set {_pteam} to "blue"
+				if {turret.team.player::%{_pid}%} is set:
+					set {_pteam} to {turret.team.player::%{_pid}%}
+				if {_pteam} is "red":
+					set {_h} to health of {_p}
+					if {_h} is set:
+						if {_h} > 0:
+							add 2 to {_h}
+							if {_h} > max health of {_p}:
+								set {_h} to max health of {_p}
+							set health of {_p} to {_h}
+							set food level of {_p} to 20
+				else:
+					delete {_skipDmg}
+					if {nexus.spawnprotect::%{_pid}%} is set:
+						if difference between {nexus.spawnprotect::%{_pid}%} and now < 4 seconds:
+							set {_skipDmg} to true
+						else:
+							delete {nexus.spawnprotect::%{_pid}%}
+					if {_skipDmg} is not set:
+						damage {_p} by 3
+						send action bar "&c적 시작구역! 나가세요" to {_p}
+
+every 10 ticks:
+	# 넥서스 체력바
+	loop {nexus.list::*}:
+		set {_n} to loop-value
+		if {_n} is set:
+			set {_k} to "%uuid of {_n}%"
+			if {nexus.alive::%{_k}%} is set:
+				set gravity of {_n} to false
+				set {_hp} to {nexus.hp::%{_k}%}
+				set {_max} to {nexus.maxhp::%{_k}%}
+				set {_team} to {nexus.team::%{_k}%}
+				set {_color} to "&9"
+				set {_label} to "블루 넥서스"
+				if {_team} is "red":
+					set {_color} to "&c"
+					set {_label} to "레드 넥서스"
+				set {_shield} to 0
+				if {turret.count::%{_team}%} is set:
+					set {_shield} to {turret.count::%{_team}%}
+				if {_shield} > 0:
+					set {_label} to "%{_label}% &7(보호)"
+				set {_filled} to round(({_hp} / {_max}) * 10)
+				if {_filled} > 10:
+					set {_filled} to 10
+				if {_filled} < 0:
+					set {_filled} to 0
+				set {_barColor} to "&a"
+				if {_filled} <= 6:
+					set {_barColor} to "&e"
+				if {_filled} <= 3:
+					set {_barColor} to "&c"
+				set {_bar} to "&8["
+				set {_i} to 0
+				loop 10 times:
+					add 1 to {_i}
+					if {_i} <= {_filled}:
+						set {_bar} to "%{_bar}%%{_barColor}%|"
+					else:
+						set {_bar} to "%{_bar}%&7|"
+				set {_bar} to "%{_bar}%&8]"
+				set name of {_n} to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+				loop all players in radius 20 around {_n}:
+					send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%" to loop-player
+
+on damage:
+	if victim is not set:
+		stop
+	if victim is an armor stand:
+		set {_k} to "%uuid of victim%"
+		if {nexus.hp::%{_k}%} is set:
+			# 미니언과 동일: {공격력::%player%}
+			cancel event
+			set {_team} to {nexus.team::%{_k}%}
+			set {_dmg} to 1
+			set {_shield} to 0
+			loop {turret.list::*}:
+				if loop-value is set:
+					set {_tk} to "%uuid of loop-value%"
+					if {turret.team::%{_tk}%} is {_team}:
+						if {turret.hp::%{_tk}%} is set:
+							if {turret.hp::%{_tk}%} > 0:
+								add 1 to {_shield}
+			if {_shield} > 0:
+				if attacker is a player:
+					send action bar "&e포탑이 %{_shield}%개 남아 있어 넥서스를 공격할 수 없습니다!" to attacker
+				stop
+			if attacker is a player:
+				set {_ateam} to "blue"
+				if {turret.team.player::%uuid of attacker%} is set:
+					set {_ateam} to {turret.team.player::%uuid of attacker%}
+				if {_ateam} is {_team}:
+					send action bar "&7아군 넥서스는 공격할 수 없습니다." to attacker
+					stop
+				if {공격력::%attacker%} is set:
+					set {_dmg} to {공격력::%attacker%}
+				else:
+					set {_dmg} to 1
+			if attacker is an armor stand:
+				set {_ak} to "%uuid of attacker%"
+				if {nexus.team::%{_ak}%} is set:
+					if {nexus.team::%{_ak}%} is {_team}:
+						stop
+				if {turret.team::%{_ak}%} is set:
+					if {turret.team::%{_ak}%} is {_team}:
+						stop
+			if {_dmg} < 0:
+				set {_dmg} to 0
+			set {_hp} to {nexus.hp::%{_k}%}
+			remove {_dmg} from {_hp}
+			if {_hp} < 0:
+				set {_hp} to 0
+			set {nexus.hp::%{_k}%} to {_hp}
+			set {_max} to {nexus.maxhp::%{_k}%}
+			set {_color} to "&9"
+			set {_label} to "블루 넥서스"
+			if {_team} is "red":
+				set {_color} to "&c"
+				set {_label} to "레드 넥서스"
+			set {_filled} to round(({_hp} / {_max}) * 10)
+			if {_filled} > 10:
+				set {_filled} to 10
+			if {_filled} < 0:
+				set {_filled} to 0
+			set {_barColor} to "&a"
+			if {_filled} <= 6:
+				set {_barColor} to "&e"
+			if {_filled} <= 3:
+				set {_barColor} to "&c"
+			set {_bar} to "&8["
+			set {_i} to 0
+			loop 10 times:
+				add 1 to {_i}
+				if {_i} <= {_filled}:
+					set {_bar} to "%{_bar}%%{_barColor}%|"
+				else:
+					set {_bar} to "%{_bar}%&7|"
+			set {_bar} to "%{_bar}%&8]"
+			set name of victim to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
+			loop all players in radius 20 around victim:
+				send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}% &7(-%{_dmg}%)" to loop-player
+			if {_hp} <= 0:
+				play sound "entity.generic.explode" with volume 1.2 and pitch 0.6 at victim
+				loop 16 times:
+					if {_team} is "blue":
+						draw 1 happy villager at victim
+					if {_team} is "red":
+						draw 1 flame at victim
+				if {_team} is "blue":
+					send "&c&l레드 팀 승리! &7블루 넥서스 파괴" to all players
+				if {_team} is "red":
+					send "&9&l블루 팀 승리! &7레드 넥서스 파괴" to all players
+				remove victim from {nexus.list::*}
+				delete {nexus.hp::%{_k}%}
+				delete {nexus.maxhp::%{_k}%}
+				delete {nexus.team::%{_k}%}
+				delete {nexus.alive::%{_k}%}
+				delete {nexus.stand::%{_team}%}
+				kill victim
+			stop
