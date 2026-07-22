@@ -9,8 +9,10 @@
 # /포탑제거
 # /포탑목록
 #
-# 기본 우선순위: 적 미니언 > 적 포탑 > 적 플레이어
-# 플레이어 어그로: 적 플레이어가 아군을 때렸을 때만 (포탑만 때린다고 안 붙음)
+# 기본 우선순위: 플레이어어그로 > 적 미니언 > 적 포탑 > 적 플레이어
+# 플레이어 어그로:
+#   - 포탑만 때림 → 절대 안 붙음 (미니언 있으면 미니언 유지)
+#   - 적 플레이어를 적 포탑 사거리(12) 안에서 때림 → 그 포탑 어그로가 나에게로 전환
 # 미니언과 싸우려면 minion.sk 도 같이 넣으세요
 # 아머스탠드 구조물 / 플레이어 피격 데미지 = {공격력::%player%}
 
@@ -182,7 +184,7 @@ every 10 ticks:
 						delete {_targetKind}
 						set {_bestDist} to 9999
 
-						# 0) 플레이어 어그로 (포탑을 때린 적 플레이어가 최우선)
+						# 0) 플레이어 어그로 (적 챔피언 피격으로만 붙음 — 포탑 타격으로는 안 붙음)
 						if {turret.aggro.id::%{_k}%} is set:
 							if {turret.aggro.until::%{_k}%} is set:
 								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
@@ -443,6 +445,8 @@ on damage:
 			set name of victim to "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}%"
 			loop all players in radius 16 around victim:
 				send action bar "%{_color}%&l%{_label}% %{_bar}% &f%{_hp}%&7/&7%{_max}% &7(-%{_dmg}%)" to loop-player
+			# 포탑만 때린 경우 플레이어 어그로 절대 부여하지 않음
+			# (사거리 안 미니언이 있으면 계속 미니언 공격)
 			if {_hp} <= 0:
 				set {_loc} to location of victim
 				play sound "entity.generic.explode" with volume 1 and pitch 0.8 at {_loc}
@@ -464,7 +468,7 @@ on damage:
 				kill victim
 			stop
 	if victim is a player:
-		# 적 플레이어가 아군 챔피언을 때렸을 때만 아군 포탑 어그로
+		# 적 플레이어를 "그 팀 포탑 사거리 안"에서 때리면 → 해당 포탑 어그로가 공격자에게로 전환
 		if attacker is a player:
 			set {_vteam} to "blue"
 			if {turret.team.player::%uuid of victim%} is set:
@@ -473,9 +477,15 @@ on damage:
 			if {turret.team.player::%uuid of attacker%} is set:
 				set {_ateam} to {turret.team.player::%uuid of attacker%}
 			if {_ateam} is not {_vteam}:
-				loop all armor stands in radius 12 around victim:
-					set {_k} to "%uuid of loop-armor stand%"
-					if {turret.hp::%{_k}%} is set:
-						if {turret.team::%{_k}%} is {_vteam}:
-							set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
-							set {turret.aggro.until::%{_k}%} to now
+				loop {turret.list::*}:
+					set {_tur} to loop-value-2
+					if {_tur} is set:
+						set {_k} to "%uuid of {_tur}%"
+						if {turret.hp::%{_k}%} is set:
+							if {turret.team::%{_k}%} is {_vteam}:
+								if {turret.hp::%{_k}%} > 0:
+									if "%world of {_tur}%" is "%world of attacker%":
+										set {_da} to distance between {_tur} and attacker
+										if {_da} <= 12:
+											set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
+											set {turret.aggro.until::%{_k}%} to now
