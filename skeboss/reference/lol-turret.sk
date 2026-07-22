@@ -9,10 +9,14 @@
 # /포탑제거
 # /포탑목록
 #
-# 기본 우선순위: 플레이어어그로 > 적 미니언 > 적 포탑 > 적 플레이어
+# 기본 우선순위: 챔피언어그로 > 플레이어락 > 적 미니언 > 적 포탑 > 적 플레이어
+# 사거리: 13
 # 플레이어 어그로:
-#   - 포탑만 때림 → 절대 안 붙음 (미니언 있으면 미니언 유지)
-#   - 적 플레이어를 적 포탑 사거리(12) 안에서 때림 → 그 포탑 어그로가 나에게로 전환
+#   - 포탑만 때림 → 절대 안 붙음
+#   - 적 플레이어를 적 포탑 사거리(13) 안에서 때림 → 그 포탑 어그로가 나에게로 전환
+# 플레이어 락:
+#   - 미니언보다 먼저 사거리에 들어온 플레이어는 나갈 때까지 계속 유지
+#   - 사거리 밖으로 나갔다 다시 들어오면 그때 미니언이 있으면 미니언 우선
 # 미니언과 싸우려면 minion.sk 도 같이 넣으세요
 # 아머스탠드 구조물 / 플레이어 피격 데미지 = {공격력::%player%}
 
@@ -94,6 +98,7 @@ command /포탑제거:
 				delete {turret.owner::%{_k}%}
 				delete {turret.aggro.id::%{_k}%}
 				delete {turret.aggro.until::%{_k}%}
+				delete {turret.lock.id::%{_k}%}
 				delete {turret.nextshot::%{_k}%}
 				delete {turret.alive::%{_k}%}
 				kill {_t}
@@ -175,6 +180,16 @@ every 10 ticks:
 				if {_team} is "red":
 					set {_teamOk} to true
 				if {_teamOk} is set:
+					# 락된 플레이어가 사거리 밖이면 락 해제 (나가면 리셋)
+					if {turret.lock.id::%{_k}%} is set:
+						delete {_lockOk}
+						set {_lid} to {turret.lock.id::%{_k}%}
+						loop all players in radius 13 around {_t}:
+							if loop-player is alive:
+								if "%uuid of loop-player%" is {_lid}:
+									set {_lockOk} to true
+						if {_lockOk} is not set:
+							delete {turret.lock.id::%{_k}%}
 					set {_canShoot} to true
 					if {turret.nextshot::%{_k}%} is set:
 						if difference between {turret.nextshot::%{_k}%} and now < 1 second:
@@ -184,12 +199,12 @@ every 10 ticks:
 						delete {_targetKind}
 						set {_bestDist} to 9999
 
-						# 0) 플레이어 어그로 (적 챔피언 피격으로만 붙음 — 포탑 타격으로는 안 붙음)
+						# 0) 챔피언 피격 어그로 (최우선)
 						if {turret.aggro.id::%{_k}%} is set:
 							if {turret.aggro.until::%{_k}%} is set:
 								if difference between {turret.aggro.until::%{_k}%} and now < 6 seconds:
 									set {_aid} to {turret.aggro.id::%{_k}%}
-									loop all players in radius 12 around {_t}:
+									loop all players in radius 13 around {_t}:
 										if loop-player is alive:
 											if "%uuid of loop-player%" is {_aid}:
 												set {_ateam} to "blue"
@@ -201,14 +216,32 @@ every 10 ticks:
 														if {_ahp} > 0:
 															set {_target} to loop-player
 															set {_targetKind} to "player"
+															set {turret.lock.id::%{_k}%} to {_aid}
 								else:
 									delete {turret.aggro.id::%{_k}%}
 									delete {turret.aggro.until::%{_k}%}
 
+						# 0.5) 플레이어 락: 미니언보다 먼저 들어온 플레이어 유지
+						if {_target} is not set:
+							if {turret.lock.id::%{_k}%} is set:
+								set {_lid} to {turret.lock.id::%{_k}%}
+								loop all players in radius 13 around {_t}:
+									if loop-player is alive:
+										if "%uuid of loop-player%" is {_lid}:
+											set {_lteam} to "blue"
+											if {turret.team.player::%uuid of loop-player%} is set:
+												set {_lteam} to {turret.team.player::%uuid of loop-player%}
+											if {_lteam} is not {_team}:
+												set {_lhp} to health of loop-player
+												if {_lhp} is set:
+													if {_lhp} > 0:
+														set {_target} to loop-player
+														set {_targetKind} to "player"
+
 						# 1) 적 미니언
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all zombies in radius 12 around {_t}:
+							loop all zombies in radius 13 around {_t}:
 								set {_e} to loop-zombie
 								set {_mk} to "%uuid of {_e}%"
 								if {minion.alive::%{_mk}%} is set:
@@ -234,16 +267,16 @@ every 10 ticks:
 											if {turret.team::%{_ek}%} is not {_team}:
 												if {turret.hp::%{_ek}%} > 0:
 													set {_d} to distance between {_t} and {_e}
-													if {_d} <= 12:
+													if {_d} <= 13:
 														if {_d} < {_bestDist}:
 															set {_target} to {_e}
 															set {_targetKind} to "turret"
 															set {_bestDist} to {_d}
 
-						# 3) 적 플레이어
+						# 3) 적 플레이어 (이때 락 설정 → 이후 미니언이 와도 유지)
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all players in radius 12 around {_t}:
+							loop all players in radius 13 around {_t}:
 								if loop-player is alive:
 									set {_e} to loop-player
 									set {_eteam} to "blue"
@@ -254,16 +287,19 @@ every 10 ticks:
 										if {_ehp} is set:
 											if {_ehp} > 0:
 												set {_d} to distance between {_t} and {_e}
-												if {_d} <= 12:
+												if {_d} <= 13:
 													if {_d} < {_bestDist}:
 														set {_target} to {_e}
 														set {_targetKind} to "player"
 														set {_bestDist} to {_d}
+							if {_target} is set:
+								if {_targetKind} is "player":
+									set {turret.lock.id::%{_k}%} to "%uuid of {_target}%"
 
 						# 4) 일반 몹 (아군 미니언 제외)
 						if {_target} is not set:
 							set {_bestDist} to 9999
-							loop all monsters in radius 12 around {_t}:
+							loop all monsters in radius 13 around {_t}:
 								set {_e} to loop-monster
 								set {_mk} to "%uuid of {_e}%"
 								delete {_skipMob}
@@ -285,7 +321,7 @@ every 10 ticks:
 							if {_targetKind} is set:
 								set {_finalDist} to distance between {_t} and {_target}
 								if {_finalDist} > 0.5:
-									if {_finalDist} <= 12:
+									if {_finalDist} <= 13:
 										if "%world of {_target}%" is "%world of {_t}%":
 											play sound "entity.guardian.attack" with volume 0.55 and pitch 1.4 at {_t}
 											# 엔티티에 직접 draw (좌표 변조 없음 → 이상한 곳 발사 방지)
@@ -316,6 +352,7 @@ every 10 ticks:
 														delete {turret.owner::%{_tk}%}
 														delete {turret.aggro.id::%{_tk}%}
 														delete {turret.aggro.until::%{_tk}%}
+														delete {turret.lock.id::%{_tk}%}
 														delete {turret.nextshot::%{_tk}%}
 														delete {turret.alive::%{_tk}%}
 														kill {_target}
@@ -463,6 +500,7 @@ on damage:
 				delete {turret.owner::%{_k}%}
 				delete {turret.aggro.id::%{_k}%}
 				delete {turret.aggro.until::%{_k}%}
+				delete {turret.lock.id::%{_k}%}
 				delete {turret.nextshot::%{_k}%}
 				delete {turret.alive::%{_k}%}
 				kill victim
@@ -486,6 +524,7 @@ on damage:
 								if {turret.hp::%{_k}%} > 0:
 									if "%world of {_tur}%" is "%world of attacker%":
 										set {_da} to distance between {_tur} and attacker
-										if {_da} <= 12:
+										if {_da} <= 13:
 											set {turret.aggro.id::%{_k}%} to "%uuid of attacker%"
 											set {turret.aggro.until::%{_k}%} to now
+											set {turret.lock.id::%{_k}%} to "%uuid of attacker%"
