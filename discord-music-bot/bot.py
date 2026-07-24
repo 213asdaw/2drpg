@@ -304,21 +304,55 @@ class PlayerControls(discord.ui.View):
             play_next(vc)
 
 
+def schedule_coro(coro):
+    """봇 이벤트 루프에서 코루틴 실행 (같은 스레드/다른 스레드 모두 안전)."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # ffmpeg after 콜백 등 다른 스레드
+        return asyncio.run_coroutine_threadsafe(coro, bot.loop)
+    # 이미 봇 루프 안이면 create_task (run_coroutine_threadsafe는 같은 스레드에서 불안정)
+    return loop.create_task(coro)
+
+
+async def refresh_panel_embed():
+    """기존 패널 embed만 갱신 (버튼 유지)."""
+    global control_message
+    if control_message is None:
+        return
+    embed = make_status_embed()
+    try:
+        await control_message.edit(embed=embed, view=PlayerControls())
+    except Exception:
+        # 메시지가 없어졌으면 다음에 새로 보냄
+        control_message = None
+
+
 async def send_or_update_panel(channel):
-    """재생 시작 시 버튼 패널 전송/갱신."""
+    """곡이 바뀔 때마다 버튼 패널을 새로 보냄 (버튼 유실 방지)."""
     global control_message, control_channel
     if channel is None:
         return
     control_channel = channel
     embed = make_status_embed()
     view = PlayerControls()
+
+    old = control_message
     try:
-        if control_message:
-            await control_message.edit(embed=embed, view=view)
-            return
-    except Exception:
-        control_message = None
-    control_message = await channel.send(embed=embed, view=view)
+        control_message = await channel.send(embed=embed, view=view)
+    except Exception as e:
+        print(f"[패널 전송 실패] {e}")
+        return
+
+    # 이전 패널 버튼 제거 (실패해도 무시)
+    if old is not None:
+        try:
+            await old.edit(view=None)
+        except Exception:
+            try:
+                await old.delete()
+            except Exception:
+                pass
 
 
 def play_next(vc):
@@ -335,16 +369,16 @@ def play_next(vc):
         current_song = next_song
     else:
         current_song = None
+        # 큐 끝났을 때 버튼만 남기지 않도록 이전 패널 정리
+        if control_channel is not None:
+            schedule_coro(_clear_panel_buttons())
         return
 
     def _after(err):
         if err:
             print(f"[재생 after 에러] {err}")
-        fut = asyncio.run_coroutine_threadsafe(_play_next_async(vc), bot.loop)
-        try:
-            fut.result()
-        except Exception as e:
-            print(f"[play_next 에러] {e}")
+        # .result()로 기다리면 데드락/다음 곡 패널 미갱신 날 수 있음
+        schedule_coro(_play_next_async(vc))
 
     try:
         vc.play(discord.FFmpegPCMAudio(next_song["url"], **ffmpeg_options), after=_after)
@@ -352,11 +386,21 @@ def play_next(vc):
         print(f"[vc.play 에러] {e}")
         if not do_loop:
             current_song = None
-        asyncio.run_coroutine_threadsafe(_play_next_async(vc), bot.loop)
+        schedule_coro(_play_next_async(vc))
         return
 
     if control_channel is not None:
-        asyncio.run_coroutine_threadsafe(send_or_update_panel(control_channel), bot.loop)
+        schedule_coro(send_or_update_panel(control_channel))
+
+
+async def _clear_panel_buttons():
+    global control_message
+    if control_message is None:
+        return
+    try:
+        await control_message.edit(view=None)
+    except Exception:
+        pass
 
 
 async def _play_next_async(vc):
@@ -617,8 +661,7 @@ async def 반복재생(ctx):
         await ctx.send("🔁 반복재생 **활성화** — 다시 입력하면 해제됩니다.")
     else:
         await ctx.send("반복재생 **비활성화**")
-    if control_channel:
-        await send_or_update_panel(control_channel)
+    await refresh_panel_embed()
 
 
 @bot.command()
@@ -635,8 +678,7 @@ async def 일시정지(ctx):
     else:
         vc.pause()
         await ctx.send("⏸️ 일시정지 — 다시 입력하면 재생됩니다.")
-    if control_channel:
-        await send_or_update_panel(control_channel)
+    await refresh_panel_embed()
 
 
 @bot.command()
@@ -717,13 +759,13 @@ async def 명령어(ctx):
 def main():
     token = TOKEN
     if not token:
-        # 로컬에서만: 아래 따옴표 안에 토큰을 넣어도 됩니다. Git/공유 금지!
+        # 로컬 실행용 토큰 (GitHub에 올리지 말 것!)
         token = ""
     if not token:
         raise SystemExit(
             "DISCORD_TOKEN이 없습니다.\n"
             "Windows: set DISCORD_TOKEN=토큰\n"
-            "또는 bot.py의 main() 안 token = \"...\" 에 넣으세요."
+            "또는 bot.py의 main() 안 token 값에 넣으세요."
         )
     bot.run(token)
 
