@@ -43,6 +43,7 @@ current_song = None
 loop_enabled = False
 skip_once = False        # 반복 ON이어도 다음 곡으로 넘길 때 사용
 control_channel = None   # 버튼/상태 메시지를 보낼 텍스트 채널
+control_channel_id = None
 control_message = None
 last_recommend_query = None
 
@@ -305,20 +306,35 @@ class PlayerControls(discord.ui.View):
 
 
 async def resolve_control_channel(channel=None):
-    """패널을 보낼 텍스트 채널 확보."""
-    global control_channel
+    """패널을 보낼 텍스트 채널 확보 (id로 재조회해 after 콜백에서도 안전하게)."""
+    global control_channel, control_channel_id
     if channel is not None:
         control_channel = channel
+        control_channel_id = getattr(channel, "id", None)
         return channel
-    if control_channel is not None:
-        return control_channel
-    return None
+
+    if control_channel_id:
+        ch = bot.get_channel(control_channel_id)
+        if ch is None:
+            try:
+                ch = await bot.fetch_channel(control_channel_id)
+            except Exception as e:
+                print(f"[패널] 채널 fetch 실패: {e}")
+                ch = None
+        if ch is not None:
+            control_channel = ch
+            return ch
+
+    return control_channel
 
 
 async def refresh_panel_embed():
-    """기존 패널 embed만 갱신 (버튼 유지)."""
+    """기존 패널 embed만 갱신 (버튼 유지). 실패 시 새 패널 전송."""
     global control_message
+    ch = await resolve_control_channel()
     if control_message is None:
+        if ch is not None and current_song:
+            await send_control_panel(ch)
         return
     embed = make_status_embed()
     try:
@@ -330,15 +346,19 @@ async def refresh_panel_embed():
     except Exception as e:
         print(f"[패널 갱신 실패] {e}")
         control_message = None
+        if ch is not None and current_song:
+            await send_control_panel(ch)
 
 
 async def send_control_panel(channel):
     """버튼 패널 메시지를 반드시 새로 전송."""
-    global control_message, control_channel
-    if channel is None:
+    global control_message, control_channel, control_channel_id
+    ch = await resolve_control_channel(channel)
+    if ch is None:
         print("[패널] channel 이 None 이라 전송 불가")
         return
-    control_channel = channel
+    control_channel = ch
+    control_channel_id = ch.id
 
     title = current_song["title"] if current_song else "재생 중인 곡 없음"
     embed = make_status_embed()
@@ -346,18 +366,22 @@ async def send_control_panel(channel):
     old = control_message
 
     try:
-        control_message = await channel.send(
+        control_message = await ch.send(
             content=f"🎵 **지금 재생 중:** {title}",
             embed=embed,
             view=view,
         )
         print(f"[패널] 전송 성공 message_id={control_message.id}")
     except Exception as e:
-        # embed/view 실패 시 텍스트+버튼만이라도 전송
         print(f"[패널] embed 전송 실패: {e!r} → 간단 메시지로 재시도")
         try:
-            control_message = await channel.send(
-                content=f"🎵 **지금 재생 중:** {title}\n(다음 / 반복재생 / 일시정지 / 추천 / 고급추천)",
+            control_message = await ch.send(
+                content=(
+                    f"🎵 **지금 재생 중:** {title}\n"
+                    f"대기열 {len(song_queue)}곡 | "
+                    f"{'반복 ON' if loop_enabled else '반복 OFF'}\n"
+                    f"(다음 / 반복재생 / 일시정지 / 추천 / 고급추천)"
+                ),
                 view=PlayerControls(),
             )
             print(f"[패널] 간단 전송 성공 message_id={control_message.id}")
@@ -376,6 +400,25 @@ async def send_control_panel(channel):
                 pass
 
 
+async def ensure_fresh_stream(song: dict) -> dict:
+    """대기열에 넣어둔 스트림 URL은 금방 만료되므로 재생 직전 다시 뽑는다."""
+    webpage = song.get("webpage_url")
+    if not webpage:
+        return song
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await asyncio.to_thread(ydl.extract_info, webpage, download=False)
+        if info and info.get("url"):
+            song["url"] = info["url"]
+            song["duration"] = song.get("duration") or info.get("duration") or 0
+            song["title"] = song.get("title") or info.get("title") or "제목 없음"
+            if info.get("thumbnail"):
+                song["thumbnail"] = info.get("thumbnail")
+    except Exception as e:
+        print(f"[스트림 갱신 실패] {e}")
+    return song
+
+
 async def play_next_async(vc, channel=None):
     """다음 곡 재생 + 패널 전송 (명령어/버튼/after 공용)."""
     global current_song, skip_once
@@ -387,7 +430,7 @@ async def play_next_async(vc, channel=None):
     do_loop = loop_enabled and not skip_once
     skip_once = False
 
-    if do_loop and current_song and current_song.get("url"):
+    if do_loop and current_song:
         next_song = current_song
     elif len(song_queue) > 0:
         next_song = song_queue.pop(0)
@@ -401,18 +444,13 @@ async def play_next_async(vc, channel=None):
                 pass
         return
 
-    # 반복 재생 시 스트림 URL 갱신
-    if do_loop and next_song.get("webpage_url"):
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = await asyncio.to_thread(
-                    ydl.extract_info, next_song["webpage_url"], download=False
-                )
-            if info and info.get("url"):
-                next_song["url"] = info["url"]
-                current_song = next_song
-        except Exception as e:
-            print(f"[반복 스트림 갱신 실패] {e}")
+    # 매 곡 재생 직전 스트림 URL 재발급 (2곡째부터 만료로 실패하던 문제 수정)
+    next_song = await ensure_fresh_stream(next_song)
+    current_song = next_song
+    if not next_song.get("url"):
+        print(f"[재생] 스트림 URL 없음, 스킵: {next_song.get('title')}")
+        await play_next_async(vc, ch)
+        return
 
     def _after(err):
         if err:
@@ -427,22 +465,13 @@ async def play_next_async(vc, channel=None):
     except Exception as e:
         print(f"[vc.play 에러] {e}")
         await asyncio.sleep(0.2)
-        if song_queue:
-            await play_next_async(vc, ch)
+        # 실패 곡은 버리고 다음 곡
+        current_song = None
+        await play_next_async(vc, ch)
         return
 
-    # 패널은 여기서 반드시 await (fire-and-forget 금지)
+    # 곡이 바뀌면 패널 항상 새로 전송
     await send_control_panel(ch)
-
-
-def play_next(vc, channel=None):
-    """동기 호출용 래퍼."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        asyncio.run_coroutine_threadsafe(play_next_async(vc, channel), bot.loop)
-        return
-    loop.create_task(play_next_async(vc, channel))
 
 
 async def extract_and_queue(video_url: str):
@@ -586,7 +615,7 @@ async def on_voice_state_update(member, before, after):
 
 @bot.command()
 async def 재생(ctx, *, query):
-    global control_channel
+    global control_channel, control_channel_id
     if not in_song_channel(ctx):
         return
     if not ctx.author.voice or not ctx.author.voice.channel:
@@ -597,6 +626,7 @@ async def 재생(ctx, *, query):
         vc = await ctx.author.voice.channel.connect()
 
     control_channel = ctx.channel
+    control_channel_id = ctx.channel.id
     await ctx.send(f"🔎 '{query}' 음악을 가져오는 중입니다...")
 
     try:
@@ -614,7 +644,11 @@ async def 재생(ctx, *, query):
 
         await ctx.send(f"▶️ **{song['title']}** 곡이 대기열에 추가되었습니다!")
         if not vc.is_playing() and not vc.is_paused():
+            # 첫 재생 / 멈춘 상태 → 재생 시작 + 패널
             await play_next_async(vc, ctx.channel)
+        else:
+            # 이미 재생 중 → 대기열만 추가된 경우에도 패널 대기열 숫자 갱신
+            await refresh_panel_embed()
 
     except Exception as e:
         await ctx.send("⚠️ 곡을 추가하는 중 오류가 발생했습니다.")
@@ -652,7 +686,7 @@ async def 다음(ctx):
 
 @bot.command()
 async def 나가(ctx):
-    global current_song, control_message, loop_enabled
+    global current_song, control_message, control_channel, control_channel_id, loop_enabled
     if not in_song_channel(ctx):
         return
     vc = ctx.voice_client
@@ -662,6 +696,8 @@ async def 나가(ctx):
     song_queue.clear()
     current_song = None
     control_message = None
+    control_channel = None
+    control_channel_id = None
     loop_enabled = False
     await ctx.send("👋 안녕히계세요")
 
@@ -707,7 +743,7 @@ async def 일시정지(ctx):
 
 @bot.command()
 async def 추천(ctx, *, search_query):
-    global control_channel
+    global control_channel, control_channel_id
     if not in_song_channel(ctx):
         return
     if not ctx.author.voice or not ctx.author.voice.channel:
@@ -719,6 +755,7 @@ async def 추천(ctx, *, search_query):
     if not vc:
         vc = await ctx.author.voice.channel.connect()
     control_channel = ctx.channel
+    control_channel_id = ctx.channel.id
 
     try:
         added_songs = await add_music_recommendations(search_query, limit=5)
@@ -729,6 +766,8 @@ async def 추천(ctx, *, search_query):
         await ctx.send("**🎵 대기열에 추가된 노래들:**\n" + "\n".join(f"- {t}" for t in added_songs))
         if not vc.is_playing() and not vc.is_paused():
             await play_next_async(vc, ctx.channel)
+        else:
+            await refresh_panel_embed()
     except Exception as e:
         await ctx.send("⚠️ 음악을 불러오는 중 오류가 발생했습니다.")
         print(f"[검색 에러] {e}")
@@ -736,7 +775,7 @@ async def 추천(ctx, *, search_query):
 
 @bot.command()
 async def 고급추천(ctx, *, search_query):
-    global control_channel
+    global control_channel, control_channel_id
     if not in_song_channel(ctx):
         return
     if not ctx.author.voice or not ctx.author.voice.channel:
@@ -748,6 +787,7 @@ async def 고급추천(ctx, *, search_query):
     if not vc:
         vc = await ctx.author.voice.channel.connect()
     control_channel = ctx.channel
+    control_channel_id = ctx.channel.id
 
     try:
         added_songs = await add_advanced_recommendations(search_query, limit=5)
@@ -756,6 +796,8 @@ async def 고급추천(ctx, *, search_query):
         await ctx.send("**🎵 대기열에 추가된 추천 음원들:**\n" + "\n".join(f"- {t}" for t in added_songs))
         if not vc.is_playing() and not vc.is_paused():
             await play_next_async(vc, ctx.channel)
+        else:
+            await refresh_panel_embed()
     except Exception as e:
         await ctx.send("⚠️ 음악을 불러오는 중 심각한 오류가 발생했습니다.")
         print(f"[검색 에러] {e}")
