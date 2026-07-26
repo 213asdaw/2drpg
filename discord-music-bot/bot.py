@@ -398,7 +398,7 @@ class PlayerControls(discord.ui.View):
             )
             return
 
-        titles = await enqueue_autoplay_songs(seed, limit=3)
+        titles = await enqueue_autoplay_songs(seed, limit=1)
         if not titles:
             await interaction.followup.send(
                 "🤖 자동재생 ON — 지금은 유사곡을 못 찾았어요. 곡이 끝나면 다시 시도해요.",
@@ -407,7 +407,7 @@ class PlayerControls(discord.ui.View):
             return
 
         await interaction.followup.send(
-            "🤖 자동재생 ON — 유사곡 예약:\n" + "\n".join(f"- {t}" for t in titles),
+            f"🤖 자동재생 ON — 다음 예약: **{titles[0]}**",
             ephemeral=True,
         )
         if not vc.is_playing() and not vc.is_paused():
@@ -632,15 +632,15 @@ async def play_next_async(vc, channel=None):
                     )
                 except Exception:
                     pass
-            titles = await enqueue_autoplay_songs(seed, limit=3)
+            titles = await enqueue_autoplay_songs(seed, limit=1)
             if titles:
                 next_song = song_queue.pop(0)
                 current_song = next_song
                 if ch is not None:
                     try:
                         await ch.send(
-                            f"🤖 **자동재생** (기준: {seed.get('title')})\n"
-                            + "\n".join(f"- {t}" for t in titles)
+                            f"🤖 **자동재생:** {titles[0]}\n"
+                            f"(기준: {seed.get('title')})"
                         )
                     except Exception:
                         pass
@@ -691,7 +691,7 @@ async def play_next_async(vc, channel=None):
         retry_seed = next_song if (next_song.get("id") or next_song.get("title")) else last_seed_song
         current_song = None
         if autoplay_enabled and retry_seed and len(song_queue) == 0:
-            await enqueue_autoplay_songs(retry_seed, limit=3)
+            await enqueue_autoplay_songs(retry_seed, limit=1)
         await play_next_async(vc, ch)
         return
 
@@ -1142,8 +1142,8 @@ async def find_autoplay_track(seed_song: dict) -> Optional[dict]:
     return tracks[0] if tracks else None
 
 
-async def enqueue_autoplay_songs(seed_song: dict, limit: int = 3) -> List[str]:
-    """유사곡을 찾아 대기열에 넣고 제목 목록 반환."""
+async def enqueue_autoplay_songs(seed_song: dict, limit: int = 1) -> List[str]:
+    """유사곡을 찾아 대기열에 넣고 제목 목록 반환. (기본 1곡)"""
     tracks = await find_autoplay_tracks(seed_song, limit=limit)
     titles = []
     for t in tracks:
@@ -1308,8 +1308,7 @@ async def 자동재생(ctx):
 
     await ctx.send(
         "🤖 자동재생 **활성화**\n"
-        "대기열이 비면 직전 곡과 비슷한 노래를 이어서 틀어요.\n"
-        "지금 재생 중이면 유사곡을 **3곡** 미리 예약합니다."
+        "대기열이 비면 직전 곡과 비슷한 노래 **1곡**을 이어서 틀어요."
     )
     await refresh_panel_embed()
 
@@ -1319,14 +1318,14 @@ async def 자동재생(ctx):
         return
 
     async with ctx.typing():
-        titles = await enqueue_autoplay_songs(seed, limit=3)
+        titles = await enqueue_autoplay_songs(seed, limit=1)
     if not titles:
         await ctx.send("❌ 비슷한 곡을 못 찾았어요. 곡이 끝날 때 다시 시도합니다.")
         return
 
     await ctx.send(
-        f"✅ 자동재생 예약 (기준: {seed.get('title')}):\n"
-        + "\n".join(f"- {t}" for t in titles)
+        f"✅ 다음 자동재생 예약: **{titles[0]}**\n"
+        f"(기준: {seed.get('title')})"
     )
     await refresh_panel_embed()
 
