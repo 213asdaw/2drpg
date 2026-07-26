@@ -15,9 +15,12 @@
    - 다시 → 비활성화(재개)
 
 3. **자동재생 (유사곡)**
+   - `!자동재생` ON 시 **바로 다음 유사곡 1곡을 대기열에 예약**
    - 대기열이 비면 직전 곡의 아티스트·제목·영상 ID를 분석
-   - YouTube Music 라디오(`get_watch_playlist(radio=True)`)로 비슷한 곡 선정
+   - YouTube Music 라디오로 비슷한 곡 선정 (yt-dlp로 후보를 미리 열지 않음)
    - Official Audio / MV 우선, 최근 재생곡·쇼츠·잡영상 제외
+   - 재생이 `Sign in to confirm you’re not a bot` 로 실패하면  
+     브라우저에서 유튜브 cookies를 받아 `YTDLP_COOKIES=cookies.txt` 로 지정
 
 4. **재생 컨트롤 버튼**
    - `다음` · `반복재생` · `일시정지` · `자동재생` · `추천` · `고급추천`

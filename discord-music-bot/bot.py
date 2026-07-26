@@ -23,9 +23,20 @@ ydl_opts = {
     "source_address": "0.0.0.0",
     "noplaylist": True,
     "quiet": True,
+    "no_warnings": True,
     "js_runtimes": {"node": {}},
     "remote_components": ["ejs:github"],
+    # 봇 차단 우회 시도 (안 되면 cookies.txt 사용)
+    "extractor_args": {
+        "youtube": {
+            "player_client": ["android", "ios", "tv_embedded", "web"],
+        }
+    },
 }
+# 선택: 환경변수 YTDLP_COOKIES=/path/to/cookies.txt
+_cookies = os.getenv("YTDLP_COOKIES", "").strip()
+if _cookies and os.path.isfile(_cookies):
+    ydl_opts["cookiefile"] = _cookies
 
 ffmpeg_options = {
     "options": "-vn",
@@ -51,6 +62,7 @@ control_message = None
 last_recommend_query = None
 played_ids: Deque[str] = deque(maxlen=80)  # 최근 재생 videoId (자동재생 중복 방지)
 last_seed_song = None  # 자동재생 분석용 직전 곡
+stream_fail_streak = 0  # 스트림 연속 실패 시 자동재생 중단
 
 # 쇼츠·일반 영상 필터
 MIN_MUSIC_SEC = 60
@@ -327,16 +339,45 @@ class PlayerControls(discord.ui.View):
 
     @discord.ui.button(label="자동재생", style=discord.ButtonStyle.secondary, custom_id="nb:autoplay", row=0)
     async def btn_autoplay(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if await self._require_voice(interaction) is None:
+        vc = await self._require_voice(interaction)
+        if vc is None:
             return
-        global autoplay_enabled
+        global autoplay_enabled, control_channel, control_channel_id
         autoplay_enabled = not autoplay_enabled
-        if autoplay_enabled:
-            msg = "🤖 자동재생 **ON** — 대기열이 비면 이전 곡과 비슷한 노래를 이어서 틀어요."
-        else:
-            msg = "자동재생 **OFF**"
-        await interaction.response.send_message(msg, ephemeral=True)
+        control_channel = interaction.channel
+        control_channel_id = interaction.channel.id
+
+        if not autoplay_enabled:
+            await interaction.response.send_message("자동재생 **OFF**", ephemeral=True)
+            await self._refresh_panel(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
         await self._refresh_panel(interaction)
+
+        seed = current_song or last_seed_song
+        if not seed:
+            await interaction.followup.send(
+                "🤖 자동재생 ON — 재생 중인 곡이 없어 예약은 못 했어요. 먼저 노래를 틀어 주세요.",
+                ephemeral=True,
+            )
+            return
+
+        similar = await find_autoplay_track(seed)
+        if not similar:
+            await interaction.followup.send(
+                "🤖 자동재생 ON — 지금은 유사곡을 못 찾았어요. 곡이 끝나면 다시 시도해요.",
+                ephemeral=True,
+            )
+            return
+
+        song_queue.append(similar)
+        await interaction.followup.send(
+            f"🤖 자동재생 ON — 다음 예약: **{similar['title']}**",
+            ephemeral=True,
+        )
+        if not vc.is_playing() and not vc.is_paused():
+            await play_next_async(vc, interaction.channel)
 
     @discord.ui.button(label="추천", style=discord.ButtonStyle.success, custom_id="nb:rec", row=1)
     async def btn_rec(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -493,25 +534,46 @@ async def send_control_panel(channel):
 async def ensure_fresh_stream(song: dict) -> dict:
     """대기열에 넣어둔 스트림 URL은 금방 만료되므로 재생 직전 다시 뽑는다."""
     webpage = song.get("webpage_url")
+    if not webpage and song.get("id"):
+        webpage = f"https://www.youtube.com/watch?v={song['id']}"
+        song["webpage_url"] = webpage
     if not webpage:
         return song
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await asyncio.to_thread(ydl.extract_info, webpage, download=False)
-        if info and info.get("url"):
-            song["url"] = info["url"]
-            song["duration"] = song.get("duration") or info.get("duration") or 0
-            song["title"] = song.get("title") or info.get("title") or "제목 없음"
-            if info.get("thumbnail"):
-                song["thumbnail"] = info.get("thumbnail")
-    except Exception as e:
-        print(f"[스트림 갱신 실패] {e}")
+
+    clients_to_try = [
+        ["android", "ios", "tv_embedded", "web"],
+        ["android"],
+        ["ios"],
+        ["web"],
+    ]
+    last_err = None
+    for clients in clients_to_try:
+        opts = dict(ydl_opts)
+        opts["extractor_args"] = {"youtube": {"player_client": clients}}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = await asyncio.to_thread(ydl.extract_info, webpage, download=False)
+            if info and info.get("url"):
+                song["url"] = info["url"]
+                song["duration"] = song.get("duration") or info.get("duration") or 0
+                song["title"] = song.get("title") or info.get("title") or "제목 없음"
+                song["id"] = song.get("id") or info.get("id") or ""
+                if info.get("thumbnail"):
+                    song["thumbnail"] = info.get("thumbnail")
+                if info.get("uploader") or info.get("channel"):
+                    song["uploader"] = song.get("uploader") or info.get("uploader") or info.get("channel")
+                return song
+        except Exception as e:
+            last_err = e
+            continue
+    print(f"[스트림 갱신 실패] {last_err}")
+    song["url"] = None
     return song
 
 
 async def play_next_async(vc, channel=None):
     """다음 곡 재생 + 패널 전송 (명령어/버튼/after 공용)."""
-    global current_song, skip_once, last_seed_song
+    global current_song, skip_once, last_seed_song, stream_fail_streak
 
     ch = await resolve_control_channel(channel)
     if not vc or not vc.is_connected():
@@ -528,7 +590,7 @@ async def play_next_async(vc, channel=None):
     else:
         # 대기열 없음 → 자동재생이면 이전 곡 분석해서 유사곡 큐에 넣기
         seed = current_song or last_seed_song
-        if autoplay_enabled and seed:
+        if autoplay_enabled and seed and stream_fail_streak < 5:
             if ch is not None:
                 try:
                     await ch.send(
@@ -573,14 +635,38 @@ async def play_next_async(vc, channel=None):
 
     # 매 곡 재생 직전 스트림 URL 재발급 (2곡째부터 만료로 실패하던 문제 수정)
     next_song = await ensure_fresh_stream(next_song)
-    current_song = next_song
-    last_seed_song = dict(next_song)
     remember_played(next_song)
     if not next_song.get("url"):
-        print(f"[재생] 스트림 URL 없음, 스킵: {next_song.get('title')}")
+        stream_fail_streak += 1
+        print(f"[재생] 스트림 URL 없음, 스킵: {next_song.get('title')} (streak={stream_fail_streak})")
+        if ch is not None:
+            try:
+                await ch.send(
+                    f"⚠️ `{next_song.get('title')}` 재생 URL을 못 받아 건너뜁니다.\n"
+                    f"계속 실패하면 유튜브 봇 차단일 수 있어요. `cookies.txt` 설정을 확인하세요."
+                )
+            except Exception:
+                pass
+        if stream_fail_streak >= 5:
+            if ch is not None:
+                try:
+                    await ch.send("⛔ 스트림을 연속으로 못 받아 자동재생을 잠시 멈춥니다.")
+                except Exception:
+                    pass
+            current_song = None
+            return
+        retry_seed = next_song if (next_song.get("id") or next_song.get("title")) else last_seed_song
         current_song = None
+        if autoplay_enabled and retry_seed and len(song_queue) == 0:
+            similar = await find_autoplay_track(retry_seed)
+            if similar:
+                song_queue.append(similar)
         await play_next_async(vc, ch)
         return
+
+    stream_fail_streak = 0
+    current_song = next_song
+    last_seed_song = dict(next_song)
 
     def _after(err):
         if err:
@@ -757,10 +843,59 @@ def _score_related_track(track: dict, analysis: dict) -> int:
     return score
 
 
+def _parse_ytm_length(length) -> int:
+    """'3:45' / 225 → 초."""
+    if length is None:
+        return 0
+    if isinstance(length, (int, float)):
+        return int(length)
+    s = str(length).strip()
+    if not s:
+        return 0
+    if s.isdigit():
+        return int(s)
+    try:
+        parts = [int(x) for x in s.split(":")]
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        if len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    except Exception:
+        return 0
+    return 0
+
+
+def _song_from_ytmusic_track(track: dict, *, analysis: dict, source: str) -> Optional[dict]:
+    """YTMusic 트랙 → 대기열용 song (스트림 URL은 재생 직전 발급)."""
+    vid = track.get("videoId") or track.get("id")
+    title = track.get("title") or ""
+    if not vid or not title:
+        return None
+    if EXCLUDE_TITLE.search(title):
+        return None
+    artists = [a.get("name", "") for a in (track.get("artists") or []) if a.get("name")]
+    uploader = ", ".join(artists) if artists else ""
+    duration = _parse_ytm_length(track.get("length") or track.get("duration"))
+    # 라디오 결과는 음악이므로 duration 없어도 허용. 있으면 범위 체크.
+    if duration and (duration < MIN_MUSIC_SEC or duration > MAX_MUSIC_SEC):
+        return None
+    return {
+        "title": title,
+        "url": None,
+        "webpage_url": f"https://www.youtube.com/watch?v={vid}",
+        "duration": duration,
+        "uploader": uploader,
+        "id": vid,
+        "autoplay": True,
+        "autoplay_from": analysis.get("title"),
+        "autoplay_source": source,
+    }
+
+
 async def find_autoplay_track(seed_song: dict) -> Optional[dict]:
     """
     이전 곡 분석 → YouTube Music 라디오/유사 검색으로 비슷한 노래 1곡 반환.
-    쇼츠·잡영상은 looks_like_music 으로 걸러낸다.
+    yt-dlp로 미리 열어보지 않음 (유튜브 봇 차단으로 후보 전멸하던 문제 수정).
     """
     analysis = analyze_song(seed_song)
     avoid = avoided_ids()
@@ -769,48 +904,65 @@ async def find_autoplay_track(seed_song: dict) -> Optional[dict]:
 
     candidates: List[dict] = []
 
-    # 1) YouTube Music Radio (가장 비슷한 알고리즘)
+    # 1) YouTube Music Radio
     if analysis.get("video_id"):
         try:
             data = await asyncio.to_thread(
                 ytmusic.get_watch_playlist,
                 videoId=analysis["video_id"],
-                limit=30,
+                limit=40,
                 radio=True,
             )
             for t in data.get("tracks") or []:
                 vid = t.get("videoId")
                 if not vid or vid in avoid:
                     continue
-                candidates.append(
-                    {
-                        "videoId": vid,
-                        "title": t.get("title") or "",
-                        "score": _score_related_track(t, analysis),
-                        "source": "ytmusic-radio",
-                    }
-                )
+                # 원곡 자신 제외
+                if vid == analysis.get("video_id"):
+                    continue
+                scored = dict(t)
+                scored["_score"] = _score_related_track(t, analysis)
+                scored["_source"] = "ytmusic-radio"
+                if scored["_score"] > 0:
+                    candidates.append(scored)
+            print(f"[자동재생] radio 후보 {len(candidates)}개 (seed={analysis.get('video_id')})")
         except Exception as e:
             print(f"[자동재생] YTMusic radio 실패: {e}")
 
-    # 2) 아티스트/곡명 기반 보조 검색
+    # 2) YTMusic 검색 보조 (아티스트 기준)
     if len(candidates) < 5:
         q = " ".join(x for x in [analysis.get("artist"), analysis.get("clean_title")] if x).strip()
         if not q:
             q = analysis.get("title") or ""
+        try:
+            results = await asyncio.to_thread(
+                ytmusic.search, q, filter="songs", limit=20
+            )
+            for t in results or []:
+                vid = t.get("videoId")
+                if not vid or vid in avoid or vid == analysis.get("video_id"):
+                    continue
+                # search 결과 형태 맞추기
+                if "length" not in t and t.get("duration"):
+                    t = dict(t)
+                    t["length"] = t.get("duration")
+                scored = dict(t)
+                scored["_score"] = 15 + (10 if analysis.get("artist") else 0)
+                scored["_source"] = "ytmusic-search"
+                candidates.append(scored)
+            print(f"[자동재생] search 포함 후보 {len(candidates)}개")
+        except Exception as e:
+            print(f"[자동재생] YTMusic search 실패: {e}")
+
+    # 3) yt-dlp flat 검색 최후 수단
+    if len(candidates) < 3:
+        q = " ".join(x for x in [analysis.get("artist"), "similar", "songs"] if x).strip()
         search_opts = {"extract_flat": True, "quiet": True, "no_warnings": True}
         try:
             with yt_dlp.YoutubeDL(search_opts) as ydl:
-                try:
-                    info = await asyncio.to_thread(
-                        ydl.extract_info, f"ytmsearch20:{q}", download=False
-                    )
-                except Exception:
-                    info = await asyncio.to_thread(
-                        ydl.extract_info,
-                        f"ytsearch15:{q} similar songs official audio -shorts -쇼츠",
-                        download=False,
-                    )
+                info = await asyncio.to_thread(
+                    ydl.extract_info, f"ytmsearch15:{q}", download=False
+                )
             for e in (info or {}).get("entries") or []:
                 if not e:
                     continue
@@ -821,37 +973,29 @@ async def find_autoplay_track(seed_song: dict) -> Optional[dict]:
                     {
                         "videoId": vid,
                         "title": e.get("title") or "",
-                        "score": 12,
-                        "source": "search",
+                        "artists": [{"name": e.get("uploader") or ""}],
+                        "length": e.get("duration"),
+                        "_score": 10,
+                        "_source": "ytdlp-flat",
                     }
                 )
         except Exception as e:
-            print(f"[자동재생] 보조 검색 실패: {e}")
+            print(f"[자동재생] flat 검색 실패: {e}")
 
-    # 점수순 → 상위 풀에서 랜덤 (너무 같은 패턴 반복 방지)
-    candidates = [c for c in candidates if c["score"] > 0]
-    candidates.sort(key=lambda c: c["score"], reverse=True)
+    candidates.sort(key=lambda c: c.get("_score", 0), reverse=True)
     if not candidates:
+        print(f"[자동재생] 후보 없음 analysis={analysis}")
         return None
 
-    pool = candidates[:8]
+    # 상위 풀에서 고르되, song dict 만들 수 있는 것 우선
+    pool = candidates[:12]
     random.shuffle(pool)
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        for pick in pool:
-            video_url = f"https://www.youtube.com/watch?v={pick['videoId']}"
-            try:
-                info = await asyncio.to_thread(ydl.extract_info, video_url, download=False)
-            except Exception:
-                continue
-            if not info or not looks_like_music(info):
-                continue
-            if not info.get("url"):
-                continue
-            song = song_dict_from_info(info)
-            song["autoplay"] = True
-            song["autoplay_from"] = analysis.get("title")
-            song["autoplay_source"] = pick.get("source")
+    for pick in pool:
+        song = _song_from_ytmusic_track(
+            pick, analysis=analysis, source=pick.get("_source") or "unknown"
+        )
+        if song:
+            print(f"[자동재생] 선택: {song['title']} ({song['id']}) via {song['autoplay_source']}")
             return song
     return None
 
@@ -998,20 +1142,49 @@ async def 반복재생(ctx):
 @bot.command()
 async def 자동재생(ctx):
     """한번: 자동재생 ON / 다시: OFF — 대기열이 비면 이전 곡과 비슷한 노래 재생"""
-    global autoplay_enabled
+    global autoplay_enabled, control_channel, control_channel_id
     if not in_song_channel(ctx):
         return
     autoplay_enabled = not autoplay_enabled
-    if autoplay_enabled:
-        await ctx.send(
-            "🤖 자동재생 **활성화**\n"
-            "대기열이 비면 직전 곡을 분석해 YouTube Music 라디오/유사 검색으로 "
-            "비슷한 **노래 영상만** 이어서 틀어요.\n"
-            "다시 입력하면 해제됩니다."
-        )
-    else:
+    control_channel = ctx.channel
+    control_channel_id = ctx.channel.id
+
+    if not autoplay_enabled:
         await ctx.send("자동재생 **비활성화**")
+        await refresh_panel_embed()
+        return
+
+    await ctx.send(
+        "🤖 자동재생 **활성화**\n"
+        "대기열이 비면 직전 곡과 비슷한 노래를 이어서 틀어요.\n"
+        "지금 재생 중이면 바로 다음 유사곡 1개를 예약합니다."
+    )
     await refresh_panel_embed()
+
+    seed = current_song or last_seed_song
+    if not seed:
+        await ctx.send("재생 중인 곡이 없어요. `!재생` 후 다시 `!자동재생` 하세요.")
+        return
+
+    async with ctx.typing():
+        similar = await find_autoplay_track(seed)
+    if not similar:
+        await ctx.send(
+            "❌ 비슷한 곡을 못 찾았어요. 곡이 끝날 때 다시 시도합니다.\n"
+            "(제목에 영상ID가 있는 곡일수록 잘 찾아요)"
+        )
+        return
+
+    song_queue.append(similar)
+    await ctx.send(
+        f"✅ 다음 자동재생 예약: **{similar['title']}**\n"
+        f"(기준: {similar.get('autoplay_from') or seed.get('title')})"
+    )
+    await refresh_panel_embed()
+
+    vc = ctx.voice_client
+    if vc and not vc.is_playing() and not vc.is_paused():
+        await play_next_async(vc, ctx.channel)
 
 
 @bot.command()
