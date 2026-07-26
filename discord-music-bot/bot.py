@@ -239,8 +239,12 @@ def remember_played(song: dict):
         played_ids.append(vid)
 
 
-def avoided_ids() -> Set[str]:
-    ids = set(played_ids)
+def avoided_ids(*, recent_only: int = 0) -> Set[str]:
+    """recent_only>0 이면 최근 N개만 제외 (자동재생 성공률용)."""
+    if recent_only and recent_only > 0:
+        ids = set(list(played_ids)[-recent_only:])
+    else:
+        ids = set(played_ids)
     for s in song_queue:
         vid = s.get("id") or extract_video_id(s.get("webpage_url") or "")
         if vid:
@@ -250,6 +254,28 @@ def avoided_ids() -> Set[str]:
         if vid:
             ids.add(vid)
     return ids
+
+
+def _force_song_from_candidate(track: dict, *, analysis: dict, source: str) -> Optional[dict]:
+    """필터 거의 없이 song dict 생성 (최후 수단)."""
+    vid = track.get("videoId") or track.get("id")
+    title = (track.get("title") or "").strip() or "추천곡"
+    if not vid:
+        return None
+    artists = [a.get("name", "") for a in (track.get("artists") or []) if isinstance(a, dict) and a.get("name")]
+    if not artists and track.get("uploader"):
+        artists = [track.get("uploader")]
+    return {
+        "title": title,
+        "url": None,
+        "webpage_url": f"https://www.youtube.com/watch?v={vid}",
+        "duration": _parse_ytm_length(track.get("length") or track.get("duration")),
+        "uploader": ", ".join(artists),
+        "id": vid,
+        "autoplay": True,
+        "autoplay_from": analysis.get("title"),
+        "autoplay_source": source,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -648,7 +674,13 @@ async def play_next_async(vc, channel=None):
                 current_song = None
                 if ch is not None:
                     try:
-                        await ch.send("🤖 자동재생: 비슷한 노래 영상을 찾지 못했어요.")
+                        a = analyze_song(seed)
+                        await ch.send(
+                            "🤖 자동재생: 비슷한 노래 영상을 찾지 못했어요.\n"
+                            f"- 기준곡: `{seed.get('title')}`\n"
+                            f"- 아티스트: `{a.get('artist') or '?'}` / id: `{a.get('video_id') or '?'}`\n"
+                            "다시 `!다음` 하거나, `!재생 가수이름` 후 `!자동재생`을 눌러보세요."
+                        )
                     except Exception:
                         pass
                 if control_message is not None:
@@ -948,189 +980,230 @@ async def _resolve_seed_video_id(analysis: dict) -> Optional[str]:
     if analysis.get("title"):
         queries.append(analysis["title"])
     for q in queries:
-        try:
-            results = await asyncio.to_thread(ytmusic.search, q, filter="songs", limit=5)
-            for r in results or []:
-                vid = r.get("videoId")
-                if vid:
-                    # analysis 보강
+        if not q or not str(q).strip():
+            continue
+        for filt in ("songs", None):
+            try:
+                if filt:
+                    results = await asyncio.to_thread(ytmusic.search, q, filter=filt, limit=8)
+                else:
+                    results = await asyncio.to_thread(ytmusic.search, q, limit=12)
+                for r in results or []:
+                    vid = r.get("videoId")
+                    if not vid:
+                        continue
+                    # video/song 결과만
+                    rtype = (r.get("resultType") or "").lower()
+                    if rtype and rtype not in ("song", "video", ""):
+                        continue
                     analysis["video_id"] = vid
                     if not analysis.get("artist"):
                         artists = r.get("artists") or []
-                        if artists:
+                        if artists and isinstance(artists[0], dict):
                             analysis["artist"] = artists[0].get("name") or analysis.get("artist")
+                    if not analysis.get("clean_title") and r.get("title"):
+                        analysis["clean_title"] = clean_title_for_seed(r.get("title"))
                     return vid
-        except Exception as e:
-            print(f"[자동재생] seed 해석 실패({q}): {e}")
+            except Exception as e:
+                print(f"[자동재생] seed 해석 실패({q}, {filt}): {e}")
     return None
 
 
-async def find_autoplay_tracks(seed_song: dict, limit: int = 3) -> List[dict]:
+async def find_autoplay_tracks(
+    seed_song: dict, limit: int = 1, *, ignore_history: bool = False
+) -> List[dict]:
     """
-    이전 곡과 비슷한 노래를 최대한 많이/확실하게 찾는다.
-    - YTMusic 라디오 + 일반 watch + 아티스트 곡 + 여러 검색어
-    - 필터는 쇼츠/잡영상 정도만 (성공률 우선)
+    이전 곡과 비슷한 노래 찾기. 실패하지 않도록 다단계 폴백.
     """
-    analysis = analyze_song(seed_song)
-    await _resolve_seed_video_id(analysis)
+    global ytmusic
+    analysis = analyze_song(seed_song or {})
+    # 시드가 거의 비었을 때
+    if not analysis.get("title") and not analysis.get("video_id"):
+        analysis["title"] = "popular songs"
+        analysis["clean_title"] = "popular songs"
 
-    avoid = avoided_ids()
-    if analysis.get("video_id"):
-        avoid.add(analysis["video_id"])
+    try:
+        await _resolve_seed_video_id(analysis)
+    except Exception as e:
+        print(f"[자동재생] seed resolve 예외: {e}")
+
+    seed_id = analysis.get("video_id")
+    # 최근 12곡만 피함 (너무 많이 피하면 후보 고갈)
+    if ignore_history:
+        avoid = {seed_id} if seed_id else set()
+    else:
+        avoid = avoided_ids(recent_only=12)
+        if seed_id:
+            avoid.add(seed_id)
 
     candidates: List[dict] = []
     seen: Set[str] = set(avoid)
 
-    # 1) Radio
-    if analysis.get("video_id"):
-        for radio_flag, tag in ((True, "radio"), (False, "watch")):
+    def _ingest(tracks, *, source: str, bonus: int = 0):
+        for t in tracks or []:
+            if not isinstance(t, dict):
+                continue
+            # search 결과가 artist-only 일 수 있음
+            if not (t.get("videoId") or t.get("id")):
+                continue
+            score = _score_related_track(t, analysis)
+            if score < 0:
+                score = 5  # hard exclude여도 후보에는 일단 넣고, 고를 때 우선순위만 낮춤
+            _add_candidate(candidates, seen, t, score=score + bonus, source=source)
+
+    # 1) Radio / watch
+    if seed_id:
+        for radio_flag, tag, bonus in ((True, "radio", 20), (False, "watch", 10)):
             try:
                 data = await asyncio.to_thread(
                     ytmusic.get_watch_playlist,
-                    videoId=analysis["video_id"],
+                    videoId=seed_id,
                     limit=50,
                     radio=radio_flag,
                 )
-                for t in data.get("tracks") or []:
-                    score = _score_related_track(t, analysis)
-                    _add_candidate(candidates, seen, t, score=score, source=f"ytmusic-{tag}")
+                _ingest(data.get("tracks") or [], source=f"ytmusic-{tag}", bonus=bonus)
             except Exception as e:
                 print(f"[자동재생] YTMusic {tag} 실패: {e}")
+                try:
+                    ytmusic = YTMusic()
+                except Exception:
+                    pass
 
-    # 2) 같은 아티스트 곡 / 관련 아티스트
+    # 2) 아티스트 카탈로그
     artist = analysis.get("artist") or ""
     if artist and not _is_generic_artist(artist):
         try:
-            # artist id 찾기
             asearch = await asyncio.to_thread(ytmusic.search, artist, filter="artists", limit=1)
             artist_id = None
             if asearch:
                 artist_id = asearch[0].get("browseId") or asearch[0].get("channelId")
             if artist_id:
                 info = await asyncio.to_thread(ytmusic.get_artist, artist_id)
-                for t in ((info.get("songs") or {}).get("results") or []):
-                    score = _score_related_track(t, analysis) + 25
-                    _add_candidate(candidates, seen, t, score=score, source="artist-songs")
-                # related artists → 그들의 곡
-                related_list = ((info.get("related") or {}).get("results") or [])[:4]
+                _ingest(((info.get("songs") or {}).get("results") or []), source="artist-songs", bonus=30)
+                related_list = ((info.get("related") or {}).get("results") or [])[:3]
                 for rel in related_list:
                     rid = rel.get("browseId")
                     if not rid:
                         continue
                     try:
                         rinfo = await asyncio.to_thread(ytmusic.get_artist, rid)
-                        for t in ((rinfo.get("songs") or {}).get("results") or [])[:8]:
-                            score = _score_related_track(t, analysis) + 10
-                            _add_candidate(candidates, seen, t, score=score, source="related-artist")
+                        _ingest(
+                            ((rinfo.get("songs") or {}).get("results") or [])[:10],
+                            source="related-artist",
+                            bonus=12,
+                        )
                     except Exception:
                         continue
         except Exception as e:
             print(f"[자동재생] artist catalog 실패: {e}")
 
-    # 3) 여러 검색어 (항상 실행 — 후보 부족할 때만 하던 방식 폐기)
+    # 3) 검색어 여러 개
     search_queries = []
     if artist and analysis.get("clean_title"):
-        search_queries += [
-            f"{artist}",
-            f"{artist} 노래",
-            f"{artist} best songs",
-            f"{artist} popular",
-            f"{analysis['clean_title']} like songs",
-        ]
-    elif analysis.get("clean_title"):
-        search_queries += [
-            analysis["clean_title"],
-            f"{analysis['clean_title']} similar songs",
-            f"{analysis['clean_title']} playlist",
-        ]
+        search_queries += [artist, f"{artist} 노래", f"{artist} best", analysis["clean_title"]]
+    if analysis.get("clean_title"):
+        search_queries += [analysis["clean_title"], f"{analysis['clean_title']} 노래"]
     if analysis.get("title"):
         search_queries.append(analysis["title"])
+    # 최후 검색 폴백 키워드
+    search_queries += ["인기 노래", "HOT 100", "kpop", "오늘의 인기곡"]
 
-    # 중복 제거, 순서 유지
     uniq_q = []
     for q in search_queries:
         q = (q or "").strip()
         if q and q not in uniq_q:
             uniq_q.append(q)
 
-    for q in uniq_q[:6]:
+    for q in uniq_q[:8]:
         try:
-            results = await asyncio.to_thread(ytmusic.search, q, filter="songs", limit=25)
-            for t in results or []:
-                score = _score_related_track(t, analysis)
-                if artist:
-                    artists = [a.get("name", "") for a in (t.get("artists") or [])]
-                    if any(artist.lower() in (a or "").lower() for a in artists):
-                        score += 20
-                _add_candidate(candidates, seen, t, score=max(score, 8), source="ytmusic-search")
+            results = await asyncio.to_thread(ytmusic.search, q, filter="songs", limit=20)
+            _ingest(results, source="ytmusic-search", bonus=8)
         except Exception as e:
             print(f"[자동재생] search '{q}' 실패: {e}")
 
-    # 4) 최후: yt-dlp flat
-    if len(candidates) < 8:
-        q = artist or analysis.get("clean_title") or analysis.get("title") or "popular songs"
+    # 4) yt-dlp flat
+    if len(candidates) < 5:
+        q = artist or analysis.get("clean_title") or analysis.get("title") or "popular music"
         search_opts = {"extract_flat": True, "quiet": True, "no_warnings": True}
         try:
             with yt_dlp.YoutubeDL(search_opts) as ydl:
                 info = await asyncio.to_thread(
                     ydl.extract_info, f"ytmsearch20:{q}", download=False
                 )
+            flat = []
             for e in (info or {}).get("entries") or []:
                 if not e:
                     continue
-                _add_candidate(
-                    candidates,
-                    seen,
+                flat.append(
                     {
                         "videoId": e.get("id"),
                         "title": e.get("title") or "",
                         "artists": [{"name": e.get("uploader") or ""}],
                         "length": e.get("duration"),
-                    },
-                    score=12,
-                    source="ytdlp-flat",
+                    }
                 )
+            _ingest(flat, source="ytdlp-flat", bonus=5)
         except Exception as e:
             print(f"[자동재생] flat 검색 실패: {e}")
 
     candidates.sort(key=lambda c: c.get("_score", 0), reverse=True)
     print(
         f"[자동재생] 총 후보 {len(candidates)}개 "
-        f"(seed={analysis.get('video_id')}, artist={analysis.get('artist')})"
+        f"(seed={analysis.get('video_id')}, artist={analysis.get('artist')}, "
+        f"title={analysis.get('clean_title')!r}, ignore_history={ignore_history})"
     )
-    if not candidates:
-        return []
 
-    # 상위권에서 다양하게 뽑기 (같은 곡만 반복 방지)
-    top = candidates[:40]
-    random.shuffle(top)
-    # 점수 높은 것 일부는 고정 포함
-    ordered = candidates[:15] + top
     picked: List[dict] = []
     picked_ids: Set[str] = set()
-    for pick in ordered:
-        if len(picked) >= limit:
-            break
-        song = _song_from_ytmusic_track(
-            pick, analysis=analysis, source=pick.get("_source") or "unknown"
-        )
-        if not song or song["id"] in picked_ids:
-            continue
-        picked.append(song)
-        picked_ids.add(song["id"])
 
-    # 그래도 부족하면 점수순으로 강제 채우기 (하드 제외만 적용)
-    if len(picked) < limit:
-        for pick in candidates:
+    def _try_pick(pool, *, strict: bool):
+        for pick in pool:
             if len(picked) >= limit:
-                break
-            song = _song_from_ytmusic_track(
-                pick, analysis=analysis, source=pick.get("_source") or "unknown"
-            )
-            if not song or song["id"] in picked_ids:
+                return
+            vid = pick.get("videoId") or pick.get("id")
+            if not vid or vid in picked_ids or vid == seed_id:
+                continue
+            if strict:
+                song = _song_from_ytmusic_track(
+                    pick, analysis=analysis, source=pick.get("_source") or "unknown"
+                )
+            else:
+                song = _force_song_from_candidate(
+                    pick, analysis=analysis, source=pick.get("_source") or "forced"
+                )
+            if not song:
                 continue
             picked.append(song)
             picked_ids.add(song["id"])
+
+    # 점수순 → 셔플 상위
+    top = candidates[:30]
+    random.shuffle(top)
+    _try_pick(candidates[:20] + top, strict=True)
+    if len(picked) < limit:
+        _try_pick(candidates, strict=True)
+    if len(picked) < limit:
+        _try_pick(candidates, strict=False)
+
+    # 그래도 없으면 히스토리 무시하고 인기곡 강제 검색
+    if not picked and not ignore_history:
+        print("[자동재생] 1차 실패 → 히스토리 무시 재시도")
+        return await find_autoplay_tracks(seed_song, limit=limit, ignore_history=True)
+
+    if not picked:
+        # 완전 최후: 아무 인기곡이라도
+        try:
+            results = await asyncio.to_thread(ytmusic.search, "인기 가요", filter="songs", limit=15)
+            random.shuffle(results)
+            for t in results or []:
+                song = _force_song_from_candidate(t, analysis=analysis, source="last-resort")
+                if song and song["id"] != seed_id and song["id"] not in picked_ids:
+                    picked.append(song)
+                    picked_ids.add(song["id"])
+                    if len(picked) >= limit:
+                        break
+        except Exception as e:
+            print(f"[자동재생] last-resort 실패: {e}")
 
     for s in picked:
         print(f"[자동재생] 선택: {s['title']} ({s['id']}) via {s['autoplay_source']}")
@@ -1142,9 +1215,17 @@ async def find_autoplay_track(seed_song: dict) -> Optional[dict]:
     return tracks[0] if tracks else None
 
 
-async def enqueue_autoplay_songs(seed_song: dict, limit: int = 1) -> List[str]:
+async def enqueue_autoplay_songs(
+    seed_song: dict, limit: int = 1, *, ignore_history: bool = False
+) -> List[str]:
     """유사곡을 찾아 대기열에 넣고 제목 목록 반환. (기본 1곡)"""
-    tracks = await find_autoplay_tracks(seed_song, limit=limit)
+    try:
+        tracks = await find_autoplay_tracks(
+            seed_song, limit=limit, ignore_history=ignore_history
+        )
+    except Exception as e:
+        print(f"[자동재생] enqueue 예외: {e}")
+        tracks = []
     titles = []
     for t in tracks:
         song_queue.append(t)
