@@ -13,7 +13,7 @@
 #   R 봉인된 운명 — 전방 돌진 후 끌어당김+띄우기
 #
 # 패시브: 짝수 번째 평타에 추가 피해
-# 데미지: 공격력 + 공격력*배율. using_skill 플래그 변수로 스킬 판별
+# 데미지: 공격력 + 공격력*배율. 스킬 시전 중 "using_skill" 스코어보드 태그 부착
 # 배율: Q1/Q2=1.0, Q3=1.2, W=1.1, E복귀=min공격력, R=2.0, 패시브=0.35
 # 팀: {turret.team.player::%uuid%} 있으면 같은 팀 무시
 # 쿨타임: {yone.cd.*} 에 밀리초 타임스탬프 저장 후 수동 비교
@@ -66,7 +66,6 @@ command /요네해제:
 		delete {yone.on::%{_id}%}
 		delete {yone.q.stacks::%{_id}%}
 		delete {yone.hit.mark::%{_id}%}
-		delete {yone.using_skill::%{_id}%}
 		delete {yone.e.active::%{_id}%}
 		delete {yone.e.dmg::%{_id}%}
 		delete {yone.e.body::%{_id}%}
@@ -150,15 +149,14 @@ function yoneKnockup(e: entity):
 	apply levitation 1 to {_e} for 10 ticks
 	draw 4 cloud at {_e}
 
-# using_skill 플래그: 스코어보드 태그 미지원 구버전이므로 변수로 대체
 function yoneApplyDamage(caster: player, e: entity, dmg: number):
 	set {_base} to yoneBaseAtk({_caster})
 	if {_dmg} < {_base}:
 		set {_dmg} to {_base}
 	set {_id} to "%uuid of {_caster}%"
-	set {yone.using_skill::%{_id}%} to true
+	add "using_skill" to scoreboard tags of {_caster}
 	damage {_e} by {_dmg}
-	delete {yone.using_skill::%{_id}%}
+	remove "using_skill" from scoreboard tags of {_caster}
 	if {yone.e.active::%{_id}%} is set:
 		add {_dmg} to {yone.e.dmg::%{_id}%}
 	draw 3 crit at {_e}
@@ -454,8 +452,8 @@ on damage:
 		if victim is set:
 			if {yone.on::%uuid of attacker%} is set:
 				set {_id} to "%uuid of attacker%"
-				# using_skill 변수가 있으면 스킬 피해 → 패시브 무한 루프 방지
-				if {yone.using_skill::%{_id}%} is not set:
+				# using_skill 태그가 있으면 스킬 피해 → 패시브 무한 루프 방지
+				if scoreboard tags of attacker does not contain "using_skill":
 					set {_w} to tool of attacker
 					set {_wn} to "%type of {_w}%"
 					set {_ok} to false
@@ -513,8 +511,7 @@ on quit:
 		delete {yone.e.stand::%{_id}%}
 	delete {yone.e.active::%{_id}%}
 	delete {yone.e.body::%{_id}%}
-	delete {yone.e.dmg::%{_id}%}
-	delete {yone.using_skill::%{_id}%}
+		delete {yone.e.dmg::%{_id}%}
 
 every 40 ticks:
 	loop all players:
