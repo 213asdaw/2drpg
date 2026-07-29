@@ -1,5 +1,5 @@
 # ============================================================
-# 롤 요네 매크로 (구버전 Skript)  VER=20260729b
+# 롤 요네 매크로 (구버전 Skript)  VER=20260729c
 # plugins/Skript/scripts/요네.sk
 #
 # /요네          도움말
@@ -13,9 +13,10 @@
 #   R 봉인된 운명 — 전방 돌진 후 끌어당김+띄우기
 #
 # 패시브: 짝수 번째 평타에 추가 피해
-# 데미지: 최소 공격력 + 공격력 * 배율. 스킬 시전 중 "using_skill" 태그 부착
-# 배율: Q1/Q2=1.0, Q3=1.2, W=1.1, E복귀=공격력min+누적*0.35, R=2.0, 패시브=0.35
+# 데미지: 공격력 + 공격력*배율. using_skill 플래그 변수로 스킬 판별
+# 배율: Q1/Q2=1.0, Q3=1.2, W=1.1, E복귀=min공격력, R=2.0, 패시브=0.35
 # 팀: {turret.team.player::%uuid%} 있으면 같은 팀 무시
+# 쿨타임: {yone.cd.*} 에 밀리초 타임스탬프 저장 후 수동 비교
 # ============================================================
 
 options:
@@ -25,10 +26,16 @@ options:
 	e-duration: 5
 	r-range: 10
 	r-width: 2.5
+	# 쿨타임 (틱: 20=1초)
+	q-cd-ticks: 24
+	q3-cd-ticks: 60
+	w-cd-ticks: 120
+	e-cd-ticks: 240
+	r-cd-ticks: 800
 
 command /요네:
 	trigger:
-		send "&e요네 매크로 &fVER=20260729a" to player
+		send "&e요네 매크로 &fVER=20260729c" to player
 		send "&7/요네지급 &8- 스킬 지급 + 모드 ON" to player
 		send "&7/요네해제 &8- 모드 OFF" to player
 		send "&fQ&7 찌르기(2스택=돌진) &fW&7 가르기+실드 &fE&7 영혼 &fR&7 궁극기" to player
@@ -38,18 +45,14 @@ command /요네지급:
 	trigger:
 		set {yone.on::%uuid of player%} to true
 		delete {yone.q.stacks::%uuid of player%}
-		delete {yone.hit::%uuid of player%}
-		set {_q} to iron sword
-		set name of {_q} to "&f요네 Q &8| &7필멸의 강철"
+		delete {yone.hit.mark::%uuid of player%}
+		set {_q} to iron sword named "&f요네 Q &8| &7필멸의 강철"
 		set lore of {_q} to "&7우클릭: 전방 찌르기" and "&e2스택: 돌진 + 띄우기" and "&8쿨 1.2초 / Q3 쿨 3초"
-		set {_w} to iron axe
-		set name of {_w} to "&f요네 W &8| &7영혼 가르기"
+		set {_w} to iron axe named "&f요네 W &8| &7영혼 가르기"
 		set lore of {_w} to "&7우클릭: 전방 부채꼴" and "&b맞은 적 수만큼 실드" and "&8쿨 6초"
-		set {_e} to ender pearl
-		set name of {_e} to "&f요네 E &8| &7영혼 속박 해제"
+		set {_e} to emerald named "&f요네 E &8| &7영혼 속박 해제"
 		set lore of {_e} to "&7우클릭: 영혼 분리 (무적)" and "&7재사용/만료: 복귀 + 추가피해" and "&8쿨 12초"
-		set {_r} to diamond sword
-		set name of {_r} to "&f요네 R &8| &7봉인된 운명"
+		set {_r} to diamond named "&f요네 R &8| &7봉인된 운명"
 		set lore of {_r} to "&7우클릭: 전방 돌진" and "&c끌어당김 + 띄우기" and "&8쿨 40초"
 		give {_q} to player
 		give {_w} to player
@@ -62,11 +65,13 @@ command /요네해제:
 		set {_id} to "%uuid of player%"
 		delete {yone.on::%{_id}%}
 		delete {yone.q.stacks::%{_id}%}
-		delete {yone.hit::%{_id}%}
+		delete {yone.hit.mark::%{_id}%}
+		delete {yone.using_skill::%{_id}%}
 		delete {yone.e.active::%{_id}%}
 		delete {yone.e.dmg::%{_id}%}
 		delete {yone.e.body::%{_id}%}
 		delete {yone.shield::%{_id}%}
+		delete {yone.shield.until::%{_id}%}
 		if {yone.e.stand::%{_id}%} is set:
 			kill {yone.e.stand::%{_id}%}
 			delete {yone.e.stand::%{_id}%}
@@ -86,6 +91,8 @@ command /요네해제:
 						set slot {_slot} of player to air
 		send "&7요네 모드 OFF" to player
 
+# ── 유틸 함수 ──────────────────────────────────────────────
+
 function yoneBaseAtk(p: player) :: number:
 	set {_a} to 6
 	if {공격력::%{_p}%} is set:
@@ -94,10 +101,9 @@ function yoneBaseAtk(p: player) :: number:
 		set {_a} to 1
 	return {_a}
 
-# 최소 공격력 + 공격력*배율 합산 후 스코어보드 태그 using_skill 붙여서 피해
+# 스킬 피해 = 공격력 + 공격력*배율 (최소: 공격력)
 function yoneSkillDmg(p: player, ratio: number) :: number:
 	set {_base} to yoneBaseAtk({_p})
-	# 최소 = 공격력 자체, 스킬 데미지 = base + base*ratio
 	set {_total} to {_base} + ({_base} * {_ratio})
 	if {_total} < {_base}:
 		set {_total} to {_base}
@@ -144,55 +150,59 @@ function yoneKnockup(e: entity):
 	apply levitation 1 to {_e} for 10 ticks
 	draw 4 cloud at {_e}
 
+# using_skill 플래그: 스코어보드 태그 미지원 구버전이므로 변수로 대체
 function yoneApplyDamage(caster: player, e: entity, dmg: number):
 	set {_base} to yoneBaseAtk({_caster})
 	if {_dmg} < {_base}:
 		set {_dmg} to {_base}
-	add scoreboard tag "using_skill" to {_caster}
+	set {_id} to "%uuid of {_caster}%"
+	set {yone.using_skill::%{_id}%} to true
 	damage {_e} by {_dmg}
-	remove scoreboard tag "using_skill" from {_caster}
-	if {yone.e.active::%uuid of {_caster}%} is set:
-		add {_dmg} to {yone.e.dmg::%uuid of {_caster}%}
+	delete {yone.using_skill::%{_id}%}
+	if {yone.e.active::%{_id}%} is set:
+		add {_dmg} to {yone.e.dmg::%{_id}%}
 	draw 3 crit at {_e}
 
-function yoneCdReady(p: player, key: text, sec: number) :: boolean:
-	set {_id} to "%uuid of {_p}%"
-	if {_key} is "Q":
-		if {yone.cd.Q::%{_id}%} is set:
-			if difference between {yone.cd.Q::%{_id}%} and now < {_sec} seconds:
-				send action bar "&c쿨타임 &fQ" to {_p}
-				return false
-		set {yone.cd.Q::%{_id}%} to now
+# 쿨타임: 틱 단위 타임스탬프. difference between X and now 의 단위(ms)와
+# "N seconds" 비교가 구버전에서 안 되므로, 직접 틱 변수로 관리.
+# 사용: 쿨 변수에 현재 시각(now)을 저장, 매 판단마다 difference < N ticks 체크.
+# 구버전 호환: difference between X and now 를 ticks 단위로 비교
+function yoneCdCheckQ(id: text) :: boolean:
+	if {yone.cd.Q::%{_id}%} is not set:
 		return true
-	if {_key} is "Q3":
-		if {yone.cd.Q3::%{_id}%} is set:
-			if difference between {yone.cd.Q3::%{_id}%} and now < {_sec} seconds:
-				send action bar "&c쿨타임 &fQ3" to {_p}
-				return false
-		set {yone.cd.Q3::%{_id}%} to now
+	if difference between {yone.cd.Q::%{_id}%} and now > 1.2 seconds:
 		return true
-	if {_key} is "W":
-		if {yone.cd.W::%{_id}%} is set:
-			if difference between {yone.cd.W::%{_id}%} and now < {_sec} seconds:
-				send action bar "&c쿨타임 &fW" to {_p}
-				return false
-		set {yone.cd.W::%{_id}%} to now
+	return false
+
+function yoneCdCheckQ3(id: text) :: boolean:
+	if {yone.cd.Q3::%{_id}%} is not set:
 		return true
-	if {_key} is "E":
-		if {yone.cd.E::%{_id}%} is set:
-			if difference between {yone.cd.E::%{_id}%} and now < {_sec} seconds:
-				send action bar "&c쿨타임 &fE" to {_p}
-				return false
-		set {yone.cd.E::%{_id}%} to now
+	if difference between {yone.cd.Q3::%{_id}%} and now > 3 seconds:
 		return true
-	if {_key} is "R":
-		if {yone.cd.R::%{_id}%} is set:
-			if difference between {yone.cd.R::%{_id}%} and now < {_sec} seconds:
-				send action bar "&c쿨타임 &fR" to {_p}
-				return false
-		set {yone.cd.R::%{_id}%} to now
+	return false
+
+function yoneCdCheckW(id: text) :: boolean:
+	if {yone.cd.W::%{_id}%} is not set:
 		return true
-	return true
+	if difference between {yone.cd.W::%{_id}%} and now > 6 seconds:
+		return true
+	return false
+
+function yoneCdCheckE(id: text) :: boolean:
+	if {yone.cd.E::%{_id}%} is not set:
+		return true
+	if difference between {yone.cd.E::%{_id}%} and now > 12 seconds:
+		return true
+	return false
+
+function yoneCdCheckR(id: text) :: boolean:
+	if {yone.cd.R::%{_id}%} is not set:
+		return true
+	if difference between {yone.cd.R::%{_id}%} and now > 40 seconds:
+		return true
+	return false
+
+# ── 우클릭 감지 ────────────────────────────────────────────
 
 on right click:
 	if {yone.on::%uuid of player%} is not set:
@@ -220,14 +230,18 @@ on right click:
 		yoneCastR(player)
 		stop
 
+# ── 스킬 구현 ──────────────────────────────────────────────
+
 function yoneCastQ(p: player):
 	set {_id} to "%uuid of {_p}%"
 	set {_stacks} to 0
 	if {yone.q.stacks::%{_id}%} is set:
 		set {_stacks} to {yone.q.stacks::%{_id}%}
 	if {_stacks} >= 2:
-		if yoneCdReady({_p}, "Q3", 3) is false:
+		if yoneCdCheckQ3({_id}) is false:
+			send action bar "&c쿨타임 &fQ3" to {_p}
 			stop
+		set {yone.cd.Q3::%{_id}%} to now
 		# Q3: 돌진 + 회오리 (배율 1.2)
 		set {_from} to location of {_p}
 		set {_to} to location {@q3-dash} blocks in front of {_p}
@@ -237,31 +251,55 @@ function yoneCastQ(p: player):
 		set {_dmg} to yoneSkillDmg({_p}, 1.2)
 		set {_hit} to 0
 		loop all entities in radius 4 around {_p}:
-			set {_e} to loop-entity
-			if yoneIsEnemy({_p}, {_e}) is true:
-				yoneApplyDamage({_p}, {_e}, {_dmg})
-				yoneKnockup({_e})
+			if yoneIsEnemy({_p}, loop-entity) is true:
+				yoneApplyDamage({_p}, loop-entity, {_dmg})
+				yoneKnockup(loop-entity)
 				add 1 to {_hit}
-				draw 6 cloud at {_e}
 		delete {yone.q.stacks::%{_id}%}
 		send action bar "&eQ3 &f필멸의 강철 &7타격 %{_hit}%" to {_p}
 		stop
-	if yoneCdReady({_p}, "Q", 1.2) is false:
+	if yoneCdCheckQ({_id}) is false:
+		send action bar "&c쿨타임 &fQ" to {_p}
 		stop
+	set {yone.cd.Q::%{_id}%} to now
 	play sound "entity.player.attack.strong" with volume 0.9 and pitch 1.3 at {_p}
 	# Q1/Q2 찌르기 (배율 1.0)
 	set {_dmg} to yoneSkillDmg({_p}, 1.0)
 	set {_hitAny} to false
-	set {_n} to 1
-	loop 4 times:
-		set {_spot} to location {_n} blocks in front of {_p}
-		draw 2 crit at {_spot}
-		loop all entities in radius 1.6 around {_spot}:
-			set {_e} to loop-entity-2
-			if yoneIsEnemy({_p}, {_e}) is true:
-				yoneApplyDamage({_p}, {_e}, {_dmg})
-				set {_hitAny} to true
-		add 1 to {_n}
+	# 전방 4칸 범위를 1칸씩 탐색해 피격 목록 수집 (중첩 루프 대신 반경 3칸 단일 루프)
+	delete {_qhit::*}
+	loop all entities in radius 5 around {_p}:
+		set {_e} to loop-entity
+		if yoneIsEnemy({_p}, {_e}) is true:
+			set {_ex} to x-coordinate of {_e}
+			set {_ey} to y-coordinate of {_e}
+			set {_ez} to z-coordinate of {_e}
+			set {_px} to x-coordinate of location of {_p}
+			set {_py} to y-coordinate of location of {_p}
+			set {_pz} to z-coordinate of location of {_p}
+			set {_ddx} to {_ex} - {_px}
+			set {_ddz} to {_ez} - {_pz}
+			set {_ddy} to {_ey} - {_py}
+			if {_ddy} > 3:
+				stop loop
+			if {_ddy} < -3:
+				stop loop
+			# 시선 방향과의 내적으로 전방 판별
+			set {_yaw} to yaw of {_p}
+			set {_rad} to ({_yaw} * 3.14159) / 180
+			set {_fx} to 0 - sin({_rad})
+			set {_fz} to cos({_rad})
+			set {_dot} to ({_ddx} * {_fx}) + ({_ddz} * {_fz})
+			if {_dot} < 0:
+				stop loop
+			set {_ek} to "%uuid of {_e}%"
+			set {_qhit::%{_ek}%} to {_e}
+	loop {_qhit::*}:
+		set {_e} to loop-value-2
+		if yoneIsEnemy({_p}, {_e}) is true:
+			yoneApplyDamage({_p}, {_e}, {_dmg})
+			draw 2 crit at {_e}
+			set {_hitAny} to true
 	if {_hitAny} is true:
 		add 1 to {_stacks}
 		if {_stacks} > 2:
@@ -272,31 +310,46 @@ function yoneCastQ(p: player):
 		send action bar "&7Q 빗나감" to {_p}
 
 function yoneCastW(p: player):
-	if yoneCdReady({_p}, "W", 6) is false:
+	if yoneCdCheckW("%uuid of {_p}%") is false:
+		send action bar "&c쿨타임 &fW" to {_p}
 		stop
+	set {yone.cd.W::%uuid of {_p}%} to now
 	play sound "entity.player.attack.sweep" with volume 1 and pitch 1.1 at {_p}
 	# W 가르기 (배율 1.1)
 	set {_dmg} to yoneSkillDmg({_p}, 1.1)
 	set {_hits} to 0
 	set {_champ} to 0
-	set {_n} to 1
-	loop 5 times:
-		set {_spot} to location {_n} blocks in front of {_p}
-		draw 3 enchantment table at {_spot}
-		loop all entities in radius 2.2 around {_spot}:
-			set {_e} to loop-entity-2
-			if yoneIsEnemy({_p}, {_e}) is true:
-				yoneApplyDamage({_p}, {_e}, {_dmg})
-				add 1 to {_hits}
-				if {_e} is a player:
-					add 1 to {_champ}
-		add 1 to {_n}
-	# 실드: 기본 4 + 챔피언 1명당 3
-	set {_sh} to 4
-	set {_sh} to {_sh} + ({_champ} * 3)
+	# 전방 부채꼴: 반경 5 안 엔티티 중 시선 앞 90도 내 수집
+	set {_yaw} to yaw of {_p}
+	set {_rad} to ({_yaw} * 3.14159) / 180
+	set {_fx} to 0 - sin({_rad})
+	set {_fz} to cos({_rad})
+	delete {_whit::*}
+	loop all entities in radius 5 around {_p}:
+		set {_e} to loop-entity
+		if yoneIsEnemy({_p}, {_e}) is true:
+			set {_ddx} to x-coordinate of {_e} - x-coordinate of location of {_p}
+			set {_ddz} to z-coordinate of {_e} - z-coordinate of location of {_p}
+			set {_dot} to ({_ddx} * {_fx}) + ({_ddz} * {_fz})
+			if {_dot} > 0:
+				set {_ek} to "%uuid of {_e}%"
+				set {_whit::%{_ek}%} to {_e}
+	draw 2 happy villager at {_p}
+	loop {_whit::*}:
+		set {_e} to loop-value-2
+		if yoneIsEnemy({_p}, {_e}) is true:
+			yoneApplyDamage({_p}, {_e}, {_dmg})
+			add 1 to {_hits}
+			if {_e} is a player:
+				add 1 to {_champ}
+			draw 3 crit at {_e}
+	# 실드: 공격력 * 0.4 + 챔피언 1명당 공격력*0.2
+	set {_base} to yoneBaseAtk({_p})
+	set {_sh} to {_base} * 0.4
+	add {_champ} * ({_base} * 0.2) to {_sh}
+	set {_sh} to round({_sh})
 	set {yone.shield::%uuid of {_p}%} to {_sh}
 	set {yone.shield.until::%uuid of {_p}%} to now
-	apply absorption 1 to {_p} for 3 seconds
 	send action bar "&bW &7실드 &f%{_sh}% &8(적 %{_hits}% / 챔 %{_champ}%)" to {_p}
 
 function yoneCastE(p: player):
@@ -305,13 +358,14 @@ function yoneCastE(p: player):
 	if {yone.e.active::%{_id}%} is set:
 		yoneEndE({_p})
 		stop
-	if yoneCdReady({_p}, "E", 12) is false:
+	if yoneCdCheckE({_id}) is false:
+		send action bar "&c쿨타임 &fE" to {_p}
 		stop
-	set {_body} to location of {_p}
-	set {yone.e.body::%{_id}%} to {_body}
+	set {yone.cd.E::%{_id}%} to now
+	set {yone.e.body::%{_id}%} to location of {_p}
 	set {yone.e.dmg::%{_id}%} to 0
 	set {yone.e.active::%{_id}%} to true
-	spawn armor stand at {_body}
+	spawn armor stand at location of {_p}
 	set {_st} to last spawned entity
 	set gravity of {_st} to false
 	set name of {_st} to "&7요네의 육신"
@@ -338,7 +392,7 @@ function yoneEndE(p: player):
 		delete {yone.e.stand::%{_id}%}
 	delete {yone.e.body::%{_id}%}
 	delete {yone.e.dmg::%{_id}%}
-	# E 복귀 폭발: 누적피해*0.35, 최소 공격력 1배
+	# E 복귀 폭발: 누적피해*0.35, 최소 공격력
 	set {_burst} to {_dmgStored} * 0.35
 	set {_minBurst} to yoneBaseAtk({_p})
 	if {_burst} < {_minBurst}:
@@ -347,49 +401,61 @@ function yoneEndE(p: player):
 		set {_e} to loop-entity
 		if yoneIsEnemy({_p}, {_e}) is true:
 			yoneApplyDamage({_p}, {_e}, {_burst})
-			draw 5 flame at {_e}
+			draw 5 crit at {_e}
 	play sound "entity.wither.break_block" with volume 0.8 and pitch 1.4 at {_p}
 	send action bar "&dE 종료 &7추가피해 &c%{_burst}%" to {_p}
 
 function yoneCastR(p: player):
-	if yoneCdReady({_p}, "R", 40) is false:
+	set {_id} to "%uuid of {_p}%"
+	if yoneCdCheckR({_id}) is false:
+		send action bar "&c쿨타임 &fR" to {_p}
 		stop
+	set {yone.cd.R::%{_id}%} to now
 	play sound "entity.ender_dragon.flap" with volume 1 and pitch 1.6 at {_p}
 	# R 궁극기 (배율 2.0)
 	set {_dmg} to yoneSkillDmg({_p}, 2.0)
 	set {_from} to location of {_p}
 	set {_dest} to location {@r-range} blocks in front of {_p}
 	set y-coordinate of {_dest} to y-coordinate of {_from}
-	delete {_marked::*}
-	set {_n} to 1
-	loop {@r-range} times:
-		set {_spot} to location {_n} blocks in front of {_p}
-		set y-coordinate of {_spot} to y-coordinate of {_from}
-		draw 2 smoke at {_spot}
-		loop all entities in radius {@r-width} around {_spot}:
-			set {_e} to loop-entity-2
-			if yoneIsEnemy({_p}, {_e}) is true:
-				set {_ek} to "%uuid of {_e}%"
-				if {_marked::%{_ek}%} is not set:
-					set {_marked::%{_ek}%} to {_e}
-		add 1 to {_n}
+	# 전방 선상 엔티티 수집 (중첩 루프 없이 단일 루프 + uuid 중복 방지)
+	delete {_rmarked::*}
+	loop all entities in radius ({@r-range} + 1) around {_p}:
+		set {_e} to loop-entity
+		if yoneIsEnemy({_p}, {_e}) is true:
+			set {_ddx} to x-coordinate of {_e} - x-coordinate of {_from}
+			set {_ddz} to z-coordinate of {_e} - z-coordinate of {_from}
+			set {_yaw} to yaw of {_p}
+			set {_rad} to ({_yaw} * 3.14159) / 180
+			set {_fx} to 0 - sin({_rad})
+			set {_fz} to cos({_rad})
+			set {_dot} to ({_ddx} * {_fx}) + ({_ddz} * {_fz})
+			if {_dot} > 0:
+				# 선과의 수직 거리
+				set {_cross} to abs(({_ddx} * {_fz}) - ({_ddz} * {_fx}))
+				if {_cross} < {@r-width}:
+					set {_ek} to "%uuid of {_e}%"
+					set {_rmarked::%{_ek}%} to {_e}
 	teleport {_p} to {_dest}
-	loop {_marked::*}:
+	loop {_rmarked::*}:
 		set {_e} to loop-value-2
 		if {_e} is set:
 			if yoneIsEnemy({_p}, {_e}) is true:
 				yoneApplyDamage({_p}, {_e}, {_dmg})
 				teleport {_e} to {_dest}
 				yoneKnockup({_e})
+	draw 8 smoke at {_dest}
 	send action bar "&cR &f봉인된 운명" to {_p}
+
+# ── 패시브 & 방어 이벤트 ───────────────────────────────────
 
 # 패시브: 짝수 평타 추가피해 (스킬 시전 중은 제외)
 on damage:
 	if attacker is a player:
 		if victim is set:
 			if {yone.on::%uuid of attacker%} is set:
-				# using_skill 태그가 붙어있으면 스킬 피해 → 패시브 루프 방지
-				if attacker does not have scoreboard tag "using_skill":
+				set {_id} to "%uuid of attacker%"
+				# using_skill 변수가 있으면 스킬 피해 → 패시브 무한 루프 방지
+				if {yone.using_skill::%{_id}%} is not set:
 					set {_w} to tool of attacker
 					set {_wn} to "%type of {_w}%"
 					set {_ok} to false
@@ -398,16 +464,13 @@ on damage:
 					if {_wn} contains "axe":
 						set {_ok} to true
 					if {_ok} is true:
-						set {_id} to "%uuid of attacker%"
-						# 짝수 타: 추가 마법피해 (패시브)
+						# 짝수 타: 추가 피해 (패시브)
 						if {yone.hit.mark::%{_id}%} is set:
 							delete {yone.hit.mark::%{_id}%}
-							add scoreboard tag "using_skill" to attacker
 							set {_bonus} to yoneBaseAtk(attacker) * 0.35
 							set {_d} to damage
 							add {_bonus} to {_d}
 							set damage to {_d}
-							remove scoreboard tag "using_skill" from attacker
 							draw 4 witch at victim
 							if {yone.e.active::%{_id}%} is set:
 								add {_bonus} to {yone.e.dmg::%{_id}%}
@@ -437,12 +500,12 @@ on damage:
 						else:
 							remove {_sh} from {_d}
 							delete {yone.shield::%uuid of victim%}
+							delete {yone.shield.until::%uuid of victim%}
 							set damage to {_d}
 				else:
 					delete {yone.shield::%uuid of victim%}
 					delete {yone.shield.until::%uuid of victim%}
 
-# 아군 포탑/미니언과 맞출 때 E 본체 아머스탠드 정리
 on quit:
 	set {_id} to "%uuid of player%"
 	if {yone.e.stand::%{_id}%} is set:
@@ -451,6 +514,7 @@ on quit:
 	delete {yone.e.active::%{_id}%}
 	delete {yone.e.body::%{_id}%}
 	delete {yone.e.dmg::%{_id}%}
+	delete {yone.using_skill::%{_id}%}
 
 every 40 ticks:
 	loop all players:
