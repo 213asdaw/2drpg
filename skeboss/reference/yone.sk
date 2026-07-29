@@ -377,10 +377,11 @@ on damage:
 			if {yone.on::%uuid of attacker%} is set:
 				if {yone.skillcast::%uuid of attacker%} is not set:
 					set {_w} to tool of attacker
+					set {_wn} to "%type of {_w}%"
 					set {_ok} to false
-					if {_w} is a sword:
+					if {_wn} contains "sword":
 						set {_ok} to true
-					if {_w} is an axe:
+					if {_wn} contains "axe":
 						set {_ok} to true
 					if {_ok} is true:
 						set {_id} to "%uuid of attacker%"
