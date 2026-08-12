@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>JinwooNecrobinderSkin</AssemblyName>
+    <RootNamespace>JinwooNecrobinderSkin</RootNamespace>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <!-- Set STS2_DIR to your Slay the Spire 2 install when building the DLL. -->
+  <PropertyGroup>
+    <Sts2Dir Condition="'$(Sts2Dir)' == ''">$(STS2_DIR)</Sts2Dir>
+    <Sts2DataDir Condition="'$(Sts2DataDir)' == '' and Exists('$(Sts2Dir)/data_sts2_windows_x86_64')">$(Sts2Dir)/data_sts2_windows_x86_64</Sts2DataDir>
+    <Sts2DataDir Condition="'$(Sts2DataDir)' == '' and Exists('$(Sts2Dir)/data_sts2_linuxbsd_x86_64')">$(Sts2Dir)/data_sts2_linuxbsd_x86_64</Sts2DataDir>
+    <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(MSBuildProjectDirectory)/stubs</Sts2DataDir>
+    <UseStubs Condition="!Exists('$(Sts2DataDir)/sts2.dll')">true</UseStubs>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(Sts2DataDir)/sts2.dll')">
+    <Reference Include="sts2">
+      <HintPath>$(Sts2DataDir)/sts2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(Sts2DataDir)/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp" Condition="Exists('$(Sts2DataDir)/GodotSharp.dll')">
+      <HintPath>$(Sts2DataDir)/GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseStubs)' == 'true'">
+    <ProjectReference Include="stubs/Sts2Stub/Sts2Stub.csproj" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="src/**/*.cs" />
+  </ItemGroup>
+
+  <!-- Avoid double-including default Compile globs with explicit includes -->
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <Target Name="DeployToRelease" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/release/mods/JinwooNecrobinderSkin" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/release/mods/JinwooNecrobinderSkin" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/JinwooNecrobinderSkin.json" DestinationFolder="$(MSBuildProjectDirectory)/release/mods/JinwooNecrobinderSkin" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/assets/preview/preview.png" DestinationFiles="$(MSBuildProjectDirectory)/release/mods/JinwooNecrobinderSkin/preview.png" SkipUnchangedFiles="true" Condition="Exists('$(MSBuildProjectDirectory)/assets/preview/preview.png')" />
+  </Target>
+</Project>

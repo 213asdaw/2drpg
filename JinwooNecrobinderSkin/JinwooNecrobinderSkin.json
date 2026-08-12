@@ -1,0 +1,11 @@
+{
+  "id": "JinwooNecrobinderSkin",
+  "name": "성진우 네크로바인더 스킨",
+  "author": "cursor-agent",
+  "description": "슬레이 더 스파이어 2 네크로바인더를 나 혼자만 레벨업의 성진우(그림자 군주) 스킨으로 교체합니다. 캐릭터 선택 일러스트, 이름/설명 로컬라이즈, 카드 일러스트를 포함합니다. 전투 Spine 교체는 CustomSkeletonLoader용 ReplaceResources 슬롯을 제공합니다.",
+  "version": "1.0.0",
+  "has_pck": true,
+  "has_dll": false,
+  "dependencies": [],
+  "affects_gameplay": false
+}

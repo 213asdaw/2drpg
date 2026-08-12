@@ -1,0 +1,10 @@
+bin/
+obj/
+stubs/Sts2Stub/bin/
+stubs/Sts2Stub/obj/
+godot_pack/stage/
+godot_pack/commands.json
+.tools/
+*.user
+*.pdb
+release/*.zip
