@@ -7,9 +7,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
-  <!-- Set STS2_DIR to your Slay the Spire 2 install when building the DLL. -->
   <PropertyGroup>
     <Sts2Dir Condition="'$(Sts2Dir)' == ''">$(STS2_DIR)</Sts2Dir>
     <Sts2DataDir Condition="'$(Sts2DataDir)' == '' and Exists('$(Sts2Dir)/data_sts2_windows_x86_64')">$(Sts2Dir)/data_sts2_windows_x86_64</Sts2DataDir>
@@ -41,11 +41,6 @@
   <ItemGroup>
     <Compile Include="src/**/*.cs" />
   </ItemGroup>
-
-  <!-- Avoid double-including default Compile globs with explicit includes -->
-  <PropertyGroup>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-  </PropertyGroup>
 
   <Target Name="DeployToRelease" AfterTargets="Build">
     <MakeDir Directories="$(MSBuildProjectDirectory)/release/mods/JinwooNecrobinderSkin" />

@@ -8,3 +8,5 @@ godot_pack/commands.json
 *.user
 *.pdb
 release/*.zip
+godot_pack/import_project/
+godot_pack/commands.json

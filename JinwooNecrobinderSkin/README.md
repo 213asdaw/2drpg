@@ -4,7 +4,10 @@
 
 ## 다운로드
 
-https://github.com/213asdaw/2drpg/raw/cursor/jinwoo-necrobinder-skin-b503/releases/JinwooNecrobinderSkin-v1.1.0.zip
+https://github.com/213asdaw/2drpg/raw/cursor/jinwoo-necrobinder-skin-b503/releases/JinwooNecrobinderSkin-v1.2.0.zip
+
+> v1.2.0: 선택화면/카드 그림이 실제로 적용되도록 `.ctex` 패킹 + CustomCardTextures 경로 수정.  
+> **Custom Card Texture Loader(또는 SG)도 같이 설치해야 카드/선택 그림이 바뀝니다.** 이름만 바뀌는 건 로더 없이 스킨 PCK만 넣은 경우입니다.
 
 ## 포함 내용
 
