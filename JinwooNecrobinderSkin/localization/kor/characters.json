@@ -1,0 +1,20 @@
+{
+  "NECROBINDER.title": "성진우",
+  "NECROBINDER.description": "그림자를 지배하는 군주. 충실한 그림자 병사 이그리트와 함께 첨탑을 오른다.",
+  "NECROBINDER.pronouns": "그",
+  "characters:NECROBINDER.title": "성진우",
+  "characters:NECROBINDER.description": "그림자를 지배하는 군주. 충실한 그림자 병사 이그리트와 함께 첨탑을 오른다.",
+
+  "OSTY.title": "이그리트",
+  "OSTY.name": "이그리트",
+  "OSTY.description": "성진우의 충실한 그림자 병사. 주인을 대신해 피해를 막고 적을 벤다.",
+  "creatures:OSTY.title": "이그리트",
+  "creatures:OSTY.name": "이그리트",
+  "creatures:OSTY.description": "성진우의 충실한 그림자 병사. 주인을 대신해 피해를 막고 적을 벤다.",
+  "monsters:OSTY.title": "이그리트",
+  "keywords:SUMMON.title": "소환",
+  "keywords:SUMMON.description": "이그리트를 X HP로 소환합니다. 이미 소환되어 있으면 이번 전투 동안 최대 HP를 X만큼 올립니다.",
+  "keywords:OSTY.title": "이그리트",
+  "keywords:DIE_FOR_YOU.title": "대신 죽음",
+  "keywords:DIE_FOR_YOU.description": "이그리트가 살아 있는 동안, 막지 못한 공격 피해를 먼저 이그리트가 받습니다."
+}

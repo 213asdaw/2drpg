@@ -1,0 +1,20 @@
+{
+  "NECROBINDER.title": "Sung Jin-Woo",
+  "NECROBINDER.description": "The Shadow Monarch who ascends the Spire with his loyal shadow soldier, Igris.",
+  "NECROBINDER.pronouns": "he",
+  "characters:NECROBINDER.title": "Sung Jin-Woo",
+  "characters:NECROBINDER.description": "The Shadow Monarch who ascends the Spire with his loyal shadow soldier, Igris.",
+
+  "OSTY.title": "Igris",
+  "OSTY.name": "Igris",
+  "OSTY.description": "Sung Jin-Woo's loyal shadow soldier. Absorbs blows meant for his master and cuts down foes.",
+  "creatures:OSTY.title": "Igris",
+  "creatures:OSTY.name": "Igris",
+  "creatures:OSTY.description": "Sung Jin-Woo's loyal shadow soldier. Absorbs blows meant for his master and cuts down foes.",
+  "monsters:OSTY.title": "Igris",
+  "keywords:SUMMON.title": "Summon",
+  "keywords:SUMMON.description": "Summon Igris with X HP. If already summoned, raise his Max HP by X for this combat.",
+  "keywords:OSTY.title": "Igris",
+  "keywords:DIE_FOR_YOU.title": "Die for You",
+  "keywords:DIE_FOR_YOU.description": "While Igris is alive, unblocked attack damage is dealt to Igris first."
+}

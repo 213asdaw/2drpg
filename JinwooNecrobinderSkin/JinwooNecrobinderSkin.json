@@ -1,0 +1,11 @@
+{
+  "id": "JinwooNecrobinderSkin",
+  "name": "성진우 네크로바인더 스킨",
+  "author": "cursor-agent",
+  "description": "슬레이 더 스파이어 2 네크로바인더→성진우, 골골이(Osty)→이그리트 스킨. 캐릭터 선택/로컬라이즈/카드 일러스트 포함. Spine은 CustomSkeletonLoader ReplaceResources 슬롯 사용.",
+  "version": "1.2.0",
+  "has_pck": true,
+  "has_dll": false,
+  "dependencies": [],
+  "affects_gameplay": false
+}
