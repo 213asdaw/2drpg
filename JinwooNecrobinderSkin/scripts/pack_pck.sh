@@ -19,12 +19,18 @@ mkdir -p \
   "$STAGE/JinwooNecrobinderSkin/localization/kor" \
   "$STAGE/JinwooNecrobinderSkin/localization/eng" \
   "$STAGE/JinwooNecrobinderSkin/images" \
-  "$STAGE/animations/characters/necrobinder"
+  "$STAGE/animations/characters/necrobinder" \
+  "$STAGE/animations/characters/osty" \
+  "$STAGE/JinwooNecrobinderSkin/images/osty"
 
 cp "$ROOT/assets/character_select/char_select_necrobinder.png" \
   "$STAGE/images/packed/character_select/char_select_necrobinder.png"
 cp "$ROOT/assets/portraits/necrobinder_portrait.png" \
   "$STAGE/JinwooNecrobinderSkin/images/portrait.png"
+cp "$ROOT/assets/igris/igris_portrait.png" \
+  "$STAGE/JinwooNecrobinderSkin/images/osty/portrait.png"
+cp "$ROOT/assets/igris/igris_fullbody.png" \
+  "$STAGE/JinwooNecrobinderSkin/images/osty/fullbody.png"
 cp "$ROOT/localization/kor/characters.json" \
   "$STAGE/JinwooNecrobinderSkin/localization/kor/characters.json"
 cp "$ROOT/localization/eng/characters.json" \
@@ -34,6 +40,8 @@ cp "$ROOT/assets/preview/preview.png" "$STAGE/JinwooNecrobinderSkin/mod_image.pn
 cp "$ROOT/assets/preview/preview.png" "$STAGE/mod_image.png"
 cp "$ROOT/ReplaceResources/necrobinder/README.md" \
   "$STAGE/animations/characters/necrobinder/README_SPINE.txt"
+cp "$ROOT/ReplaceResources/osty/README.md" \
+  "$STAGE/animations/characters/osty/README_SPINE.txt"
 
 rm -f "$PCK"
 

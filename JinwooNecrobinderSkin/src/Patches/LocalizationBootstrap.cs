@@ -6,19 +6,34 @@ using MegaCrit.Sts2.Core.Logging;
 namespace JinwooNecrobinderSkin.Patches;
 
 /// <summary>
-/// Best-effort runtime rename for Necrobinder → Sung Jin-Woo.
-/// PCK localization tables are preferred; this covers hosts that ignore mod loc merges.
+/// Runtime rename: Necrobinder → Sung Jin-Woo, Osty → Igris.
 /// </summary>
 public static class LocalizationBootstrap
 {
     private static readonly (string Key, string Ko, string En)[] Entries =
     {
         ("NECROBINDER.title", "성진우", "Sung Jin-Woo"),
-        ("NECROBINDER.description", "그림자를 지배하는 군주. 죽은 자를 부하로 부리며 첨탑을 오른다.",
-            "The Shadow Monarch who commands the dead and ascends the Spire."),
+        ("NECROBINDER.description", "그림자를 지배하는 군주. 충실한 그림자 병사 이그리트와 함께 첨탑을 오른다.",
+            "The Shadow Monarch who ascends the Spire with his loyal shadow soldier, Igris."),
         ("characters:NECROBINDER.title", "성진우", "Sung Jin-Woo"),
-        ("characters:NECROBINDER.description", "그림자를 지배하는 군주. 죽은 자를 부하로 부리며 첨탑을 오른다.",
-            "The Shadow Monarch who commands the dead and ascends the Spire."),
+        ("characters:NECROBINDER.description", "그림자를 지배하는 군주. 충실한 그림자 병사 이그리트와 함께 첨탑을 오른다.",
+            "The Shadow Monarch who ascends the Spire with his loyal shadow soldier, Igris."),
+        ("OSTY.title", "이그리트", "Igris"),
+        ("OSTY.name", "이그리트", "Igris"),
+        ("OSTY.description", "성진우의 충실한 그림자 병사. 주인을 대신해 피해를 막고 적을 벤다.",
+            "Sung Jin-Woo's loyal shadow soldier. Absorbs blows meant for his master and cuts down foes."),
+        ("creatures:OSTY.title", "이그리트", "Igris"),
+        ("creatures:OSTY.name", "이그리트", "Igris"),
+        ("creatures:OSTY.description", "성진우의 충실한 그림자 병사. 주인을 대신해 피해를 막고 적을 벤다.",
+            "Sung Jin-Woo's loyal shadow soldier. Absorbs blows meant for his master and cuts down foes."),
+        ("monsters:OSTY.title", "이그리트", "Igris"),
+        ("keywords:OSTY.title", "이그리트", "Igris"),
+        ("keywords:SUMMON.description",
+            "이그리트를 X HP로 소환합니다. 이미 소환되어 있으면 이번 전투 동안 최대 HP를 X만큼 올립니다.",
+            "Summon Igris with X HP. If already summoned, raise his Max HP by X for this combat."),
+        ("keywords:DIE_FOR_YOU.description",
+            "이그리트가 살아 있는 동안, 막지 못한 공격 피해를 먼저 이그리트가 받습니다.",
+            "While Igris is alive, unblocked attack damage is dealt to Igris first."),
     };
 
     public static void Apply()
@@ -44,7 +59,6 @@ public static class LocalizationBootstrap
             var language = (languageProp?.GetValue(instance) as string)?.ToLowerInvariant() ?? "eng";
             bool korean = language.StartsWith("ko", StringComparison.Ordinal);
 
-            // Try common table injection hooks without hard-binding to private APIs.
             foreach (var method in locManagerType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 if (!string.Equals(method.Name, "Set", StringComparison.Ordinal)
@@ -65,11 +79,10 @@ public static class LocalizationBootstrap
                     method.Invoke(instance, new object[] { entry.Key, korean ? entry.Ko : entry.En });
                 }
 
-                Log.Info($"[{ModEntry.ModId}] Applied LocManager.{method.Name} overrides.");
+                Log.Info($"[{ModEntry.ModId}] Applied LocManager.{method.Name} overrides (Jin-Woo + Igris).");
                 return;
             }
 
-            // Fallback: poke string dictionaries on the manager if present.
             foreach (var field in locManagerType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 if (!typeof(IDictionary).IsAssignableFrom(field.FieldType))
@@ -85,16 +98,6 @@ public static class LocalizationBootstrap
                 int written = 0;
                 foreach (var entry in Entries)
                 {
-                    if (!dict.Contains(entry.Key) && dict.Keys.Count > 0)
-                    {
-                        // Only write when dictionary already looks like a string table.
-                        var sampleKey = FirstKey(dict);
-                        if (sampleKey is not string)
-                        {
-                            break;
-                        }
-                    }
-
                     if (dict.Contains(entry.Key) || dict.Keys.Count == 0 || FirstKey(dict) is string)
                     {
                         try

@@ -1,16 +1,21 @@
 # 성진우 네크로바인더 스킨 (슬레이 더 스파이어 2)
 
-슬더스2 **네크로바인더**를 《나 혼자만 레벨업》 **성진우(그림자 군주)** 스킨으로 교체하는 모드입니다.
+슬더스2 **네크로바인더**를 《나 혼자만 레벨업》 **성진우**, 소환수 **골골이(Osty)** 를 **이그리트** 로 교체하는 모드입니다.
+
+## 다운로드
+
+https://github.com/213asdaw/2drpg/raw/cursor/jinwoo-necrobinder-skin-b503/releases/JinwooNecrobinderSkin-v1.1.0.zip
 
 ## 포함 내용
 
 | 구성 | 설명 |
 |------|------|
 | 캐릭터 선택 일러스트 | `char_select_necrobinder.png` 교체 |
-| 이름/설명 | 한국어·영어 로컬라이즈 (성진우 / Sung Jin-Woo) |
+| 이름/설명 | 성진우 + 이그리트 (kor/eng) |
+| 골골이 → 이그리트 | UI/키워드 텍스트 교체, Osty Spine 슬롯 |
 | 카드 일러스트 팩 | Strike/Defend 포함 주요 네크로바인더 카드 ~30장 |
 | DLL (선택) | Harmony 패치로 이름 표시 보강 |
-| Spine 슬롯 | 전투 스켈레톤 드롭인 경로 제공 |
+| Spine 슬롯 | `necrobinder/` + `osty/` 드롭인 경로 |
 
 전투 중 **완전 애니메이션 교체**는 Spine(`.skel/.atlas/.png`) 파일이 필요합니다. 아래 CustomSkeletonLoader / PCK 슬롯에 넣으면 됩니다.
 
