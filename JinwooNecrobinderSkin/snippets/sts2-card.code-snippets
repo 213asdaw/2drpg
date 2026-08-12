@@ -1,0 +1,59 @@
+{
+  "Custom Card": {
+    "scope": "csharp",
+    "prefix": "customcard",
+    "description": "Custom Card template for STS2 mod",
+    "body": [
+      "namespace ${1:CharModTest};",
+      "",
+      "public class ${2:MyCard}() : CharModTest.CharModTestCode.Cards.CharModTestCard(${3:1}, MegaCrit.Sts2.Core.Entities.Cards.CardType.${4|Attack,Skill,Power,Status,Curse,Quest|}, MegaCrit.Sts2.Core.Entities.Cards.CardRarity.${5|Basic,Common,Uncommon,Rare,Ancient,Event,Token,Status,Curse,Quest|}, MegaCrit.Sts2.Core.Entities.Cards.TargetType.${6|Self,AnyEnemy,AllEnemies,RandomEnemy,AnyPlayer,AnyAlly,AllAllies,Osty|}) {",
+      "    protected override IEnumerable<MegaCrit.Sts2.Core.Localization.DynamicVars.DynamicVar> CanonicalVars => [];",
+      "",
+      "    protected override async System.Threading.Tasks.Task OnPlay(MegaCrit.Sts2.Core.GameActions.Multiplayer.PlayerChoiceContext choiceContext, MegaCrit.Sts2.Core.Entities.Cards.CardPlay play)",
+      "    {",
+      "        $0",
+      "    }",
+      "",
+      "    protected override void OnUpgrade() {",
+      "        ",
+      "    }",
+      "}"
+    ]
+  },
+  "Custom Card (Publicized)": {
+    "scope": "csharp",
+    "prefix": "customcardpub",
+    "description": "Custom Card (Publicized) template for STS2 mod",
+    "body": [
+      "namespace ${1:CharModTest};",
+      "",
+      "public class ${2:MyCard}() : CharModTest.CharModTestCode.Cards.CharModTestCard(${3:1}, MegaCrit.Sts2.Core.Entities.Cards.CardType.${4|Attack,Skill,Power,Status,Curse,Quest|}, MegaCrit.Sts2.Core.Entities.Cards.CardRarity.${5|Basic,Common,Uncommon,Rare,Ancient,Event,Token,Status,Curse,Quest|}, MegaCrit.Sts2.Core.Entities.Cards.TargetType.${6|Self,AnyEnemy,AllEnemies,RandomEnemy,AnyPlayer,AnyAlly,AllAllies,Osty|}) {",
+      "    public override IEnumerable<MegaCrit.Sts2.Core.Localization.DynamicVars.DynamicVar> CanonicalVars => [];",
+      "",
+      "    public override async System.Threading.Tasks.Task OnPlay(MegaCrit.Sts2.Core.GameActions.Multiplayer.PlayerChoiceContext choiceContext, MegaCrit.Sts2.Core.Entities.Cards.CardPlay play)",
+      "    {",
+      "        $0",
+      "    }",
+      "",
+      "    protected override void OnUpgrade() {",
+      "        ",
+      "    }",
+      "}"
+    ]
+  },
+  "Custom Relic": {
+    "scope": "csharp",
+    "prefix": "customrelic",
+    "description": "Custom Relic template for STS2 mod",
+    "body": [
+      "namespace ${1:CharModTest};",
+      "",
+      "[BaseLib.Utils.Pool(typeof(RelicPool))]",
+      "public class ${2:MyRelic}() : CharModTest.CharModTestCode.Relics.CharModTestRelic {",
+      "    public override MegaCrit.Sts2.Core.Entities.Relics.RelicRarity Rarity => MegaCrit.Sts2.Core.Entities.Relics.RelicRarity.${3|Starter,Common,Uncommon,Rare,Shop,Event,Ancient|};",
+      "    ",
+      "    $0",
+      "}"
+    ]
+  }
+}
